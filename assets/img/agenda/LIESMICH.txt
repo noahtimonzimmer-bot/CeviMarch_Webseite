@@ -1,0 +1,17 @@
+Hier gehoert der aktuelle Datenplan hinein.
+
+Dateiname immer gleich:
+
+    datenplan.pdf        (oder datenplan.jpg / .png / .webp)
+
+Zum Aktualisieren einfach diese Datei ersetzen - auf github.com ueber
+"Add file -> Upload files", gleicher Name, fertig. Ein bis zwei Minuten
+spaeter steht der neue Plan auf der Website.
+
+Aus einem PDF macht der Bauablauf automatisch ein Bild (datenplan.jpg),
+damit der Plan auch auf dem Handy gut lesbar ist. Das PDF bleibt zusaetzlich
+als Download verlinkt.
+
+Weitere Bilder in diesem Ordner erscheinen darunter als frueherere Plaene.
+Ist der Ordner leer, zeigt die Agenda-Seite die Terminliste aus
+content/site.json.

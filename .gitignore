@@ -1,0 +1,7 @@
+scrape/
+.playwright-mcp/
+*.jpeg.tmp
+Thumbs.db
+.DS_Store
+tools/__pycache__/
+__pycache__/

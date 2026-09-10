@@ -1,0 +1,58 @@
+name: Seiten bauen
+
+# Läuft, sobald Inhalte oder Bilder geändert werden - zum Beispiel wenn ein
+# neues Bild des Datenplans nach assets/img/agenda/ hochgeladen wird.
+# Der Ablauf baut die HTML-Seiten neu und schreibt sie zurück ins Repository,
+# damit GitHub Pages sie ausliefert.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'content/**'
+      - 'assets/img/**'
+      - 'assets/docs/**'
+      - 'tools/build.py'
+  workflow_dispatch:        # lässt sich auch von Hand starten
+
+permissions:
+  contents: write
+
+concurrency:
+  group: seiten-bauen
+  cancel-in-progress: true
+
+jobs:
+  bauen:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repository holen
+        uses: actions/checkout@v4
+
+      - name: Python bereitstellen
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Hilfspakete installieren
+        run: pip install --quiet Pillow pymupdf   # pymupdf macht aus dem Datenplan-PDF ein Bild
+
+      - name: Seiten bauen
+        run: python tools/build.py
+
+      - name: Änderungen zurückschreiben
+        run: |
+          # Auch das aus dem PDF erzeugte Bild muss mit, sonst zeigt die
+          # Agenda-Seite auf eine Datei, die es im Repository nicht gibt.
+          if [ -z "$(git status --porcelain -- '*.html' 'assets/img/agenda')" ]; then
+            echo "Keine Änderungen an den Seiten."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- '*.html' 'assets/img/agenda'
+          git commit -m "Seiten neu gebaut (automatisch)"
+          # Zwischenzeitliche Änderungen (z.B. über die GitHub-Oberfläche)
+          # zuerst holen, sonst wird der Push abgewiesen.
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"

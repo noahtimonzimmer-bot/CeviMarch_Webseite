@@ -1,0 +1,326 @@
+{
+ "NAV": [
+  {
+   "path": "/",
+   "label": "Start"
+  },
+  {
+   "path": "/jungschar",
+   "label": "Jungschar"
+  },
+  {
+   "path": "/stufen",
+   "label": "Stufen"
+  },
+  {
+   "path": "/agenda",
+   "label": "Agenda"
+  },
+  {
+   "path": "/lager",
+   "label": "Lager"
+  },
+  {
+   "path": "/verein",
+   "label": "Verein"
+  },
+  {
+   "path": "/kontakt",
+   "label": "Kontakt"
+  }
+ ],
+ "DRAWER_NAV": [
+  {
+   "path": "/",
+   "label": "Start"
+  },
+  {
+   "path": "/jungschar",
+   "label": "Jungschar"
+  },
+  {
+   "path": "/stufen#alpha",
+   "label": "Alpha"
+  },
+  {
+   "path": "/stufen#zazu",
+   "label": "Zazu"
+  },
+  {
+   "path": "/stufen#froeschli",
+   "label": "Fröschli"
+  },
+  {
+   "path": "/agenda",
+   "label": "Agenda & Datenplan"
+  },
+  {
+   "path": "/lager",
+   "label": "Lager"
+  },
+  {
+   "path": "/verein",
+   "label": "Verein"
+  },
+  {
+   "path": "/was-ist-cevi",
+   "label": "Was ist CEVI"
+  },
+  {
+   "path": "/laedeli",
+   "label": "Lädeli"
+  },
+  {
+   "path": "/links",
+   "label": "Links"
+  },
+  {
+   "path": "/kontakt",
+   "label": "Kontakt"
+  },
+  {
+   "path": "/kontakt#schnuppern",
+   "label": "Schnuppern"
+  }
+ ],
+ "HERO": {
+  "title": [
+   "Spiel, Spass,",
+   "Abenteuer",
+   ""
+  ],
+  "sub": "Der CEVI March trifft sich ungefähr alle zwei Wochen am Samstagnachmittag, um gemeinsam draussen zu sein. Schnuppern ist jederzeit möglich.",
+  "image": "assets/img/Startseite.jpg"
+ },
+ "STUFEN": [
+  {
+   "slug": "alpha",
+   "name": "Alpha",
+   "age": "7–13 Jahre · Jungs",
+   "teaser": "Erlebe mit Gleichaltrigen, was es alles für (un-)mögliche Spielmöglichkeiten im Wald gibt.",
+   "image": "assets/media/img_1907.jpg",
+   "mail": "alpha@cevimarch.ch",
+   "leitung": "Noah Zimmer v/o Malteser und Valentin Koller v/o Zwirbel",
+   "body": "<p>Die Stufe Alpha trifft sich wie die gesamte Jungschar ca. alle 2 Wochen am Samstagnachmittag. Erlebe hier mit Gleichaltrigen Jungs (zwischen 7–13 Jahren), was es alles für (un-)mögliche Spielmöglichkeiten im Wald gibt und finde heraus, was Dein besonderes CEVI-Talent ist…</p>\n<p>Die Stufenleiter <strong>Noah Zimmer v/o Malteser</strong> und <strong>Valentin Koller v/o Zwirbel</strong> freuen sich auf euch.</p>\n<p>Bei Fragen: <a href=\"mailto:alpha@cevimarch.ch\">alpha@cevimarch.ch</a></p>"
+  },
+  {
+   "slug": "zazu",
+   "name": "Zazu",
+   "age": "7–13 Jahre · Mädchen",
+   "teaser": "Abkochen, Zelten, Wandern und Herumalbern im Wald – zusammen mit Gleichaltrigen.",
+   "image": "assets/media/dsc_0441.jpeg",
+   "mail": "zazu@cevimarch.ch",
+   "leitung": "Shannon Welte v/o Pepita und Sophia Koller v/o Peshewa",
+   "body": "<p>Bist du zwischen 7–13 Jahre alt und ein Mädchen? Dann bist Du in der Stufe Zazu genau richtig aufgehoben! Die Stufenleiterinnen <strong>Shannon Welte v/o Pepita</strong> und <strong>Sophia Koller v/o Peshewa</strong> und das Leitungsteam freuen sich auf Dich :-).</p>\n<p>In Zazu lernst Du das Abkochen, Zelten, Wandern und Herumalbern im Wald zusammen mit Gleichaltrigen… Und erlebst garantiert immer wieder neue, spannende Momente!</p>\n<p>Falls ihr weitere Informationen möchtet, könnt ihr gerne eine E-Mail an <a href=\"mailto:zazu@cevimarch.ch\">zazu@cevimarch.ch</a> schicken.</p>"
+  },
+  {
+   "slug": "froeschli",
+   "name": "Fröschli",
+   "age": "4–7 Jahre",
+   "teaser": "„Früh übt sich, was ein Meister werden will.“ Monatlich am Samstagnachmittag.",
+   "image": "assets/media/image00018.jpeg",
+   "mail": "froeschli@cevimarch.ch",
+   "leitung": "Alexander Marti v/o Slate",
+   "body": "<blockquote>„Früh übt sich, was ein Meister werden will.“</blockquote>\n<p>Bei den Fröschli (4–7 Jahre alt) läuft alles ein bisschen anders als bei den zwei Stufen Alpha und Zazu und dennoch ganz viel! Die Fröschli treffen sich monatlich am Samstagnachmittag. Treffpunkt ist der Baumgartenschopf in Siebnen. Der Nachmittag dauert ebenfalls von 14–17 Uhr.</p>\n<p>Dabei hören wir spannende Geschichten, lernen uns in der Natur zu bewegen, Stimmen und Bewegungen nachzumachen und bewegen uns in der Natur. Sobald ein Fröschli in die Primarschule kommt, kann es in die Jungschar wechseln und dort mit dem bereits angesammelten CEVI-Wissen ganz gross auftrumpfen ;-)…</p>\n<p>Die Hauptleitung der Fröschli liegt bei dem Stufenleiter <strong>Alexander Marti v/o Slate</strong>.</p>\n<p>Kontakt Fröschli: <a href=\"mailto:froeschli@cevimarch.ch\">froeschli@cevimarch.ch</a></p>"
+  }
+ ],
+ "PAGES": {
+  "jungschar": {
+   "title": "Jungschar",
+   "kicker": "Organisation",
+   "lead": "… das ist Spiel, Spass und Spannung!",
+   "image": "assets/media/img_0981.jpg",
+   "body": "<p>Der CEVI March trifft sich ungefähr <strong>alle 2 Wochen am Samstagnachmittag</strong>, um gemeinsam einen Nachmittag (wenn nicht anders angegeben von <strong>14–17 Uhr, Treffpunkt Baumgarten</strong>) in der Natur zu verbringen. Lustige Geschichten, abenteuerliche Schnitzeljagden, feine Schoggibananen: an einem Jungscharnachmittag (kurz: Progi von Nachmittagsprogramm) gibt es für alle etwas und am meisten davon für DICH :-)!</p>\n<p>Ausserdem organisiert der CEVI March ein Auffahrtslager (UFLA), ab und zu ein Wochenende mit einer anderen CEVI-Abteilung und immer mal wieder Spezialanlässe zu besonderen Tagen/Situationen.</p>\n<h2>Drei Stufen</h2>\n<p>Die Abteilung CEVI March besteht aus den 3 Stufen <strong>Alphas</strong> (Jungs ab der 1. Klasse), <strong>Zazu</strong> (Mädels ab der 1. Klasse) und den <strong>Fröschlis</strong> (Kinder von 4–6). Ab 13 Jahren kann sich (natürlich nur, wer will) zur/m HilfsleiterIn ausbilden und so langsam lernen Verantwortung zu übernehmen.</p>\n<p>Die Abteilungsleitung (Noah Zimmer v/o Malteser und Shannon Welte v/o Pepita) ist verantwortlich für das Leiterteam, den Kontakt zum Regionalverband und ist die offizielle Ansprechsperson für Eltern und Medien. Die StufenleiterInnen organisieren das Progi für ihre jeweilige Stufe: durch die Altersgrenzen ist ein dem Alter entsprechendes Programm möglich und sorgt für umso mehr Spass :-). Die GruppenleiterInnen helfen in den Stufen beim Durchführen des Progis und die HilfsleiterInnen erhalten die Gelegenheit in die Vorbereitungen der LeiterInnen hinein zu sehen, sich daran zu beteiligen und können so (jedeR im eigenen Tempo) lernen, was es heisst einen Jungscharnachmittag zu leiten.</p>\n<p>Die gesamte Jungschararbeit wird als Freiwilligenarbeit geleitet. Dabei sind Junge für Jüngere da: Die LeiterInnen des CEVI March sind alle zwischen 14–25 Jahre alt und setzen sich neben Schule/Lehre und Studium für den CEVI ein!</p>\n<h2>Schnuppern ist jederzeit möglich</h2>\n<p>Toll wäre es, wenn vorher die StufenleiterInnen informiert werden (s. Alpha, Zazu, Fröschli). <strong>Dem Wetter angepasste Kleidung, die schmutzig werden darf, ist von Vorteil!</strong></p>\n<p>Getreu dem Motto der Abteilung <strong>„Selber schaffen, schafft Selbstvertrauen“</strong> wird an den Progis und anderen Anlässen versucht, die Kinder und LeiterInnen zu Neuem zu ermutigen. Bei uns erhalten ALLE eine (oder mehrere) Gelegenheit(en) sich und seine Ideen auszuleben, sich aktiv in ein Team einzubringen und gemeinsam grosse Dinge durchzuführen!</p>\n<p><strong>ÜBRIGENS:</strong> Die LeiterInnen vom CEVI March leiten jedes Jahr über 3000 Stunden Freiwilligenarbeit. Damit sie dabei nicht ermüden, gibt es immer wieder Leiteranlässe wie z.B. gemeinsame Hikes, Filmnächte oder auch einfach mal ein gemeinsames Abendessen: Das tut der Seele gut und dem Teamzusammenhalt gleich auch noch 🙂</p>",
+   "bildtext": "Alle zwei Wochen: Treffpunkt Wald",
+   "notiz": "Wetterfeste Kleider mitnehmen – die dürfen dreckig werden!"
+  },
+  "verein": {
+   "title": "Verein CEVI March",
+   "kicker": "Organisation",
+   "lead": "Wir trauen Gott, den Menschen und uns selber Grosses zu.",
+   "image": "assets/media/dsc_0381.jpeg",
+   "body": "<p>So lautet das Leitbild des CEVI Schweiz. „Grosses“ beinhaltet das Organisieren von Lagern, Wochenenden und Jungscharnachmittagen, das Bauen von Seilbrücken und abenteuerliche Nacht-Actions. „Grosses“ beinhaltet aber auch Gemeinschaft, Vertrauen, Freundschaft, Respekt (gegenüber Mensch und Natur) und Spass.</p>\n<p>Der Verein CEVI March fördert aktiv die Entstehung von solch „grossen“ Dingen, indem er die Jungschar CEVI March ideell und finanziell unterstützt. Das bedeutet konkret: Der Verein CEVI March schenkt den jungen Menschen, die „Grosses“ für die Kleinen organisieren, Vertrauen und ermöglicht ihnen eine gute Ausbildung in Pädagogik, Seiltechnik, 1. Hilfe usw., indem er die Ausbildungskurse bezahlt, hilft bei grösseren Anschaffungen wie z.B. Lagerzelten aus und steht bei Fragen stets zur Seite.</p>\n<h2>Werden Sie für 100.– im Jahr Mitglied im Verein CEVI March</h2>\n<p>… und unterstützen Sie damit wertvolle Arbeit von Jungen für Junge!</p>\n<p><strong>Einzahlung für:</strong> Schwyzer Kantonalbank, 6431 Schwyz<br>\n<strong>Zugunsten von:</strong> <span class=\"iban\">CH73 0077 7008 0401 8029 2</span>, Konto 60-1-5, CEVI March, Gartenstrasse 4, 8853 Lachen SZ<br>\n<strong>Zahlungszweck:</strong> Jahresmitgliedschaft Verein</p>\n<h2>Vorstand</h2>\n<p>Der Verein trifft sich einmal jährlich zur Generalversammlung. Der Vorstand (zusammengesetzt aus PräsidentIn, AktuarIn, KassierIn, BeisitzerIn und der Abteilungsleitung der Jungschar) trifft sich in der Regel 3× jährlich.</p>\n<ul>\n<li><strong>Präsidentin:</strong> Rosmarie Obrist</li>\n<li><strong>Aktuar:</strong> Marco Emma</li>\n<li><strong>Kassier:</strong> Fabian Niederer</li>\n<li><strong>Beisitzerin:</strong> Sandra Kohler</li>\n<li><strong>Abteilungsleitung:</strong> Noah Zimmer und Shannon Welte</li>\n</ul>\n<p>Bei Fragen gibt die Präsidentin Rosmarie Obrist gerne Auskunft: <a href=\"mailto:verein@cevimarch.ch\">verein@cevimarch.ch</a> oder per Telefon <a href=\"tel:+41554422851\">055 442 28 51</a>.</p>",
+   "bildtext": "Die ganze Abteilung an einem Tag",
+   "notiz": "100.– im Jahr, und die Jungschar kann ihre Kurse zahlen."
+  },
+  "was-ist-cevi": {
+   "title": "Was ist CEVI",
+   "kicker": "Organisation",
+   "lead": "Eine einfache Frage mit einer kurzen und einer langen Antwort :-).",
+   "image": "assets/media/img_1345.jpg",
+   "body": "<p><strong>Die kurze Antwort:</strong> CEVI ist der Schweizer Zusammenschluss von CVJM (Christlicher Verein Junger Männer) und CVJF (Christlicher Verein Junger Frauen) und ist als solcher der drittgrösste Jugendverband der Schweiz.</p>\n<p><strong>Die lange Antwort:</strong> beginnt im Jahr 1844…</p>\n<h2>Gründung YMCA</h2>\n<p>Im Juni 1844 gründete George Williams den YMCA (Young Men's Christian Association) in London. Ziel war das Ermöglichen von Freundschaften innerhalb der Herausforderung des Industrie-Arbeitalltages. Die Idee verbreitete sich schnell und bereits 1855 konnte in Paris der Weltbund gegründet werden. Davor wurde von niemand geringerem als dem Nobelpreisgewinner und Gründer des Roten Kreuzes Henry Dunant um 1852 die erste CEVI-Gruppe in Genf gegründet. Das weibliche Pendant zum YMCA – der YWCA (Young Women's Christian Association) – entstand wiederum einige Jahre später (1877), als sich Lady Kinnaird, die Leiterin von Frauenhäusern, und Emma Robarts, welche Frauen Weiterbildungen ermöglichte, zusammenschlossen. Der YMCA-Weltbund ist heute eine weltweite, christliche und ökumenische Freiwilligenbewegung, die sich für die zentralen Werte wie Gleichberechtigung, Liebe, Frieden und Ausbildung einsetzt.</p>\n<h2>CEVI Schweiz</h2>\n<p>Von den englischen YMCA-Gruppen wurde nicht nur die Idee der christlichen Gemeinschaft, sondern auch die Idee der englischen Pfadfinder-Bewegung in die Schweiz getragen. So entstanden die ersten Jungscharen. Heute hat der CEVI schweizweit über 15'000 Mitglieder. Seine Arbeit stellt das Befähigen von Menschen ins Zentrum aller Tätigkeiten, getreu dem Motto: <em>Wir trauen Gott, den Menschen und uns selber Grosses zu.</em></p>\n<h2>Regionalverband</h2>\n<p>Der CEVI Schweiz ist in 7 Regionalverbände aufgeteilt. Der CEVI March gehört zum Regionalverband Zürich und ist der einzige CEVI im Kanton Schwyz. Die Regionalverbände organisieren verschiedenste Ausbildungskurse, in denen die jungen Menschen lernen Verantwortung zu übernehmen und auf ihre Leitungsfunktion der Jungscharnachmittage hin ausgebildet werden.</p>\n<h2>CEVI March</h2>\n<p>Der CEVI March wurde 2010 auf Initiative des damaligen Kirchgemeinderatsmitgliedes und ehemaligen Präsidenten des CEVI March als Teil der Kinder- und Jugendarbeit der evangelisch-reformierten Kirche March gegründet. Sein Einzugsgebiet umfasst die gesamte March: von Altendorf bis Reichenburg. Der CEVI March ist aufgeteilt in die Jungschar, welche die „eigentliche“ Freiwilligenarbeit (das Durchführen von Jungscharnachmittagen, Lagern etc.) ausführt, und den Verein CEVI March, der die Jungschararbeit finanziell und ideell trägt.</p>",
+   "bildtext": "Unterwegs in der March"
+  },
+  "organisation": {
+   "title": "Organisation",
+   "kicker": "Übersicht",
+   "lead": "Verein und Jungschar – zwei Teilbereiche, ein CEVI March.",
+   "image": "assets/media/dsc_0405.jpeg",
+   "body": "<p>Der CEVI March ist Mitglied des Regionalverbandes Zürich-Schaffhausen-Glarus und dadurch Mitglied vom CEVI Schweiz, welcher wiederum Mitglied des YMCA/YWCA ist (s. Was ist CEVI). Innerhalb vom CEVI March gibt es zwei Teilbereiche, den Verein und die Jungschar.</p>\n<p>Unter Links findet sich eine Zusammenstellung aller Websites rund um den CEVI March.</p>",
+   "bildtext": "Jungschar und Verein – zusammen der CEVI March"
+  },
+  "lager": {
+   "title": "Lager",
+   "kicker": "Agenda",
+   "lead": "Lustig, lustiger…. LAGER!",
+   "image": "assets/media/20210514_203434.jpg",
+   "body": "<p>Es gibt da so einen Mythos: Der handelt von einem Lagerfeuer. Angeblich fördert das Lagerfeuer nämlich die Qualität der Diskussionen und ermöglicht spannende, eindrückliche und nachhaltige Gespräche. Wir vom CEVI March glauben nicht an diesen Mythos: vielmehr sind wir davon überzeugt, dass DAS GANZE LAGER unvergesslich sein kann, unsere Persönlichkeiten prägt und dadurch (mit den Jahren) selbst zum Mythos wird!</p>\n<p>Lager haben eigene Regeln und die Hauptregel ist <strong>SPASS IN DER GRUPPE</strong>. Nirgends kann man sich besser kennen lernen (sich im doppelten Sinn: sich selbst und sich als Gruppe untereinander) als beim Rund-um-die-Uhr-Zusammensein. Deshalb versucht der CEVI March jedes Jahr ein UFLA und ein SOLA durchzuführen, manchmal auch noch ein gemeinsames Wochenende…</p>\n<p>… und wenn dann die Sonne so untergeht wie auf dem Foto ….dann gilt: unvergesslicher Lagermoment!</p>",
+   "bildtext": "Abends auf dem Lagerplatz",
+   "notiz": "UFLA im Mai, SOLA im August. Jedes Jahr wieder."
+  },
+  "anmeldung": {
+   "title": "Schnuppern & Anmeldung",
+   "kicker": "Mitmachen",
+   "lead": "Du warst noch nie im Cevi? Dann schau doch einfach mal vorbei!",
+   "image": "assets/media/img_1689.jpg",
+   "body": "<p>Du kannst jederzeit unverbindlich schnuppern. Informiere einfach die Abteilungsleiter, die du unter Kontakte findest.</p>\n<p><strong>Kleiner Tipp:</strong> Dem Wetter angepasste Kleidung und Schuhe sind von Vorteil 😉</p>\n<p><strong>Treffpunkt:</strong> Baumgartenschopf, Baumgartenweg 2a, 8854 Siebnen – in der Regel samstags von 14–17 Uhr.</p>",
+   "bildtext": "Einfach mitlaufen – schnuppern geht immer",
+   "notiz": "Kurz bei der Stufenleitung melden, dann weiss sie Bescheid."
+  },
+  "laedeli": {
+   "title": "Lädeli",
+   "kicker": "CEVI March",
+   "lead": "In unserem CEVI-Lädeli gibt es allerhand Nützliches zu kaufen.",
+   "image": "assets/media/image-2.png",
+   "body": "<p>Bestellungen und Fragen an <a href=\"mailto:laedeli@cevimarch.ch\">laedeli@cevimarch.ch</a>.</p>",
+   "docs": [
+    {
+     "name": "CEVI-Lädeli Flyer",
+     "file": "assets/docs/CEVI-Laedeli-Flyer.pdf"
+    }
+   ],
+   "bildtext": "Die Krawatte gibt es im Lädeli"
+  },
+  "links": {
+   "title": "Links",
+   "kicker": "Organisation",
+   "lead": "Eine Zusammenstellung der wichtigsten Links rund um die Aktivitäten des CEVI March…",
+   "body": "<ul>\n<li><a href=\"https://www.cevi.ch\" target=\"_blank\" rel=\"noopener\">CEVI Schweiz</a></li>\n<li><a href=\"https://www.ceviz.ch\" target=\"_blank\" rel=\"noopener\">CEVI Region Zürich–Schaffhausen–Glarus</a></li>\n<li><a href=\"https://www.rela-zh.ch\" target=\"_blank\" rel=\"noopener\">RELA – Regionallager</a></li>\n<li><a href=\"https://www.jugendundsport.ch\" target=\"_blank\" rel=\"noopener\">Jugend + Sport</a></li>\n<li><a href=\"https://www.ref-march.ch\" target=\"_blank\" rel=\"noopener\">Evangelisch-reformierte Kirchgemeinde March</a></li>\n</ul>"
+  },
+  "impressum": {
+   "title": "Impressum",
+   "kicker": "Rechtliches",
+   "lead": "Wer hinter dieser Seite steht.",
+   "kein_cta": true,
+   "body": "<h2>Verantwortlich für diese Website</h2>\n<p><strong>Verein CEVI March</strong><br>\nGartenstrasse 4<br>\n8853 Lachen SZ<br>\nSchweiz</p>\n<p>Verein im Sinne von Art. 60 ff. ZGB.<br>\nVertreten durch die Präsidentin <strong>Rosmarie Obrist</strong>.</p>\n<p><strong>E-Mail:</strong> <a href=\"mailto:info@cevimarch.ch\">info@cevimarch.ch</a><br>\n<strong>Verein:</strong> <a href=\"mailto:verein@cevimarch.ch\">verein@cevimarch.ch</a><br>\n<strong>Telefon:</strong> <a href=\"tel:+41554422851\">055 442 28 51</a></p>\n<p>Treffpunkt der Jungschar: Baumgartenschopf, Baumgartenweg 2a, 8854 Siebnen.</p>\n\n<h2>Inhalt und Redaktion</h2>\n<p>Die Inhalte stammen von der Abteilungs- und Vereinsleitung des CEVI March.\nGestaltung und Umsetzung der Website erfolgen ehrenamtlich innerhalb des Vereins.</p>\n\n<h2>Haftung für Inhalte</h2>\n<p>Wir erstellen die Inhalte dieser Seiten mit grosser Sorgfalt. Für Richtigkeit,\nVollständigkeit und Aktualität können wir trotzdem keine Gewähr übernehmen.\nTermine, Zeiten und Angaben zu Anlässen können sich kurzfristig ändern – im\nZweifel fragt ihr am besten kurz per E-Mail nach.</p>\n<p>Wir behalten uns vor, Teile der Seite oder das ganze Angebot ohne Ankündigung\nzu ändern, zu ergänzen oder zu löschen.</p>\n\n<h2>Haftung für Links</h2>\n<p>Diese Website verlinkt auf Websites Dritter. Für deren Inhalte ist immer der\njeweilige Anbieter verantwortlich. Zum Zeitpunkt der Verlinkung waren die\nverlinkten Seiten frei von rechtswidrigen Inhalten; auf ihre spätere Gestaltung\nhaben wir keinen Einfluss. Sollte uns eine Rechtsverletzung auffallen oder\ngemeldet werden, entfernen wir den Link.</p>\n\n<h2>Urheberrecht</h2>\n<p>Texte, Fotos und Dokumente auf dieser Website gehören dem CEVI March\nbeziehungsweise den jeweiligen Urheberinnen und Urhebern. Eine Weiterverwendung\nausserhalb des Vereins bitte vorher anfragen.</p>\n<p>Wer ein Foto von sich oder seinem Kind auf dieser Seite entfernt haben möchte,\nmeldet sich bitte an <a href=\"mailto:info@cevimarch.ch\">info@cevimarch.ch</a>.\nWir nehmen es umgehend herunter.</p>"
+  },
+  "datenschutz": {
+   "title": "Datenschutz",
+   "kicker": "Rechtliches",
+   "lead": "Was diese Website über euch erfährt – und was nicht.",
+   "kein_cta": true,
+   "body": "<h2>Kurz zusammengefasst</h2>\n<p>Diese Website hat kein Kontaktformular, keine Anmeldung, keine Cookies und\nkeine Besucherstatistik. Wir legen von uns aus keine Daten über euch an. Zwei\nDienste von Google werden trotzdem geladen – dazu unten mehr.</p>\n\n<h2>Verantwortliche Stelle</h2>\n<p>Verein CEVI March, Gartenstrasse 4, 8853 Lachen SZ,\n<a href=\"mailto:info@cevimarch.ch\">info@cevimarch.ch</a>.\nEs gilt das Schweizer Datenschutzgesetz (DSG).</p>\n\n<h2>Server-Protokolle</h2>\n<p>Die Seite wird bei GitHub Pages (GitHub Inc., USA) betrieben. Beim Aufruf\nüberträgt euer Browser technisch notwendige Angaben an diesen Server, unter\nanderem die IP-Adresse, Datum und Uhrzeit, die aufgerufene Seite und die\nBrowserkennung. GitHub wertet diese Angaben zur Sicherheit und zum Betrieb aus.\nWir haben darauf keinen Zugriff.</p>\n\n<h2>Schriften von Google Fonts</h2>\n<p>Die Schriften werden beim Aufruf von Servern von Google (Google LLC, USA)\ngeladen. Dabei erfährt Google eure IP-Adresse. Wir übermitteln keine weiteren\nAngaben und setzen dafür keine Cookies.</p>\n\n<h2>Karte auf der Kontaktseite</h2>\n<p>Auf der Kontaktseite ist eine Karte von Google Maps eingebettet. Sobald die\nSeite geladen wird, stellt euer Browser eine Verbindung zu Google her und\nübermittelt dabei die IP-Adresse; Google kann Cookies setzen. Wollt ihr das\nvermeiden, ruft die Kontaktseite nicht auf – Adresse und Telefonnummer stehen\nauch im Impressum.</p>\n\n<h2>E-Mail</h2>\n<p>Wenn ihr uns schreibt, verarbeiten wir eure Angaben, um die Anfrage zu\nbeantworten. E-Mail ist keine sichere Übertragung; schickt uns bitte nichts\nVertrauliches unverschlüsselt.</p>\n\n<h2>Fotos</h2>\n<p>Auf dieser Website zeigen wir Fotos aus dem Jungscharbetrieb. Bilder von\nKindern veröffentlichen wir nur mit dem Einverständnis der Eltern. Wer ein Bild\nentfernt haben möchte, meldet sich an\n<a href=\"mailto:info@cevimarch.ch\">info@cevimarch.ch</a> – wir nehmen es\numgehend herunter, ohne Begründung.</p>\n\n<h2>Eure Rechte</h2>\n<p>Ihr könnt jederzeit Auskunft darüber verlangen, ob und welche Daten wir über\neuch bearbeiten, und deren Berichtigung oder Löschung verlangen. Eine kurze\nE-Mail an <a href=\"mailto:info@cevimarch.ch\">info@cevimarch.ch</a> genügt.\nBeschwerdestelle ist der Eidgenössische Datenschutz- und\nÖffentlichkeitsbeauftragte (EDÖB).</p>\n\n<h2>Änderungen</h2>\n<p>Ändert sich etwas an der Website, passen wir diese Erklärung an. Stand:\nSeptember 2026.</p>"
+  }
+ },
+ "KONTAKT": {
+  "personen": [
+   {
+    "name": "Shannon Welte",
+    "vulgo": "Pepita",
+    "rolle": "Abteilungsleitung",
+    "mail": "info@cevimarch.ch"
+   },
+   {
+    "name": "Noah Zimmer",
+    "vulgo": "Malteser",
+    "rolle": "Abteilungsleitung",
+    "mail": "info@cevimarch.ch"
+   },
+   {
+    "name": "Rosmarie Obrist",
+    "vulgo": "",
+    "rolle": "Präsidentin Verein",
+    "mail": "verein@cevimarch.ch",
+    "tel": "055 442 28 51"
+   }
+  ],
+  "stufen": [
+   {
+    "name": "Alpha",
+    "mail": "alpha@cevimarch.ch"
+   },
+   {
+    "name": "Zazu",
+    "mail": "zazu@cevimarch.ch"
+   },
+   {
+    "name": "Fröschli",
+    "mail": "froeschli@cevimarch.ch"
+   },
+   {
+    "name": "Lädeli",
+    "mail": "laedeli@cevimarch.ch"
+   }
+  ],
+  "ort": {
+   "name": "Baumgartenschopf",
+   "adresse": "Baumgartenweg 2a, 8854 Siebnen",
+   "maps": "https://maps.app.goo.gl/nC6JJmZ677CpEuHJ7",
+   "embed": "https://www.google.com/maps?q=Cevi%20March%2C%20Baumgartenweg%202a%2C%208854%20Siebnen&ll=47.1726667,8.900491&z=16&hl=de&output=embed"
+  },
+  "bildtext": "Baumgartenschopf, Siebnen – hier gehts los"
+ },
+ "DATENPLAN": {
+  "titel": "Januar – Juli 2026",
+  "hinweis": "Hier findest du die CEVI-Daten der normalen und Fröschli-Stufen. Progi jeweils 14–17 Uhr, Treffpunkt Baumgartenschopf Siebnen.",
+  "eintraege": [
+   {
+    "datum": "10. Januar",
+    "was": "Jungscharnachmittag"
+   },
+   {
+    "datum": "24. Januar",
+    "was": "Jungscharnachmittag"
+   },
+   {
+    "datum": "07. Februar",
+    "was": "Jungscharnachmittag"
+   },
+   {
+    "datum": "21. Februar",
+    "was": "Jungscharnachmittag"
+   },
+   {
+    "datum": "14. März",
+    "was": "Jungscharnachmittag"
+   },
+   {
+    "datum": "28. März",
+    "was": "Jungscharnachmittag"
+   },
+   {
+    "datum": "3. April",
+    "was": "Osterspecial",
+    "tag": "Special"
+   },
+   {
+    "datum": "18. April",
+    "was": "Jungscharnachmittag"
+   },
+   {
+    "datum": "13.–17. Mai",
+    "was": "UFLA – Auffahrtslager",
+    "tag": "Lager"
+   },
+   {
+    "datum": "30. Mai",
+    "was": "Jungscharnachmittag"
+   },
+   {
+    "datum": "13. Juni",
+    "was": "Jungscharnachmittag"
+   },
+   {
+    "datum": "27. Juni",
+    "was": "Jungscharnachmittag"
+   },
+   {
+    "datum": "01.–08. August",
+    "was": "SOLA – Sommerlager",
+    "tag": "Lager"
+   }
+  ],
+  "downloads": [],
+  "notiz": "Ausdrucken und an den Kühlschrank hängen."
+ }
+}
