@@ -176,25 +176,20 @@ p{margin:0 0 1.15em}
 /* --navh ist die Höhe der Kopfleiste, site.js hält den Wert aktuell.
    So füllt das Bild genau den sichtbaren Rest des Bildschirms. */
 .hero{
-  --frei:calc(100svh - var(--navh,64px));
-  min-height:var(--frei);display:grid;place-items:center;position:relative;padding:0
+  position:relative;min-height:calc(100svh - var(--navh,64px));
+  display:flex;flex-direction:column;justify-content:flex-end;
+  overflow:hidden;isolation:isolate;padding:0
 }
-/* Der Rahmen bekommt das Seitenverhältnis des Fotos. Er ist so breit wie
-   möglich, aber nie höher als der Bildschirm - dadurch ist das Bild immer
-   vollständig zu sehen, egal wie das Fenster steht. */
-.hero__rahmen{
-  position:relative;margin:0;overflow:hidden;
-  aspect-ratio:var(--seiten);
-  width:min(100%,calc(var(--frei) * var(--quer)));
-  max-height:var(--frei)
-}
-.hero__bg{width:100%;height:100%;object-fit:cover;object-position:center}
+/* Passt das Seitenverhältnis nicht, schneidet der Browser links ab:
+   object-position hält die rechte Bildkante fest. Dort liegen die Leute,
+   die CEVI legen. */
+.hero__bg{position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;object-position:100% 50%;z-index:-2}
 /* Nur unten ein sanfter Verlauf, damit der Titel lesbar bleibt */
-.hero__schleier{position:absolute;inset:0;
-  background:linear-gradient(180deg,transparent 0%,transparent 46%,
-             rgba(16,14,10,.20) 70%,rgba(16,14,10,.46) 100%)}
-.hero__inhalt{position:absolute;left:0;right:0;bottom:0;
-  padding:0 clamp(20px,5vw,60px) clamp(26px,4vw,48px);color:#fff}
+.hero__schleier{position:absolute;inset:0;z-index:-1;
+  background:linear-gradient(180deg,rgba(16,14,10,.12) 0%,transparent 34%,
+             rgba(16,14,10,.30) 72%,rgba(16,14,10,.58) 100%)}
+.hero__inhalt{width:100%;padding-bottom:clamp(60px,7vw,92px);color:#fff}
 .hero__inhalt h1{max-width:13ch;color:#fff;text-shadow:0 2px 20px rgba(0,0,0,.55)}
 .eyebrow--hell{color:rgba(255,255,255,.88);text-shadow:0 1px 10px rgba(0,0,0,.6)}
 .eyebrow--hell::before{background:#fff}
@@ -203,39 +198,17 @@ p{margin:0 0 1.15em}
 .hero__sub{margin:16px 0 24px;max-width:38ch;font-size:clamp(1rem,1.3vw,1.1rem);
   color:rgba(255,255,255,.94);text-shadow:0 1px 14px rgba(0,0,0,.65)}
 .hero__entdecken{
-  position:absolute;left:50%;bottom:clamp(6px,1.4vw,16px);transform:translateX(-50%);
+  position:absolute;left:50%;bottom:clamp(10px,1.6vw,20px);transform:translateX(-50%);
   display:flex;align-items:center;gap:10px;padding:12px 18px;border-radius:var(--pill);
   font-family:var(--font-mono);font-size:.7rem;font-weight:500;letter-spacing:.16em;
-  text-transform:uppercase;color:var(--ink-3);transition:color .25s
+  text-transform:uppercase;color:rgba(255,255,255,.82);transition:color .25s
 }
 .hero__entdecken span{display:inline-block;transition:transform .5s var(--ease)}
-.hero__entdecken:hover{color:var(--ink)}
+.hero__entdecken:hover{color:#fff}
 .hero__entdecken:hover span{transform:translateY(4px)}
-/* Reicht das Foto bis ganz nach unten, steht der Hinweis darauf */
-@media(min-aspect-ratio:1263/1000){
-  .hero__entdecken{color:rgba(255,255,255,.8)}
-  .hero__entdecken:hover{color:#fff}
-}
-/* Hochkant ist der Bildstreifen zu flach für Text darauf: Titel unter
-   das Foto, dafür in dunkler Schrift aufs Papier. */
 @media(max-width:760px){
-  .hero{display:flex;flex-direction:column;justify-content:center}
-  /* Der Rahmen gibt das feste Seitenverhältnis ab: es wandert auf das Bild.
-     Dadurch darf der Rahmen mitwachsen und der Titel steht darunter, statt
-     vom overflow:hidden abgeschnitten zu werden. */
-  .hero__rahmen{width:100%;aspect-ratio:auto;max-height:none;overflow:visible;
-    display:flex;flex-direction:column;gap:clamp(18px,4vw,30px)}
-  .hero__bg{width:100%;height:auto;aspect-ratio:var(--seiten)}
-  .hero__schleier{display:none}
-  .hero__inhalt{position:static;padding:0 var(--pad);color:var(--ink)}
-  .hero__inhalt h1{max-width:12ch;color:var(--ink);text-shadow:none;
-    font-size:clamp(1.9rem,8vw,2.6rem)}
-  .hero .eyebrow--hell{color:var(--ink-3);text-shadow:none}
-  .hero .eyebrow--hell::before{background:var(--red)}
-  .hero .akzent{color:var(--red)}
-  .hero__sub{margin:14px 0 20px;color:var(--ink-2);text-shadow:none}
-  .hero .btn--light{background:var(--ink);color:var(--paper);border-color:var(--ink)}
-  .hero__entdecken{color:var(--ink-3)}
+  .hero__inhalt h1{max-width:11ch;font-size:clamp(2rem,8.4vw,2.7rem)}
+  .hero__sub{margin-bottom:20px}
 }
 
 
