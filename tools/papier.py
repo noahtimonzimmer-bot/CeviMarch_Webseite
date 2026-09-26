@@ -3,8 +3,7 @@
 Erzeugt die Papierstruktur für den Seitenhintergrund.
 
 Ergebnis ist eine nahtlos kachelbare Kachel, die wie altes Tagebuchpapier
-aussieht: Faserstruktur, unregelmässige Wolkigkeit und vereinzelte
-Stockflecken. Alles wird gerechnet, es ist also kein fremdes Bild nötig.
+aussieht: Faserstruktur und unregelmässige, leicht vergilbte Wolkigkeit. Alles wird gerechnet, es ist also kein fremdes Bild nötig.
 
 Nahtlos wird es, weil sämtliches Rauschen über die Fouriertransformation
 geglättet wird - die ist von Natur aus periodisch, die Kachel passt daher
@@ -60,33 +59,6 @@ def fasern(n, zufall):
     return normiert(lang / 13.0)
 
 
-def stockflecken(n, zufall, anzahl=26):
-    """Vereinzelte bräunliche Flecken, wie sie altes Papier bekommt."""
-    feld = np.zeros((n, n))
-    y, x = np.mgrid[0:n, 0:n]
-    for _ in range(anzahl):
-        mx, my = zufall.integers(0, n, 2)
-        gr = zufall.uniform(6, 26)
-        staerke = zufall.uniform(.25, 1.0)
-        dx = np.minimum(np.abs(x - mx), n - np.abs(x - mx))
-        dy = np.minimum(np.abs(y - my), n - np.abs(y - my))
-        feld += staerke * np.exp(-((dx ** 2 + dy ** 2) / (2.0 * gr ** 2)))
-    # Unregelmässig ausfransen lassen
-    feld *= (0.55 + 0.45 * (rauschen(n, 3, zufall) * .5 + .5))
-    return np.clip(feld, 0, 1.6)
-
-
-def einschluss_punkte(n, zufall, anzahl=150):
-    """Winzige dunkle Einschlüsse - Holzreste im alten Papier."""
-    feld = np.zeros((n, n))
-    ys = zufall.integers(0, n, anzahl)
-    xs = zufall.integers(0, n, anzahl)
-    staerken = zufall.uniform(.04, .16, anzahl)
-    for y, x, s in zip(ys, xs, staerken):
-        feld[y, x] = s
-    return weich(feld, 0.9)
-
-
 def main():
     n = KANTE
     zufall = np.random.default_rng(20260926)
@@ -95,23 +67,19 @@ def main():
     wolken_klein = rauschen(n, 22, zufall)     # mittlere Unruhe
     korn = normiert(zufall.random((n, n)))     # feines Korn
     faser = fasern(n, zufall)
-    flecken = stockflecken(n, zufall)
-    einschluesse = einschluss_punkte(n, zufall)
 
     # Helligkeit zusammensetzen; Werte klein halten, sonst wirkt es schmutzig
     hell = (1.0
             + 0.072 * wolken_gross
             + 0.040 * wolken_klein
             + 0.042 * korn
-            + 0.055 * faser
-            - 0.115 * flecken
-            - 0.55 * einschluesse)
+            + 0.055 * faser)
 
     grund = np.array(GRUNDTON, dtype=float)
     bild = grund[None, None, :] * hell[:, :, None]
 
-    # Flecken und Vergilbung gehen ins Bräunliche: Blau stärker absenken
-    waerme = 0.07 * wolken_gross + 0.095 * flecken
+    # Die Vergilbung geht ins Bräunliche: Blau stärker absenken
+    waerme = 0.085 * wolken_gross
     bild[:, :, 2] -= waerme * 150
     bild[:, :, 1] -= waerme * 62
 
