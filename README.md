@@ -24,6 +24,7 @@ assets/docs/          PDFs (Datenpläne, Flyer, Statuten)
 content/site.json     Texte, Kontakte, Datenplan        ← hier pflegen
 tools/build.py        erzeugt aus content/ die HTML-Dateien
 tools/bilder.py       verkleinert zu grosse Fotos
+tools/papier.py       erzeugt die Papierstruktur des Hintergrunds
 tools/ungenutzt.py    listet Dateien, die keine Seite mehr braucht
 ```
 
