@@ -241,23 +241,19 @@ def foto(src, text, klasse='photo--tilt', alt=None):
 
 
 def build_home():
-    """Startseite: ein grosses Bild, Titel unten links daneben."""
+    """Startseite: das Titelbild liegt als Hintergrund, der Titel darauf."""
     src = HERO['image']
-    masse = bildmasse(src)
-    mass_attr = ' width="%d" height="%d"' % masse if masse else ''
 
     body = f"""  <section class="hero">
-    <div class="wrap hero__raster">
-      <div class="hero__kopf">
-        <span class="eyebrow">Jungschar · March · seit 2010</span>
-        <h1>{e(HERO['title'][0])} <span class="akzent">{e(HERO['title'][1])}</span>{(' ' + e(HERO['title'][2])) if HERO['title'][2] else ''}</h1>
-        <p class="hero__sub">{e(HERO['sub'])}</p>
-        <a class="btn" href="kontakt.html#schnuppern">Schnuppern kommen</a>
-      </div>
-      <figure class="kleber kleber--1 hero__bild">
-        <img src="{src}" alt="Der CEVI March im Lager, von oben fotografiert"
-             fetchpriority="high" decoding="async"{mass_attr}>
-      </figure>
+    <img class="hero__bg" src="{src}"
+         alt="Der CEVI March im Lager, von oben fotografiert"
+         fetchpriority="high" decoding="async">
+    <div class="hero__schleier" aria-hidden="true"></div>
+    <div class="wrap hero__inhalt">
+      <span class="eyebrow eyebrow--hell">Jungschar · March · seit 2010</span>
+      <h1>{e(HERO['title'][0])} <span class="akzent">{e(HERO['title'][1])}</span>{(' ' + e(HERO['title'][2])) if HERO['title'][2] else ''}</h1>
+      <p class="hero__sub">{e(HERO['sub'])}</p>
+      <a class="btn btn--light" href="kontakt.html#schnuppern">Schnuppern kommen</a>
     </div>
     <a class="hero__entdecken" href="#stufen">Entdecken <span>&darr;</span></a>
   </section>
