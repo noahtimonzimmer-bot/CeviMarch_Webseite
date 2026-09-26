@@ -241,20 +241,27 @@ def foto(src, text, klasse='photo--tilt', alt=None):
 
 
 def build_home():
-    """Startseite: das Titelbild liegt als Hintergrund, der Titel darauf."""
+    """Startseite: das Titelbild füllt den Bildschirm und bleibt dabei ganz
+    sichtbar. Der Rahmen bekommt das Seitenverhältnis des Bildes mit, damit
+    er sich auf jedem Bildschirm genau um das Bild legt - so sitzt der Titel
+    immer auf dem Foto und nie daneben."""
     src = HERO['image']
+    breite, hoehe = bildmasse(src) or (3, 2)
 
     body = f"""  <section class="hero">
-    <img class="hero__bg" src="{src}"
-         alt="Der CEVI March im Lager, von oben fotografiert"
-         fetchpriority="high" decoding="async">
-    <div class="hero__schleier" aria-hidden="true"></div>
-    <div class="wrap hero__inhalt">
-      <span class="eyebrow eyebrow--hell">Jungschar · March · seit 2010</span>
-      <h1>{e(HERO['title'][0])} <span class="akzent">{e(HERO['title'][1])}</span>{(' ' + e(HERO['title'][2])) if HERO['title'][2] else ''}</h1>
-      <p class="hero__sub">{e(HERO['sub'])}</p>
-      <a class="btn btn--light" href="kontakt.html#schnuppern">Schnuppern kommen</a>
-    </div>
+    <figure class="hero__rahmen"
+            style="--seiten:{breite}/{hoehe};--quer:{breite / hoehe:.4f}">
+      <img class="hero__bg" src="{src}"
+           alt="Der CEVI March im Lager, von oben fotografiert"
+           fetchpriority="high" decoding="async" width="{breite}" height="{hoehe}">
+      <div class="hero__schleier" aria-hidden="true"></div>
+      <figcaption class="hero__inhalt">
+        <span class="eyebrow eyebrow--hell">Jungschar · March · seit 2010</span>
+        <h1>{e(HERO['title'][0])} <span class="akzent">{e(HERO['title'][1])}</span>{(' ' + e(HERO['title'][2])) if HERO['title'][2] else ''}</h1>
+        <p class="hero__sub">{e(HERO['sub'])}</p>
+        <a class="btn btn--light" href="kontakt.html#schnuppern">Schnuppern kommen</a>
+      </figcaption>
+    </figure>
     <a class="hero__entdecken" href="#stufen">Entdecken <span>&darr;</span></a>
   </section>
 

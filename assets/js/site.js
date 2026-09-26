@@ -55,6 +55,21 @@
   observeReveals();
 
   // =========================================================================
+  //  Höhe der Kopfleiste als CSS-Variable
+  // =========================================================================
+  //  Die Startseite rechnet damit, wie viel Bildschirm unter der Leiste noch
+  //  frei ist. Die Leiste ist auf schmalen Geräten zweizeilig, darum messen.
+  if (nav) {
+    var meldeHoehe = function () {
+      document.documentElement.style.setProperty(
+        '--navh', Math.round(nav.getBoundingClientRect().height) + 'px');
+    };
+    meldeHoehe();
+    if (window.ResizeObserver) new ResizeObserver(meldeHoehe).observe(nav);
+    else window.addEventListener('resize', meldeHoehe);
+  }
+
+  // =========================================================================
   //  Karte erst nach ausdrücklicher Einwilligung laden
   // =========================================================================
   //  Ohne Klick geht keine Anfrage an Google - erst danach wird der Rahmen
