@@ -97,11 +97,9 @@ def head(title, description, current, body, extra_head='', body_class=''):
 <link rel="icon" href="assets/img/logo.jpg">
 <meta property="og:title" content="{e(title)}">
 <meta property="og:description" content="{e(description)}">
-<meta property="og:image" content="assets/img/hero-1.jpg">
+<meta property="og:image" content="{HERO['image']}">
 <meta property="og:type" content="website">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/fonts/fonts.css">
 <link rel="stylesheet" href="assets/css/style.css">
 {extra_head}</head>
 <body{(' class="%s"' % body_class) if body_class else ''}>
@@ -233,29 +231,6 @@ def bildmasse(rel):
         return None
 
 
-# Bilder, die zur Seite selbst gehören und nicht in die Collage kommen
-COLLAGE_AUS = {'logo.jpg', 'hero-1.jpg', 'hero-2.jpg', 'cevi-c.jpg', 'noise.svg'}
-COLLAGE_MAX = 12
-
-
-def collage_bilder():
-    """Alle Fotos aus assets/img/ – einfach dort ablegen, fertig.
-    Das Bild aus HERO['image'] kommt zuerst, der Rest alphabetisch."""
-    ordner = os.path.join(ROOT, 'assets', 'img')
-    zuerst = os.path.basename(HERO['image'])
-    namen = []
-    if os.path.isdir(ordner):
-        namen = sorted(
-            f for f in os.listdir(ordner)
-            if f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp'))
-            and f.lower() not in COLLAGE_AUS
-        )
-    if zuerst in namen:
-        namen.remove(zuerst)
-        namen.insert(0, zuerst)
-    return ['assets/img/' + f for f in namen][:COLLAGE_MAX]
-
-
 def foto(src, text, klasse='photo--tilt', alt=None):
     """Aufgeklebtes Foto mit handschriftlicher Bildunterschrift."""
     masse = bildmasse(src)
@@ -266,48 +241,23 @@ def foto(src, text, klasse='photo--tilt', alt=None):
 
 
 def build_home():
-    """Startseite: Titel unten links, die Fotos oben und rechts drumherum."""
-    bilder = collage_bilder()
-
-    def kachel(i, src):
-        masse = bildmasse(src)
-        mass_attr = ' width="%d" height="%d"' % masse if masse else ''
-        return ('        <figure class="kleber kleber--%d">'
-                '<img src="%s" alt="Aus dem CEVI-Jahr, Bild %d" loading="%s" decoding="async"%s>'
-                '</figure>'
-                % (i % 5, src, i + 1, 'eager' if i < 2 else 'lazy', mass_attr))
-
-    def spalten(paare, anzahl=2):
-        """Fotos fest auf Spalten verteilen. Kein CSS-Spaltenlayout: Chrome
-        bricht dort gedrehte Elemente falsch um und malt den Klebestreifen
-        ein zweites Mal in die nächste Spalte."""
-        eimer = [[] for _ in range(anzahl)]
-        for n, (i, src) in enumerate(paare):
-            eimer[n % anzahl].append(kachel(i, src))
-        return ''.join('      <div class="klebespalte">%s</div>' % ''.join(sp)
-                       for sp in eimer if sp)
-
-    # Zwei Fotos über den Titel, der Rest rechts daneben
-    oben = spalten(list(enumerate(bilder[:2])))
-    rechts = spalten(list(enumerate(bilder[2:], start=2)))
+    """Startseite: ein grosses Bild, Titel unten links daneben."""
+    src = HERO['image']
+    masse = bildmasse(src)
+    mass_attr = ' width="%d" height="%d"' % masse if masse else ''
 
     body = f"""  <section class="hero">
     <div class="wrap hero__raster">
-      <div class="hero__spalte">
-        <div class="klebecollage klebecollage--oben">
-{oben}
-        </div>
-        <div class="hero__kopf">
-          <span class="eyebrow">Jungschar · March · seit 2010</span>
-          <h1>{e(HERO['title'][0])} <span class="akzent">{e(HERO['title'][1])}</span>{(' ' + e(HERO['title'][2])) if HERO['title'][2] else ''}</h1>
-          <p class="hero__sub">{e(HERO['sub'])}</p>
-          <p class="note">… aus unserem Album:</p>
-          <a class="btn" href="kontakt.html#schnuppern">Schnuppern kommen</a>
-        </div>
+      <div class="hero__kopf">
+        <span class="eyebrow">Jungschar · March · seit 2010</span>
+        <h1>{e(HERO['title'][0])} <span class="akzent">{e(HERO['title'][1])}</span>{(' ' + e(HERO['title'][2])) if HERO['title'][2] else ''}</h1>
+        <p class="hero__sub">{e(HERO['sub'])}</p>
+        <a class="btn" href="kontakt.html#schnuppern">Schnuppern kommen</a>
       </div>
-      <div class="klebecollage klebecollage--rechts">
-{rechts}
-      </div>
+      <figure class="kleber kleber--1 hero__bild">
+        <img src="{src}" alt="Der CEVI March im Lager, von oben fotografiert"
+             fetchpriority="high" decoding="async"{mass_attr}>
+      </figure>
     </div>
     <a class="hero__entdecken" href="#stufen">Entdecken <span>&darr;</span></a>
   </section>
@@ -326,8 +276,8 @@ def build_home():
 
   <section class="section section--tight auf-weiss">
     <div class="wrap">
-      <div class="split" style="align-items:center">
-        <div data-reveal>
+      <div data-reveal>
+        <div>
           <span class="eyebrow">Die Abteilung</span>
           <h2>Alle zwei Wochen raus in den Wald.</h2>
           <p class="lead" style="margin-top:20px">Lustige Geschichten, abenteuerliche
@@ -341,7 +291,6 @@ def build_home():
             <a class="arrow" href="agenda.html">Nächste Daten</a>
           </div>
         </div>
-        {foto('assets/media/img_1671.jpg', 'Gruppenbild, irgendwo im Wald', alt='Jungschar im Lager')}
       </div>
     </div>
   </section>
@@ -619,9 +568,17 @@ def build_kontakt():
           <a class="btn btn--primary" href="{k['ort']['maps']}" target="_blank" rel="noopener">Auf Karte öffnen</a>
         </div>
         <figure class="photo photo--tilt1 photo--karte" data-reveal>
-          <iframe src="{k['ort']['embed']}" title="Karte mit dem Standort des CEVI March"
-                  loading="lazy" referrerpolicy="no-referrer-when-downgrade"
-                  allowfullscreen></iframe>
+          <div class="karte" data-karte="{k['ort']['embed']}">
+            <button class="karte__laden" type="button">
+              <svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true">
+                <path fill="currentColor" d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/>
+              </svg>
+              <strong>Karte von Google Maps laden</strong>
+              <span>Dabei wird eine Verbindung zu Google hergestellt und deine
+              IP-Adresse an Google übermittelt.</span>
+              <span class="karte__knopf">Karte laden</span>
+            </button>
+          </div>
           <figcaption>{e(k.get('bildtext', k['ort']['name']))}</figcaption>
         </figure>
       </div>

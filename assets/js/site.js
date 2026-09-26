@@ -53,4 +53,23 @@
     Array.prototype.forEach.call(els, function (el) { io.observe(el); });
   }
   observeReveals();
+
+  // =========================================================================
+  //  Karte erst nach ausdrücklicher Einwilligung laden
+  // =========================================================================
+  //  Ohne Klick geht keine Anfrage an Google - erst danach wird der Rahmen
+  //  eingesetzt. Die Entscheidung wird bewusst nicht gespeichert.
+  var karte = $('.karte');
+  if (karte) {
+    karte.addEventListener('click', function () {
+      var rahmen = document.createElement('iframe');
+      rahmen.src = karte.dataset.karte;
+      rahmen.title = 'Karte mit dem Standort des CEVI March';
+      rahmen.loading = 'lazy';
+      rahmen.referrerPolicy = 'no-referrer-when-downgrade';
+      rahmen.allowFullscreen = true;
+      karte.replaceChildren(rahmen);
+      karte.classList.add('karte--geladen');
+    });
+  }
 })();

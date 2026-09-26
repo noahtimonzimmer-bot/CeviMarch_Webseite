@@ -9,11 +9,9 @@
 <link rel="icon" href="assets/img/logo.jpg">
 <meta property="og:title" content="Kontakt — CEVI March">
 <meta property="og:description" content="Kontaktpersonen, Stufen-Adressen und Treffpunkt des CEVI March.">
-<meta property="og:image" content="assets/img/hero-1.jpg">
+<meta property="og:image" content="assets/img/Startseite.jpg">
 <meta property="og:type" content="website">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/fonts/fonts.css">
 <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
@@ -114,9 +112,17 @@
           <a class="btn btn--primary" href="https://maps.app.goo.gl/nC6JJmZ677CpEuHJ7" target="_blank" rel="noopener">Auf Karte öffnen</a>
         </div>
         <figure class="photo photo--tilt1 photo--karte" data-reveal>
-          <iframe src="https://www.google.com/maps?q=Cevi%20March%2C%20Baumgartenweg%202a%2C%208854%20Siebnen&ll=47.1726667,8.900491&z=16&hl=de&output=embed" title="Karte mit dem Standort des CEVI March"
-                  loading="lazy" referrerpolicy="no-referrer-when-downgrade"
-                  allowfullscreen></iframe>
+          <div class="karte" data-karte="https://www.google.com/maps?q=Cevi%20March%2C%20Baumgartenweg%202a%2C%208854%20Siebnen&ll=47.1726667,8.900491&z=16&hl=de&output=embed">
+            <button class="karte__laden" type="button">
+              <svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true">
+                <path fill="currentColor" d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/>
+              </svg>
+              <strong>Karte von Google Maps laden</strong>
+              <span>Dabei wird eine Verbindung zu Google hergestellt und deine
+              IP-Adresse an Google übermittelt.</span>
+              <span class="karte__knopf">Karte laden</span>
+            </button>
+          </div>
           <figcaption>Baumgartenschopf, Siebnen – hier gehts los</figcaption>
         </figure>
       </div>
