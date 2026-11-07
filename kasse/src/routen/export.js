@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import ExcelJS from 'exceljs';
 import { db } from '../db.js';
 import { angemeldet } from '../auth.js';
-import { belegeLaden } from '../belegabfrage.js';
+import { belegeLaden, sichtbarkeit } from '../belegabfrage.js';
 import { abrechnungBerechnen, schuldenBerechnen } from './abrechnung.js';
 import { alsZahl, ausRappen } from '../geld.js';
 
@@ -100,7 +100,10 @@ router.get('/excel', async (req, res) => {
   blatt.autoFilter = { from: 'A1', to: `M1` };
 
   // --- Blatt 2: Einnahmen
-  const erlaubteKassen = zusammenzug.nach_kasse.map((k) => k.id);
+  const gewaehlteKassen = String(req.query.kasse || '')
+    .split(',').map(Number).filter((x) => Number.isInteger(x) && x > 0);
+  const erlaubteKassen = sichtbarkeit(req.benutzer).kassier
+    .filter((id) => !gewaehlteKassen.length || gewaehlteKassen.includes(id));
   const einnahmenBlatt = mappe.addWorksheet('Einnahmen');
   einnahmenBlatt.columns = [
     { header: 'Datum', key: 'datum', width: 12 },

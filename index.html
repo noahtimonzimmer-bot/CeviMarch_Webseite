@@ -63,53 +63,12 @@
     <div class="buch__buehne">
       <div class="buch__szene">
 
-        <!-- Der aufgeschlagene Inhalt: das Titelbild -->
-        <div class="buch__seite">
-          <img class="hero__bg" src="assets/img/Start2.jpg"
-               alt="Der CEVI March im Lager, von oben fotografiert"
-               fetchpriority="high" decoding="async">
-          <div class="hero__schleier" aria-hidden="true"></div>
-          <div class="wrap hero__inhalt">
-            <span class="eyebrow eyebrow--hell">Jungschar · March · seit 2010</span>
-            <h1>Spiel, Spass, <span class="akzent">Abenteuer</span></h1>
-            <p class="hero__sub">Der CEVI March trifft sich ungefähr alle zwei Wochen am Samstagnachmittag, um gemeinsam draussen zu sein. Schnuppern ist jederzeit möglich.</p>
-            <a class="btn btn--light" href="kontakt.html#schnuppern">Schnuppern kommen</a>
-          </div>
-        </div>
-
-        <!-- Der Deckel, dreht sich um die linke Kante auf -->
-        <div class="buch__deckel" aria-hidden="true">
-          <div class="buch__aussen">
-            <div class="buch__praegung">
-              <img src="assets/img/logo.jpg" alt="" width="96" height="96">
-              <span class="buch__name">CEVI March</span>
-              <span class="buch__wort">Tagebuch</span>
-              <span class="buch__jahr">seit 2010</span>
-            </div>
-            <span class="buch__band"></span>
-            <span class="buch__glanz"></span>
-          </div>
-          <div class="buch__innenseite"></div>
-        </div>
-
-        <div class="buch__falz" aria-hidden="true"></div>
-      </div>
-
-      <a class="buch__hinweis" href="#stufen">
-        <span class="buch__hinweis-zu">Aufschlagen</span>
-        <span class="buch__hinweis-auf">Entdecken</span>
-        <span class="buch__pfeil">&darr;</span>
-      </a>
-    </div>
-  </section>
-
-  <div class="uebergang" aria-hidden="true"></div>
-
-  <section class="section auf-weiss" id="stufen">
-    <div class="wrap">
-      <span class="eyebrow" data-reveal>Drei Stufen</span>
-      <h2 data-reveal>Für jedes Alter das passende Programm.</h2>
-      <div class="grid grid--3" style="margin-top:34px" data-reveal>
+        <!-- Unter dem Deckel liegt schon die erste Seite -->
+        <div class="buch__seite" id="stufen">
+          <div class="wrap buch__seiteninhalt">
+            <span class="eyebrow">Drei Stufen</span>
+            <h2>Für jedes Alter das passende Programm.</h2>
+            <div class="grid grid--3 buch__stufen">
       <a class="stufe" href="stufen.html#alpha">
         <span class="stufe__media"><img src="assets/media/img_1907.jpg" alt="" loading="lazy"></span>
         <span class="stufe__age">7–13 Jahre · Jungs</span>
@@ -129,11 +88,36 @@
         <p>„Früh übt sich, was ein Meister werden will.“ Monatlich am Samstagnachmittag.</p>
         <span class="stufe__more">Zur Stufe</span>
       </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Der Deckel -->
+        <div class="buch__deckel">
+          <div class="buch__aussen">
+            <div class="buch__praegung">
+              <span class="buch__brand" aria-hidden="true"></span>
+              <h1>Spiel, Spass, Abenteuer<br><span class="akzent"></span></h1>
+              <p class="buch__sub">Der CEVI March trifft sich ungefähr alle zwei Wochen am Samstagnachmittag, um gemeinsam draussen zu sein. Schnuppern ist jederzeit möglich.</p>
+              <a class="btn buch__knopf" href="kontakt.html#schnuppern">Schnuppern kommen</a>
+            </div>
+            <span class="buch__band" aria-hidden="true"></span>
+            <span class="buch__glanz" aria-hidden="true"></span>
+          </div>
+          <div class="buch__innenseite" aria-hidden="true"></div>
+        </div>
+
+        <div class="buch__falz" aria-hidden="true"></div>
       </div>
+
+      <button class="buch__hinweis" type="button" id="aufschlagen">
+        <span class="buch__hinweis-wort">Aufschlagen</span>
+        <span class="buch__pfeil" aria-hidden="true">&darr;</span>
+      </button>
     </div>
   </section>
 
-  <section class="section section--tight auf-weiss">
+  <section class="section section--tight">
     <div class="wrap">
       <div data-reveal>
         <div>

@@ -1,0 +1,14 @@
+{
+  "name": "Ce March Kasse",
+  "short_name": "CM Kasse",
+  "description": "Belege erfassen, Kasse führen und abrechnen für den Cevi March.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f1f2f6",
+  "theme_color": "#d21a37",
+  "lang": "de-CH",
+  "icons": [
+    { "src": "img/logo.jpg", "sizes": "512x512", "type": "image/jpeg", "purpose": "any" }
+  ]
+}

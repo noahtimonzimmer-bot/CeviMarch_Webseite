@@ -5,13 +5,13 @@
    Alles rund: keine harten Ecken, nirgends.
    ========================================================= */
 :root{
-  --paper:#fbf8f1;      /* Tagebuchblatt, leicht cremig */
-  --paper-2:#f3eee3;
+  --paper:#f3e8d2;      /* Buchseite, warmes Beige */
+  --paper-2:#eaddc2;
   --ink:#15161a;
   --ink-2:#4a4b52;
   --ink-3:#87888f;
-  --rule:#e7e0d1;
-  --rule-strong:#d5cbb6;
+  --rule:#ddcfb2;
+  --rule-strong:#c9b893;
 
   --red:#d21a37;
   --red-soft:#fdeef0;
@@ -25,8 +25,8 @@
   --pill:999px;
 
   --pad:clamp(20px,5vw,64px);
-  --maxw:1240px;
-  --measure:66ch;
+  --maxw:1080px;      /* schmaler, wie ein Buchsatzspiegel */
+  --measure:62ch;
 
   --font-mono:"JetBrains Mono",ui-monospace,"Courier New",monospace;
   --font-body:"DM Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
@@ -43,19 +43,11 @@ html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
 [id]{scroll-margin-top:92px}
 body{
   margin:0;color:var(--ink);
-  /* Altes Tagebuchpapier: eine gerechnete, nahtlos kachelbare Struktur
-     (tools/papier.py) mit Fasern, Wolkigkeit und Stockflecken. Darüber
-     liegen ein paar grossflächig vergilbte Stellen, die am Fenster kleben,
-     damit sich beim Scrollen kein Muster abzeichnet. */
-  background:
-    radial-gradient(54% 40% at 12% 5%,rgba(158,124,64,.10),transparent 70%),
-    radial-gradient(34% 27% at 88% 16%,rgba(152,118,60,.085),transparent 70%),
-    radial-gradient(28% 24% at 75% 63%,rgba(163,129,70,.08),transparent 70%),
-    radial-gradient(40% 31% at 20% 86%,rgba(148,116,60,.07),transparent 70%),
-    radial-gradient(circle,rgba(120,96,52,.085) 1px,transparent 1.1px) 0 0/24px 24px,
-    url("../img/papier.jpg") repeat 0 0/512px 512px,
-    var(--paper);
-  background-attachment:fixed,fixed,fixed,fixed,scroll,scroll,scroll;
+  /* Ruhige Buchseite: nur die Papierfaser auf beigem Grund. Die früheren
+     Flecken und das Punktraster sind weg - und mit ihnen die festgepinnten
+     Verläufe, die beim Scrollen jedes Mal neu gezeichnet werden mussten. */
+  background:url("../img/papier.jpg") repeat 0 0/520px 520px var(--paper);
+  background-blend-mode:multiply;
   font-family:var(--font-body);font-size:17px;line-height:1.68;
   -webkit-font-smoothing:antialiased;
   overflow-x:clip;
@@ -99,8 +91,8 @@ p{margin:0 0 1.15em}
 .muted{color:var(--ink-2)}
 
 /* Kopfleiste ------------------------------------------------------ */
-.nav{position:sticky;top:0;z-index:100;background:rgba(251,248,241,.74);
-  backdrop-filter:blur(14px) saturate(150%);border-bottom:1px solid var(--rule)}
+.nav{position:sticky;top:0;z-index:100;background:var(--paper);
+  border-bottom:1px solid var(--rule)}
 .nav__inner{max-width:var(--maxw);margin-inline:auto;padding:10px var(--pad);
   display:flex;align-items:center;gap:22px;min-height:64px}
 .nav__progress{height:2px;border-radius:var(--pill);background:var(--red);width:0%;transition:width .1s linear}
@@ -174,171 +166,181 @@ p{margin:0 0 1.15em}
 
 /* Startseite: das Tagebuch ----------------------------------------- */
 /*  --p ist der Fortschritt des Aufklappens, 0 = zu, 1 = offen.
-    site.js schreibt den Wert beim Scrollen. Ohne JavaScript und bei
-    "Bewegung reduzieren" bleibt --p auf 1: das Buch liegt dann offen da
-    und die Seite verhält sich wie eine gewöhnliche Startseite.
-    --navh ist die Höhe der Kopfleiste, ebenfalls aus site.js.  */
+    site.js schreibt den Wert beim Scrollen, die Bewegung steht hier.
+    Ohne JavaScript bleibt --p auf 1: der Deckel ist dann weg und die
+    erste Seite steht sofort da.  */
 .buch{--p:1;position:relative}
-.buch--aktiv{--p:0;height:260svh}
+.buch--aktiv{--p:0;height:210svh}
 
 .buch__buehne{
-  position:relative;height:calc(100svh - var(--navh,64px));overflow:hidden;
-  background:#15120d
+  position:relative;height:calc(100svh - var(--navh,64px));overflow:hidden
 }
 .buch--aktiv .buch__buehne{position:sticky;top:var(--navh,64px)}
 
-/* Der Fluchtpunkt liegt bewusst nicht auf dem Scharnier: so verkuerzt
-   sich der Deckel beim Drehen sichtbar und gibt die Seite frueher frei.
-   Mit 0% bliebe fast der ganze Bildschirm bis zuletzt verdeckt. */
+/* Der Fluchtpunkt liegt bewusst nicht auf dem Scharnier: so verkürzt sich
+   der Deckel beim Drehen sichtbar und gibt die Seite früher frei. */
 .buch__szene{position:absolute;inset:0;perspective:1500px;perspective-origin:32% 46%}
 
-/* Die aufgeschlagene Seite: das Titelbild ------------------------- */
+/* Die erste Seite ------------------------------------------------- */
 .buch__seite{
   position:absolute;inset:0;overflow:hidden;
-  /* Beim Aufklappen kommt die Seite minim nach vorn. Mehr als ein
-     Prozent darf es nicht sein, sonst steht am Rand ein dunkler Spalt. */
-  transform:scale(calc(.99 + .01 * var(--p)))
+  background:url("../img/papier.jpg") repeat 0 0/520px 520px var(--paper);
+  background-blend-mode:multiply;
+  display:grid;align-items:center
 }
-.hero__bg{position:absolute;inset:0;width:100%;height:100%;
-  object-fit:cover;object-position:100% 50%}
-.hero__schleier{position:absolute;inset:0;
-  background:linear-gradient(180deg,rgba(16,14,10,.12) 0%,transparent 34%,
-             rgba(16,14,10,.30) 72%,rgba(16,14,10,.58) 100%)}
-.hero__inhalt{
-  position:absolute;left:0;right:0;bottom:0;width:100%;
-  padding:0 clamp(20px,5vw,60px) clamp(60px,7vw,92px);color:#fff;
-  /* Der Text kommt erst, wenn der Deckel weit genug offen ist */
-  opacity:clamp(0,calc(var(--p) * 2.4 - 1.25),1);
-  transform:translateY(calc((1 - var(--p)) * 26px))
-}
-.hero__inhalt h1{max-width:13ch;color:#fff;text-shadow:0 2px 20px rgba(0,0,0,.55)}
-.eyebrow--hell{color:rgba(255,255,255,.88);text-shadow:0 1px 10px rgba(0,0,0,.6)}
-.eyebrow--hell::before{background:#fff}
-.akzent{color:var(--red)}
-.buch .akzent{color:#ff7f92}
-.hero__sub{margin:16px 0 24px;max-width:38ch;font-size:clamp(1rem,1.3vw,1.1rem);
-  color:rgba(255,255,255,.94);text-shadow:0 1px 14px rgba(0,0,0,.65)}
-
-/* Der Schatten, den der offene Deckel auf die Seite wirft */
+.buch__seiteninhalt{width:100%;opacity:clamp(0,calc(var(--p) * 2.6 - 1.3),1)}
+.buch__seiteninhalt h2{max-width:22ch;margin-bottom:clamp(20px,2.6vw,34px)}
+/* Die Karten müssen in den aufgeschlagenen Bildschirm passen, darum
+   hier etwas knapper als auf den übrigen Seiten. */
+.buch__stufen .stufe__media{aspect-ratio:16/10}
+.buch__stufen .stufe p{display:none}
+.buch__stufen .stufe{padding-bottom:18px}
+/* Schatten aus dem Bund, verschwindet mit dem Öffnen */
 .buch__falz{
   position:absolute;inset:0;pointer-events:none;
-  background:linear-gradient(90deg,rgba(10,8,5,.85) 0%,rgba(10,8,5,.45) 7%,
-             transparent 26%);
-  opacity:calc(1 - var(--p) * .62)
+  background:linear-gradient(90deg,rgba(74,56,24,.40) 0%,rgba(74,56,24,.16) 8%,transparent 24%);
+  opacity:calc(1 - var(--p) * .55)
 }
 
 /* Der Deckel ------------------------------------------------------- */
 .buch__deckel{
   position:absolute;inset:0;transform-style:preserve-3d;
   transform-origin:left center;
-  transform:rotateY(calc(var(--p) * -168deg));
-  will-change:transform
+  transform:rotateY(calc(var(--p) * -168deg))
 }
+.buch--laeuft .buch__deckel{will-change:transform}
+/* Ist das Buch offen, darf der Deckel keine Klicks mehr abfangen */
+.buch__deckel{pointer-events:auto}
+.buch--offen .buch__deckel{pointer-events:none;visibility:hidden}
+
 .buch__aussen,.buch__innenseite{position:absolute;inset:0;backface-visibility:hidden}
 
-/* Aussenseite: dunkles Leinen mit Prägung */
+/* Aussenseite: dunkles Leder */
 .buch__aussen{
   background:
-    radial-gradient(130% 90% at 18% 12%,rgba(255,236,190,.10),transparent 58%),
-    linear-gradient(118deg,#2f2a21 0%,#231f18 46%,#191610 100%);
-  box-shadow:inset -14px 0 34px rgba(0,0,0,.5),
-             inset 2px 0 0 rgba(255,228,170,.10);
+    radial-gradient(130% 90% at 18% 10%,rgba(255,232,180,.12),transparent 60%),
+    linear-gradient(118deg,#4a3826 0%,#3a2b1c 46%,#271c12 100%);
+  box-shadow:inset -16px 0 40px rgba(0,0,0,.52),
+             inset 2px 0 0 rgba(255,228,170,.12);
   display:grid;place-items:center;overflow:hidden
 }
-/* Die Papierstruktur dient hier als Leinenkorn */
+/* Die Papierfaser dient hier als Ledernarbe */
 .buch__aussen::before{
   content:"";position:absolute;inset:0;
-  background:url("../img/papier.jpg") repeat 0 0/300px 300px;
-  mix-blend-mode:overlay;opacity:.30
+  background:url("../img/papier.jpg") repeat 0 0/260px 260px;
+  mix-blend-mode:overlay;opacity:.34
 }
 /* Blindprägung als Rahmenlinie */
 .buch__aussen::after{
-  content:"";position:absolute;inset:clamp(18px,3.4vw,46px);
-  border:1px solid rgba(214,186,128,.26);
-  box-shadow:inset 0 0 0 4px rgba(0,0,0,.18),0 1px 0 rgba(255,232,180,.08);
+  content:"";position:absolute;inset:clamp(16px,3vw,40px);
+  border:1px solid rgba(222,190,126,.24);
+  box-shadow:inset 0 0 0 5px rgba(0,0,0,.16),0 1px 0 rgba(255,232,180,.09);
   border-radius:3px;pointer-events:none
 }
 
 .buch__praegung{
-  position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;
-  gap:clamp(10px,1.6vw,20px);text-align:center;padding:24px;
-  /* Beim Öffnen rutscht die Prägung minim mit - wirkt wie Masse */
-  transform:translateX(calc(var(--p) * 18px));opacity:calc(1 - var(--p) * 1.6)
-}
-.buch__praegung img{
-  width:clamp(62px,7vw,96px);height:auto;border-radius:12px;
-  filter:saturate(.82) brightness(.95);
-  box-shadow:0 10px 26px rgba(0,0,0,.45)
-}
-.buch__name{
-  font-family:var(--font-mono);font-weight:700;letter-spacing:-.03em;
-  font-size:clamp(1.8rem,4.6vw,3.4rem);color:#e8d6ab;
-  text-shadow:0 1px 0 rgba(255,240,200,.18),0 -1px 1px rgba(0,0,0,.6)
-}
-.buch__wort{
-  font-family:var(--font-hand);font-size:clamp(1.5rem,3.4vw,2.4rem);
-  color:rgba(226,208,170,.78);line-height:1
-}
-.buch__jahr{
-  font-family:var(--font-mono);font-size:.68rem;font-weight:500;letter-spacing:.3em;
-  text-transform:uppercase;color:rgba(214,186,128,.5)
+  position:relative;z-index:1;width:100%;max-width:var(--maxw);
+  padding:0 clamp(24px,6vw,76px);text-align:left;
+  transform:translateX(calc(var(--p) * 16px));opacity:calc(1 - var(--p) * 1.7)
 }
 
-/* Das Gummiband quer über den Deckel, geht beim Öffnen auf */
+/* Das Brandzeichen. Die Form kommt aus einer freigestellten Fassung des
+   Logos (assets/img/logo-marke.png, erzeugt aus logo.jpg) und dient hier
+   nur als Maske. Gefüllt wird sie mit einem dunklen Farbverlauf, dazu
+   eine helle Kante unten und ein dunkler Rand oben - so sieht es aus,
+   als wäre das Zeichen ins Leder gebrannt. */
+.buch__brand{
+  display:block;width:clamp(58px,6.5vw,86px);aspect-ratio:1/1;
+  margin-bottom:clamp(14px,2vw,24px);
+  background:linear-gradient(160deg,#1a1109 0%,#2c1d10 52%,#120c06 100%);
+  -webkit-mask:url("../img/logo-marke.png") no-repeat center/contain;
+          mask:url("../img/logo-marke.png") no-repeat center/contain;
+  filter:drop-shadow(0 1px 0 rgba(255,228,172,.26))
+         drop-shadow(0 -1px 1px rgba(0,0,0,.5));
+  opacity:.88
+}
+
+.buch__praegung h1{
+  color:#e6d2a6;max-width:14ch;
+  font-size:clamp(2.2rem,6.4vw,4.6rem);
+  text-shadow:0 1px 0 rgba(255,238,200,.20),0 -1px 2px rgba(0,0,0,.65)
+}
+.buch__praegung .akzent{color:#e07a5f}
+.buch__sub{
+  margin:clamp(14px,2vw,22px) 0 clamp(20px,2.6vw,30px);max-width:40ch;
+  color:rgba(236,219,186,.74);font-size:clamp(.98rem,1.3vw,1.1rem)
+}
+.buch__knopf{
+  background:#e6d2a6;color:#2a1e13;border-color:#e6d2a6;
+  box-shadow:0 10px 30px -14px rgba(0,0,0,.8)
+}
+.buch__knopf:hover{background:#f2e3bf;border-color:#f2e3bf}
+
+/* Das Gummiband, es schnellt beim Öffnen beiseite */
 .buch__band{
-  position:absolute;top:-4%;bottom:-4%;right:clamp(42px,9vw,120px);width:clamp(9px,1.1vw,14px);
-  background:linear-gradient(90deg,#17150f,#36312a 42%,#17150f);
-  box-shadow:0 0 16px rgba(0,0,0,.55);
+  position:absolute;top:-4%;bottom:-4%;right:clamp(40px,8vw,110px);
+  width:clamp(9px,1.1vw,14px);
+  background:linear-gradient(90deg,#1d150d,#473627 42%,#1d150d);
+  box-shadow:0 0 18px rgba(0,0,0,.6);
   transform:translateX(calc(var(--p) * 42vw)) rotate(calc(var(--p) * 7deg));
   opacity:clamp(0,calc(1 - var(--p) * 5),1)
 }
-/* Lichtkante, die beim Aufklappen über das Leinen wandert */
+/* Lichtkante, die beim Aufklappen über das Leder wandert */
 .buch__glanz{
   position:absolute;inset:0;pointer-events:none;
-  background:linear-gradient(105deg,transparent 30%,rgba(255,240,205,.16) 48%,transparent 62%);
+  background:linear-gradient(105deg,transparent 30%,rgba(255,238,200,.15) 48%,transparent 62%);
   transform:translateX(calc(var(--p) * 120% - 40%));
   opacity:calc(var(--p) * (1 - var(--p)) * 3.2)
 }
 
-/* Innenseite des Deckels: marmoriertes Vorsatzpapier */
+/* Innenseite des Deckels: helles Vorsatzpapier */
 .buch__innenseite{
   transform:rotateY(180deg);
   background:
-    radial-gradient(90% 70% at 30% 20%,rgba(190,160,110,.22),transparent 62%),
-    linear-gradient(160deg,#efe6d2,#ded2b8);
-  box-shadow:inset 14px 0 40px rgba(60,44,20,.34)
+    radial-gradient(90% 70% at 30% 20%,rgba(190,160,110,.20),transparent 62%),
+    linear-gradient(160deg,#efe4cd,#dccfb0)
 }
 .buch__innenseite::before{
   content:"";position:absolute;inset:0;
   background:url("../img/papier.jpg") repeat 0 0/340px 340px;
-  mix-blend-mode:multiply;opacity:.55
+  mix-blend-mode:multiply;opacity:.5
 }
 
 /* Hinweis unten --------------------------------------------------- */
 .buch__hinweis{
   position:absolute;left:50%;bottom:clamp(10px,1.6vw,20px);transform:translateX(-50%);
-  z-index:2;display:flex;align-items:center;gap:10px;padding:12px 18px;
+  z-index:2;display:flex;align-items:center;gap:10px;padding:12px 20px;
   border-radius:var(--pill);font-family:var(--font-mono);font-size:.7rem;
   font-weight:500;letter-spacing:.16em;text-transform:uppercase;
-  color:rgba(255,255,255,.82);transition:color .25s
+  color:rgba(240,226,196,.78);transition:color .25s,opacity .3s;
+  opacity:calc(1 - var(--p) * 2.4)
 }
 .buch__hinweis:hover{color:#fff}
-.buch__hinweis-zu,.buch__hinweis-auf{display:block}
-/* Die Beschriftung wechselt, sobald das Buch offen ist */
-.buch__hinweis-zu{opacity:calc(1 - var(--p) * 2.2)}
-.buch__hinweis-auf{position:absolute;left:18px;opacity:calc(var(--p) * 2.2 - 1.2)}
-.buch__pfeil{display:inline-block;margin-left:auto;transition:transform .5s var(--ease)}
+.buch--offen .buch__hinweis{pointer-events:none}
+.buch__pfeil{display:inline-block;transition:transform .5s var(--ease)}
 .buch__hinweis:hover .buch__pfeil{transform:translateY(4px)}
 
+
 @media(max-width:760px){
-  .buch--aktiv{height:220svh}
+  .buch--aktiv{height:190svh}
   .buch__szene{perspective:1000px}
-  .hero__inhalt h1{max-width:11ch;font-size:clamp(2rem,8.4vw,2.7rem)}
-  .hero__sub{margin-bottom:20px}
-  .buch__band{right:clamp(24px,7vw,60px)}
+  .buch__praegung h1{font-size:clamp(2rem,9vw,2.8rem)}
+  .buch__band{right:clamp(22px,6vw,56px)}
+  /* Hochkant passen drei Karten nicht untereinander auf eine Seite.
+     Sie stehen deshalb nebeneinander und lassen sich schieben. */
+  /* .grid steht weiter unten im Stylesheet, darum hier zwei Klassen,
+     sonst gewinnt dessen display:grid. */
+  .buch__seiteninhalt .buch__stufen{
+    display:flex;gap:14px;overflow-x:auto;scroll-snap-type:x mandatory;
+    margin-inline:calc(var(--pad) * -1);padding-inline:var(--pad);
+    scrollbar-width:none;touch-action:pan-x pan-y
+  }
+  .buch__seiteninhalt .buch__stufen::-webkit-scrollbar{display:none}
+  .buch__seiteninhalt .buch__stufen > *{flex:0 0 78%;scroll-snap-align:center}
+  .buch__seiteninhalt h2{font-size:clamp(1.5rem,6.4vw,2rem)}
 }
 
-/* Wer wenig Bewegung will, bekommt das offene Buch ohne Umweg */
+/* Wer wenig Bewegung will, bekommt gleich die erste Seite */
 @media (prefers-reduced-motion:reduce){
   .buch--aktiv{--p:1;height:auto}
   .buch--aktiv .buch__buehne{position:relative}

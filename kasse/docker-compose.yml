@@ -1,0 +1,22 @@
+services:
+  kasse:
+    build: .
+    container_name: ce-march-kasse
+    restart: unless-stopped
+    # Nur lokal erreichbar - davor laeuft nginx oder Caddy mit HTTPS.
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      PORT: "3000"
+      DATA_DIR: /daten
+      TRUST_PROXY: "true"
+      COOKIE_SECURE: "true"
+      MAX_UPLOAD_MB: "20"
+      ADMIN_NAME: "Abteilungsleitung"
+      ADMIN_EMAIL: "al@cevimarch.ch"
+      # ADMIN_PASSWORT: "beim-ersten-Start-setzen"
+    volumes:
+      - kassendaten:/daten
+
+volumes:
+  kassendaten:

@@ -62,6 +62,24 @@ router.get('/:id', (req, res) => {
   res.json({ ...beleg, dateien: dateienLesen(beleg.id) });
 });
 
+/** Kleines Vorschaubild des ersten Fotos - fuer die Listenansicht. */
+router.get('/:id/vorschau', (req, res) => {
+  const beleg = belegLesen(Number(req.params.id));
+  if (!darfSehen(req.benutzer, beleg)) return res.status(404).end();
+  const datei = db
+    .prepare(
+      `SELECT * FROM beleg_dateien WHERE beleg_id = ? AND mime <> 'application/pdf'
+        ORDER BY id LIMIT 1`
+    )
+    .get(beleg.id);
+  if (!datei) return res.status(404).end();
+  const pfad = vollerPfad(datei.vorschau_pfad || datei.pfad);
+  if (!pfad || !fs.existsSync(pfad)) return res.status(404).end();
+  res.setHeader('Content-Type', datei.vorschau_pfad ? 'image/jpeg' : datei.mime);
+  res.setHeader('Cache-Control', 'private, max-age=86400');
+  fs.createReadStream(pfad).pipe(res);
+});
+
 // ---------------------------------------------------------------- Anlegen
 
 const naechsteNummer = db.transaction((kasseId, jahr) => {

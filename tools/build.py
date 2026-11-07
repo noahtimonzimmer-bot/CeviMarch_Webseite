@@ -241,71 +241,54 @@ def foto(src, text, klasse='photo--tilt', alt=None):
 
 
 def build_home():
-    """Startseite: ein geschlossenes Tagebuch, das den Bildschirm füllt.
-    Beim Scrollen klappt der Deckel auf und gibt das Titelbild frei.
+    """Startseite: das geschlossene Tagebuch füllt den Bildschirm. Titel,
+    Untertitel und die Schaltfläche stehen auf dem Deckel. Beim Scrollen
+    klappt er auf und darunter liegt schon die erste Seite.
 
-    Ohne JavaScript und bei "Bewegung reduzieren" liegt das Buch von
-    Anfang an offen da - die Seite funktioniert also auch ohne die
-    Animation."""
-    src = HERO['image']
+    Ohne JavaScript und bei "Bewegung reduzieren" ist der Deckel weg und
+    die erste Seite steht sofort da."""
 
     body = f"""  <section class="buch" id="buch">
     <div class="buch__buehne">
       <div class="buch__szene">
 
-        <!-- Der aufgeschlagene Inhalt: das Titelbild -->
-        <div class="buch__seite">
-          <img class="hero__bg" src="{src}"
-               alt="Der CEVI March im Lager, von oben fotografiert"
-               fetchpriority="high" decoding="async">
-          <div class="hero__schleier" aria-hidden="true"></div>
-          <div class="wrap hero__inhalt">
-            <span class="eyebrow eyebrow--hell">Jungschar · March · seit 2010</span>
-            <h1>{e(HERO['title'][0])} <span class="akzent">{e(HERO['title'][1])}</span>{(' ' + e(HERO['title'][2])) if HERO['title'][2] else ''}</h1>
-            <p class="hero__sub">{e(HERO['sub'])}</p>
-            <a class="btn btn--light" href="kontakt.html#schnuppern">Schnuppern kommen</a>
+        <!-- Unter dem Deckel liegt schon die erste Seite -->
+        <div class="buch__seite" id="stufen">
+          <div class="wrap buch__seiteninhalt">
+            <span class="eyebrow">Drei Stufen</span>
+            <h2>Für jedes Alter das passende Programm.</h2>
+            <div class="grid grid--3 buch__stufen">
+{''.join(stufe_card(s) for s in STUFEN)}
+            </div>
           </div>
         </div>
 
-        <!-- Der Deckel, dreht sich um die linke Kante auf -->
-        <div class="buch__deckel" aria-hidden="true">
+        <!-- Der Deckel -->
+        <div class="buch__deckel">
           <div class="buch__aussen">
             <div class="buch__praegung">
-              <img src="assets/img/logo.jpg" alt="" width="96" height="96">
-              <span class="buch__name">CEVI March</span>
-              <span class="buch__wort">Tagebuch</span>
-              <span class="buch__jahr">seit 2010</span>
+              <span class="buch__brand" aria-hidden="true"></span>
+              <h1>{e(HERO['title'][0])} {e(HERO['title'][1])}<br><span class="akzent">{e(HERO['title'][2]) if HERO['title'][2] else ''}</span></h1>
+              <p class="buch__sub">{e(HERO['sub'])}</p>
+              <a class="btn buch__knopf" href="kontakt.html#schnuppern">Schnuppern kommen</a>
             </div>
-            <span class="buch__band"></span>
-            <span class="buch__glanz"></span>
+            <span class="buch__band" aria-hidden="true"></span>
+            <span class="buch__glanz" aria-hidden="true"></span>
           </div>
-          <div class="buch__innenseite"></div>
+          <div class="buch__innenseite" aria-hidden="true"></div>
         </div>
 
         <div class="buch__falz" aria-hidden="true"></div>
       </div>
 
-      <a class="buch__hinweis" href="#stufen">
-        <span class="buch__hinweis-zu">Aufschlagen</span>
-        <span class="buch__hinweis-auf">Entdecken</span>
-        <span class="buch__pfeil">&darr;</span>
-      </a>
+      <button class="buch__hinweis" type="button" id="aufschlagen">
+        <span class="buch__hinweis-wort">Aufschlagen</span>
+        <span class="buch__pfeil" aria-hidden="true">&darr;</span>
+      </button>
     </div>
   </section>
 
-  <div class="uebergang" aria-hidden="true"></div>
-
-  <section class="section auf-weiss" id="stufen">
-    <div class="wrap">
-      <span class="eyebrow" data-reveal>Drei Stufen</span>
-      <h2 data-reveal>Für jedes Alter das passende Programm.</h2>
-      <div class="grid grid--3" style="margin-top:34px" data-reveal>
-{''.join(stufe_card(s) for s in STUFEN)}
-      </div>
-    </div>
-  </section>
-
-  <section class="section section--tight auf-weiss">
+  <section class="section section--tight">
     <div class="wrap">
       <div data-reveal>
         <div>

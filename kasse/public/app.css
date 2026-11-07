@@ -48,6 +48,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 
 html, body {
   margin: 0;
@@ -243,7 +244,7 @@ input::placeholder { color: var(--tinte-3); }
 }
 .karte + .karte { margin-top: 14px; }
 .karte-kopf {
-  display: flex; align-items: center; gap: 10px;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
   padding: 14px 16px; border-bottom: 1px solid var(--linie);
 }
 .karte-kopf h2 { flex: 1; }

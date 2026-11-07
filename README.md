@@ -28,6 +28,10 @@ tools/papier.py       erzeugt die Papierstruktur des Hintergrunds
 tools/ungenutzt.py    listet Dateien, die keine Seite mehr braucht
 ```
 
+`kasse/` enthält die eigenständige Web-App **Ce March Kasse** (Belege,
+Kassenbuch, Abrechnung). Sie gehört nicht zur statischen Website und läuft auf
+einem eigenen Server – Anleitung in [kasse/README.md](kasse/README.md).
+
 Gestaltung: Tagebuch, auf allen Seiten. Kariertes Papier als Grund, Fotos mit
 Klebeband aufgeklebt und leicht schief, handschriftliche Bildtexte und
 Randnotizen (Caveat), der Datenplan auf einem eingeklebten linierten Blatt,

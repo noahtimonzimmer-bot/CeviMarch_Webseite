@@ -87,18 +87,25 @@
     buch.classList.add('buch--aktiv');
 
     var buehne = buch.querySelector('.buch__buehne');
-    var knopf = buch.querySelector('.hero__inhalt .btn');
+    var knopf = buch.querySelector('.buch__knopf');
+    var aufschlagen = $('#aufschlagen');
     var laeuft = false;
     var warOffen = null;
+    var strecke = 0;
 
     // Sanft anlaufen und ausklingen. Eine stärkere Kurve lässt den Deckel
     // in der Mitte zu schnell durchschlagen - das Aufklappen soll dem
     // Finger folgen, nicht davonlaufen.
     var kurve = function (t) { return t * t * (3 - 2 * t); };
 
+    // Die Masse ändern sich nur beim Umbauen des Fensters, nicht beim
+    // Scrollen. Einmal merken spart pro Bild zwei Layout-Durchläufe.
+    var messen = function () {
+      strecke = buch.offsetHeight - buehne.offsetHeight;
+    };
+
     var rechne = function () {
       laeuft = false;
-      var strecke = buch.offsetHeight - buehne.offsetHeight;
       if (strecke <= 0) { buch.style.setProperty('--p', '1'); return; }
 
       var oben = buch.getBoundingClientRect().top;
@@ -109,14 +116,21 @@
       var p = kurve(roh);
       buch.style.setProperty('--p', p.toFixed(4));
 
-      // Solange der Deckel zu ist, liegt die Schaltfläche unsichtbar
-      // darunter. Sie darf dann nicht mit der Tabulatortaste erreichbar
-      // sein, sonst springt der Fokus auf etwas, das niemand sieht.
-      var offen = p > 0.45;
+      // Ist der Deckel ganz weg, fliegen Klassen und will-change raus.
+      // Sonst behält der Browser für den Rest der Seite eine eigene
+      // Ebene im Speicher, die niemand mehr braucht.
+      var offen = p > 0.985;
+      var inBewegung = p > 0.001 && !offen;
+      buch.classList.toggle('buch--laeuft', inBewegung);
+      buch.classList.toggle('buch--offen', offen);
+
+      // Solange der Deckel zu ist, liegt die erste Seite unsichtbar
+      // darunter - und umgekehrt. Was man nicht sieht, darf auch nicht
+      // mit der Tabulatortaste erreichbar sein.
       if (knopf && offen !== warOffen) {
         warOffen = offen;
-        if (offen) knopf.removeAttribute('tabindex');
-        else knopf.setAttribute('tabindex', '-1');
+        if (offen) knopf.setAttribute('tabindex', '-1');
+        else knopf.removeAttribute('tabindex');
       }
     };
 
@@ -124,21 +138,40 @@
       if (!laeuft) { laeuft = true; requestAnimationFrame(rechne); }
     };
 
+    var neuMessen = function () { messen(); anstossen(); };
+
+    messen();
     rechne();
     window.addEventListener('scroll', anstossen, { passive: true });
-    window.addEventListener('resize', anstossen);
-    if (window.ResizeObserver) new ResizeObserver(anstossen).observe(buehne);
+    window.addEventListener('resize', neuMessen);
+    if (window.ResizeObserver) new ResizeObserver(neuMessen).observe(buehne);
+
+    // "Aufschlagen" rollt bis ans Ende der Klebestrecke. Weil das Öffnen
+    // am Scrollstand hängt, klappt der Deckel dabei von selbst auf.
+    if (aufschlagen) {
+      aufschlagen.addEventListener('click', function () {
+        var ziel = buch.getBoundingClientRect().top + window.scrollY + strecke;
+        window.scrollTo({ top: ziel, behavior: 'smooth' });
+      });
+    }
 
     // Stellt jemand unterwegs auf "Bewegung reduzieren" um, bleibt das
     // Buch offen stehen statt mitten im Aufklappen zu hängen.
     wenigBewegung.addEventListener('change', function (ev) {
       if (ev.matches) {
-        buch.classList.remove('buch--aktiv');
+        buch.classList.remove('buch--aktiv', 'buch--laeuft');
         buch.style.removeProperty('--p');
       } else {
         buch.classList.add('buch--aktiv');
-        rechne();
+        neuMessen();
       }
+    });
+  } else if (buch) {
+    // Ohne Animation führt der Knopf einfach zur ersten Seite
+    var sprung = $('#aufschlagen');
+    if (sprung) sprung.addEventListener('click', function () {
+      var z = document.getElementById('stufen');
+      if (z) z.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   }
 

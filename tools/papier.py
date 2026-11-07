@@ -23,7 +23,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ZIEL = os.path.join(ROOT, 'assets', 'img', 'papier.jpg')
 
 KANTE = 1024          # Kachelgrösse in Pixeln
-GRUNDTON = (251, 246, 234)
+GRUNDTON = (252, 250, 245)
 
 
 def weich(feld, radius):
@@ -69,17 +69,19 @@ def main():
     faser = fasern(n, zufall)
 
     # Helligkeit zusammensetzen; Werte klein halten, sonst wirkt es schmutzig
+    # Zurückhaltend halten: die Kachel wird im CSS über ein beiges Papier
+    # multipliziert. Starke Wolken wirken dort sofort wie Schmutz.
     hell = (1.0
-            + 0.072 * wolken_gross
-            + 0.040 * wolken_klein
-            + 0.042 * korn
-            + 0.055 * faser)
+            + 0.016 * wolken_gross
+            + 0.012 * wolken_klein
+            + 0.030 * korn
+            + 0.028 * faser)
 
     grund = np.array(GRUNDTON, dtype=float)
     bild = grund[None, None, :] * hell[:, :, None]
 
     # Die Vergilbung geht ins Bräunliche: Blau stärker absenken
-    waerme = 0.085 * wolken_gross
+    waerme = 0.018 * wolken_gross
     bild[:, :, 2] -= waerme * 150
     bild[:, :, 1] -= waerme * 62
 
