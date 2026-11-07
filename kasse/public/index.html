@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#d21a37">
+<meta name="description" content="Belege, Kassenbuch und Abrechnung des Cevi March.">
+<title>Ce March Kasse</title>
+<link rel="icon" href="img/logo.jpg">
+<link rel="apple-touch-icon" href="img/logo.jpg">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<!-- ------------------------------------------------------------- Anmeldung -->
+<div id="anmeldung" class="anmeldung" hidden>
+  <div class="anmelde-karte">
+    <img src="img/logo.jpg" alt="Cevi March" class="logo-gross">
+    <h1>Ce March Kasse</h1>
+    <p class="unterzeile">Belege erfassen, Kasse führen, sauber abrechnen.</p>
+    <form id="anmelde-formular" autocomplete="on">
+      <label>E-Mail
+        <input type="email" name="email" autocomplete="username" required>
+      </label>
+      <label>Passwort
+        <input type="password" name="passwort" autocomplete="current-password" required>
+      </label>
+      <p class="fehler" id="anmelde-fehler" hidden></p>
+      <button class="knopf primaer breit" type="submit">Anmelden</button>
+    </form>
+    <p class="hinweis">Kein Zugang? Melde dich bei der Abteilungsleitung.</p>
+  </div>
+</div>
+
+<!-- ----------------------------------------------------------------- App -->
+<div id="app" class="app" hidden>
+  <aside class="seitenleiste">
+    <div class="marke">
+      <img src="img/logo.jpg" alt="" class="logo-klein">
+      <div>
+        <strong>Ce March</strong>
+        <span>Kasse</span>
+      </div>
+    </div>
+    <nav id="navigation"></nav>
+    <div class="seitenleiste-fuss">
+      <button class="knopf leise breit" data-ziel="#/profil" id="profil-knopf"></button>
+      <button class="knopf leise breit" id="abmelden">Abmelden</button>
+    </div>
+  </aside>
+
+  <div class="inhalt-spalte">
+    <header class="kopfleiste">
+      <img src="img/logo.jpg" alt="" class="logo-klein nur-mobil">
+      <h1 id="seitentitel">Belege</h1>
+      <button class="knopf primaer kompakt" data-ziel="#/neu" id="neu-knopf">+ Beleg</button>
+    </header>
+    <main id="ansicht" class="ansicht"></main>
+    <nav class="tableiste nur-mobil" id="tableiste"></nav>
+  </div>
+</div>
+
+<div id="meldung" class="meldung" hidden></div>
+<dialog id="dialog" class="dialog"></dialog>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

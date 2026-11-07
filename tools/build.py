@@ -241,23 +241,56 @@ def foto(src, text, klasse='photo--tilt', alt=None):
 
 
 def build_home():
-    """Startseite: das Titelbild füllt den ganzen Bildschirm. Passt das
-    Format nicht, wird links beschnitten - rechts stehen die Leute, die
-    CEVI legen, das soll immer zu sehen sein."""
+    """Startseite: ein geschlossenes Tagebuch, das den Bildschirm füllt.
+    Beim Scrollen klappt der Deckel auf und gibt das Titelbild frei.
+
+    Ohne JavaScript und bei "Bewegung reduzieren" liegt das Buch von
+    Anfang an offen da - die Seite funktioniert also auch ohne die
+    Animation."""
     src = HERO['image']
 
-    body = f"""  <section class="hero">
-    <img class="hero__bg" src="{src}"
-         alt="Der CEVI March im Lager, von oben fotografiert"
-         fetchpriority="high" decoding="async">
-    <div class="hero__schleier" aria-hidden="true"></div>
-    <div class="wrap hero__inhalt">
-      <span class="eyebrow eyebrow--hell">Jungschar · March · seit 2010</span>
-      <h1>{e(HERO['title'][0])} <span class="akzent">{e(HERO['title'][1])}</span>{(' ' + e(HERO['title'][2])) if HERO['title'][2] else ''}</h1>
-      <p class="hero__sub">{e(HERO['sub'])}</p>
-      <a class="btn btn--light" href="kontakt.html#schnuppern">Schnuppern kommen</a>
+    body = f"""  <section class="buch" id="buch">
+    <div class="buch__buehne">
+      <div class="buch__szene">
+
+        <!-- Der aufgeschlagene Inhalt: das Titelbild -->
+        <div class="buch__seite">
+          <img class="hero__bg" src="{src}"
+               alt="Der CEVI March im Lager, von oben fotografiert"
+               fetchpriority="high" decoding="async">
+          <div class="hero__schleier" aria-hidden="true"></div>
+          <div class="wrap hero__inhalt">
+            <span class="eyebrow eyebrow--hell">Jungschar · March · seit 2010</span>
+            <h1>{e(HERO['title'][0])} <span class="akzent">{e(HERO['title'][1])}</span>{(' ' + e(HERO['title'][2])) if HERO['title'][2] else ''}</h1>
+            <p class="hero__sub">{e(HERO['sub'])}</p>
+            <a class="btn btn--light" href="kontakt.html#schnuppern">Schnuppern kommen</a>
+          </div>
+        </div>
+
+        <!-- Der Deckel, dreht sich um die linke Kante auf -->
+        <div class="buch__deckel" aria-hidden="true">
+          <div class="buch__aussen">
+            <div class="buch__praegung">
+              <img src="assets/img/logo.jpg" alt="" width="96" height="96">
+              <span class="buch__name">CEVI March</span>
+              <span class="buch__wort">Tagebuch</span>
+              <span class="buch__jahr">seit 2010</span>
+            </div>
+            <span class="buch__band"></span>
+            <span class="buch__glanz"></span>
+          </div>
+          <div class="buch__innenseite"></div>
+        </div>
+
+        <div class="buch__falz" aria-hidden="true"></div>
+      </div>
+
+      <a class="buch__hinweis" href="#stufen">
+        <span class="buch__hinweis-zu">Aufschlagen</span>
+        <span class="buch__hinweis-auf">Entdecken</span>
+        <span class="buch__pfeil">&darr;</span>
+      </a>
     </div>
-    <a class="hero__entdecken" href="#stufen">Entdecken <span>&darr;</span></a>
   </section>
 
   <div class="uebergang" aria-hidden="true"></div>

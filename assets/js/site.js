@@ -70,6 +70,79 @@
   }
 
   // =========================================================================
+  //  Tagebuch auf der Startseite aufklappen
+  // =========================================================================
+  //  Das Buch liegt zuerst geschlossen über dem Bildschirm. Beim Scrollen
+  //  dreht sich der Deckel um die linke Kante auf. Die Bühne klebt dabei
+  //  am Fenster, es sieht also nicht nach Scrollen aus, sondern nach
+  //  Aufschlagen.
+  //
+  //  Hier wird nur eine Zahl gesetzt: --p, der Fortschritt von 0 bis 1.
+  //  Die gesamte Bewegung steht im CSS. Ohne dieses Skript bleibt --p
+  //  auf 1 und das Buch liegt offen da.
+  var buch = $('#buch');
+  var wenigBewegung = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+  if (buch && !wenigBewegung.matches) {
+    buch.classList.add('buch--aktiv');
+
+    var buehne = buch.querySelector('.buch__buehne');
+    var knopf = buch.querySelector('.hero__inhalt .btn');
+    var laeuft = false;
+    var warOffen = null;
+
+    // Sanft anlaufen und ausklingen. Eine stärkere Kurve lässt den Deckel
+    // in der Mitte zu schnell durchschlagen - das Aufklappen soll dem
+    // Finger folgen, nicht davonlaufen.
+    var kurve = function (t) { return t * t * (3 - 2 * t); };
+
+    var rechne = function () {
+      laeuft = false;
+      var strecke = buch.offsetHeight - buehne.offsetHeight;
+      if (strecke <= 0) { buch.style.setProperty('--p', '1'); return; }
+
+      var oben = buch.getBoundingClientRect().top;
+      var klebt = parseFloat(getComputedStyle(buehne).top) || 0;
+      var roh = (klebt - oben) / strecke;
+      roh = roh < 0 ? 0 : roh > 1 ? 1 : roh;
+
+      var p = kurve(roh);
+      buch.style.setProperty('--p', p.toFixed(4));
+
+      // Solange der Deckel zu ist, liegt die Schaltfläche unsichtbar
+      // darunter. Sie darf dann nicht mit der Tabulatortaste erreichbar
+      // sein, sonst springt der Fokus auf etwas, das niemand sieht.
+      var offen = p > 0.45;
+      if (knopf && offen !== warOffen) {
+        warOffen = offen;
+        if (offen) knopf.removeAttribute('tabindex');
+        else knopf.setAttribute('tabindex', '-1');
+      }
+    };
+
+    var anstossen = function () {
+      if (!laeuft) { laeuft = true; requestAnimationFrame(rechne); }
+    };
+
+    rechne();
+    window.addEventListener('scroll', anstossen, { passive: true });
+    window.addEventListener('resize', anstossen);
+    if (window.ResizeObserver) new ResizeObserver(anstossen).observe(buehne);
+
+    // Stellt jemand unterwegs auf "Bewegung reduzieren" um, bleibt das
+    // Buch offen stehen statt mitten im Aufklappen zu hängen.
+    wenigBewegung.addEventListener('change', function (ev) {
+      if (ev.matches) {
+        buch.classList.remove('buch--aktiv');
+        buch.style.removeProperty('--p');
+      } else {
+        buch.classList.add('buch--aktiv');
+        rechne();
+      }
+    });
+  }
+
+  // =========================================================================
   //  Karte erst nach ausdrücklicher Einwilligung laden
   // =========================================================================
   //  Ohne Klick geht keine Anfrage an Google - erst danach wird der Rahmen
