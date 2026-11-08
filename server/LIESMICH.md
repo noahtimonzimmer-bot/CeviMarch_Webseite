@@ -16,7 +16,7 @@ nichts:
 
 | | |
 |---|---|
-| Betriebssystem | **Ubuntu 24.04 LTS** |
+| Betriebssystem | **Ubuntu 26.04 LTS** (24.04 geht auch) |
 | Prozessor | 1–2 Kerne |
 | Arbeitsspeicher | **2 GB** reichen, 4 GB sind bequem |
 | Speicherplatz | **20–40 GB** (Belegfotos wachsen langsam) |

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =====================================================================
-#  Server einrichten - Ubuntu 24.04
+#  Server einrichten - Ubuntu LTS (24.04 oder 26.04)
 # =====================================================================
 #  Richtet einen frischen Server so ein, dass darauf die Website und die
 #  Kassen-App laufen. Das Skript darf mehrfach laufen, es macht nichts
