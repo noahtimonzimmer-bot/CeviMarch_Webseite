@@ -1,4 +1,9 @@
-// Anmeldung, Sitzungen, CSRF-Schutz und Berechtigungen.
+// Anmeldung mit zwei Passwoertern, Sitzungen und CSRF-Schutz.
+//
+// Es gibt keine persoenlichen Konten. Wer das Leitungspasswort kennt, sieht
+// und verwaltet alles; wer das Mitarbeitspasswort kennt, kann nur Belege
+// einreichen. So koennen sich mehrere Abteilungsleitungen dasselbe Passwort
+// teilen, ohne dass jemand ein Konto braucht.
 import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { db, protokollieren } from './db.js';
@@ -6,13 +11,16 @@ import { db, protokollieren } from './db.js';
 const SITZUNG_TAGE = 30;
 const COOKIE_NAME = 'cmk_sid';
 
+export const SCHLUESSEL_ADMIN = 'passwort_leitung';
+export const SCHLUESSEL_BENUTZER = 'passwort_mitarbeit';
+
 // ---------------------------------------------------------------- Passwoerter
 
 export function passwortHashen(klartext) {
   return bcrypt.hashSync(klartext, 12);
 }
 
-export function passwortPruefen(klartext, hash) {
+function passwortVergleichen(klartext, hash) {
   try {
     return bcrypt.compareSync(klartext, hash);
   } catch {
@@ -21,15 +29,15 @@ export function passwortPruefen(klartext, hash) {
 }
 
 export function passwortRegelnVerletzt(passwort) {
-  if (typeof passwort !== 'string' || passwort.length < 8) {
-    return 'Das Passwort braucht mindestens 8 Zeichen.';
+  if (typeof passwort !== 'string' || passwort.length < 6) {
+    return 'Das Passwort braucht mindestens 6 Zeichen.';
   }
   if (passwort.length > 200) return 'Das Passwort ist zu lang.';
   return null;
 }
 
-/** Lesbares Startpasswort, das man am Telefon durchgeben kann. */
-export function startpasswortErzeugen() {
+/** Lesbares Passwort, das man am Telefon durchgeben kann. */
+export function passwortVorschlagen() {
   const woerter = [
     'Zelt', 'Feuer', 'Seil', 'Karte', 'Pfad', 'Berg', 'Fluss', 'Kompass',
     'Lager', 'Knoten', 'Stern', 'Wald', 'Bach', 'Hut', 'Nebel', 'Brot'
@@ -39,16 +47,31 @@ export function startpasswortErzeugen() {
   return `${w1}-${w2}-${crypto.randomInt(1000, 9999)}`;
 }
 
+export function einstellungLesen(schluessel) {
+  return db.prepare('SELECT wert FROM einstellungen WHERE schluessel = ?').get(schluessel)?.wert || null;
+}
+
+export function einstellungSetzen(schluessel, wert) {
+  db.prepare(
+    `INSERT INTO einstellungen (schluessel, wert, geaendert_am)
+     VALUES (?, ?, datetime('now'))
+     ON CONFLICT (schluessel) DO UPDATE SET wert = excluded.wert, geaendert_am = excluded.geaendert_am`
+  ).run(schluessel, wert);
+}
+
+export function passwortSetzen(rolle, klartext) {
+  einstellungSetzen(rolle === 'admin' ? SCHLUESSEL_ADMIN : SCHLUESSEL_BENUTZER, passwortHashen(klartext));
+}
+
 // ----------------------------------------------------------------- Sitzungen
 
-export function sitzungAnlegen(benutzerId) {
+export function sitzungAnlegen(rolle) {
   const sid = crypto.randomBytes(32).toString('base64url');
   const csrf = crypto.randomBytes(24).toString('base64url');
   const ablauf = Date.now() + SITZUNG_TAGE * 24 * 60 * 60 * 1000;
-  db.prepare(
-    'INSERT INTO sitzungen (sid, benutzer_id, csrf, ablauf) VALUES (?, ?, ?, ?)'
-  ).run(sid, benutzerId, csrf, ablauf);
-  return { sid, csrf, ablauf };
+  db.prepare('INSERT INTO sitzungen (sid, rolle, csrf, ablauf) VALUES (?, ?, ?, ?)')
+    .run(sid, rolle, csrf, ablauf);
+  return { sid, rolle, csrf, ablauf };
 }
 
 export function sitzungLesen(sid) {
@@ -64,6 +87,11 @@ export function sitzungLesen(sid) {
 
 export function sitzungLoeschen(sid) {
   if (sid) db.prepare('DELETE FROM sitzungen WHERE sid = ?').run(sid);
+}
+
+/** Nach einem Passwortwechsel fliegen alle Geraete mit dieser Rolle raus. */
+export function sitzungenBeenden(rolle, ausser = null) {
+  db.prepare('DELETE FROM sitzungen WHERE rolle = ? AND sid <> ?').run(rolle, ausser || '');
 }
 
 export function alteSitzungenAufraeumen() {
@@ -88,33 +116,25 @@ export const SITZUNGS_COOKIE = COOKIE_NAME;
 
 // --------------------------------------------------------------- Middleware
 
-/** Haengt req.benutzer und req.sitzung an, wenn angemeldet. */
+/** Haengt req.sitzung und req.rolle an, wenn angemeldet. */
 export function sitzungLaden(req, _res, next) {
   const sitzung = sitzungLesen(req.cookies?.[COOKIE_NAME]);
   if (sitzung) {
-    const benutzer = db
-      .prepare(
-        `SELECT id, name, email, rolle, iban, telefon, aktiv, passwort_neu
-           FROM benutzer WHERE id = ?`
-      )
-      .get(sitzung.benutzer_id);
-    if (benutzer && benutzer.aktiv) {
-      req.benutzer = benutzer;
-      req.sitzung = sitzung;
-    }
+    req.sitzung = sitzung;
+    req.rolle = sitzung.rolle;
   }
   next();
 }
 
 export function angemeldet(req, res, next) {
-  if (!req.benutzer) return res.status(401).json({ fehler: 'Nicht angemeldet.' });
+  if (!req.rolle) return res.status(401).json({ fehler: 'Nicht angemeldet.' });
   next();
 }
 
-export function nurAdmin(req, res, next) {
-  if (!req.benutzer) return res.status(401).json({ fehler: 'Nicht angemeldet.' });
-  if (req.benutzer.rolle !== 'admin') {
-    return res.status(403).json({ fehler: 'Nur fuer die Kassenleitung.' });
+export function nurLeitung(req, res, next) {
+  if (!req.rolle) return res.status(401).json({ fehler: 'Nicht angemeldet.' });
+  if (req.rolle !== 'admin') {
+    return res.status(403).json({ fehler: 'Nur die Abteilungsleitung kann das.' });
   }
   next();
 }
@@ -130,72 +150,42 @@ export function csrfPruefen(req, res, next) {
   next();
 }
 
-// ------------------------------------------------------------ Berechtigungen
-
-/** 'kassier' | 'melder' | null  — Rolle des Benutzers bei dieser Kasse. */
-export function kassenRolle(benutzer, kasseId) {
-  if (!benutzer) return null;
-  if (benutzer.rolle === 'admin') return 'kassier';
-  const zeile = db
-    .prepare('SELECT rolle FROM kassen_mitglieder WHERE kasse_id = ? AND benutzer_id = ?')
-    .get(kasseId, benutzer.id);
-  return zeile ? zeile.rolle : null;
-}
-
-export function darfKasseVerwalten(benutzer, kasseId) {
-  return kassenRolle(benutzer, kasseId) === 'kassier';
-}
-
-export function darfBelegEinreichen(benutzer, kasseId) {
-  return kassenRolle(benutzer, kasseId) !== null;
-}
-
-/** IDs aller Kassen, bei denen der Benutzer Kassier (oder Admin) ist. */
-export function verwalteteKassenIds(benutzer) {
-  if (benutzer.rolle === 'admin') {
-    return db.prepare('SELECT id FROM kassen').all().map((k) => k.id);
-  }
-  return db
-    .prepare(`SELECT kasse_id AS id FROM kassen_mitglieder
-               WHERE benutzer_id = ? AND rolle = 'kassier'`)
-    .all(benutzer.id)
-    .map((k) => k.id);
-}
-
 // ------------------------------------------------------- Anmeldeversuche
 
-const versuche = new Map(); // email -> { anzahl, bis }
+// Ohne Benutzernamen kann nur global gebremst werden. Das reicht: die App
+// steht hinter einer eigenen Adresse und hat wenige Benutzer.
+let versuche = { anzahl: 0, bis: 0 };
 
-export function zuVieleVersuche(email) {
-  const eintrag = versuche.get(String(email || '').toLowerCase());
-  if (!eintrag) return false;
-  if (eintrag.bis < Date.now()) {
-    versuche.delete(String(email || '').toLowerCase());
+export function zuVieleVersuche() {
+  if (versuche.bis < Date.now()) {
+    versuche = { anzahl: 0, bis: 0 };
     return false;
   }
-  return eintrag.anzahl >= 8;
+  return versuche.anzahl >= 10;
 }
 
-export function versuchZaehlen(email) {
-  const schluessel = String(email || '').toLowerCase();
-  const eintrag = versuche.get(schluessel) || { anzahl: 0, bis: 0 };
-  eintrag.anzahl += 1;
-  eintrag.bis = Date.now() + 15 * 60 * 1000;
-  versuche.set(schluessel, eintrag);
+export function versuchZaehlen() {
+  versuche.anzahl += 1;
+  versuche.bis = Date.now() + 15 * 60 * 1000;
 }
 
-export function versucheZuruecksetzen(email) {
-  versuche.delete(String(email || '').toLowerCase());
+export function versucheZuruecksetzen() {
+  versuche = { anzahl: 0, bis: 0 };
 }
 
 // -------------------------------------------------------------- Anmelden
 
-export function anmelden(email, passwort) {
-  const benutzer = db
-    .prepare('SELECT * FROM benutzer WHERE email = ? COLLATE NOCASE')
-    .get(String(email || '').trim());
-  if (!benutzer || !benutzer.aktiv) return null;
-  if (!passwortPruefen(passwort, benutzer.passwort_hash)) return null;
-  protokollieren(benutzer.id, 'anmeldung', 'benutzer', benutzer.id, null);
-  return benutzer;
+/** Prueft das Passwort gegen beide Rollen. Gibt 'admin', 'benutzer' oder null. */
+export function anmelden(passwort) {
+  if (typeof passwort !== 'string' || !passwort) return null;
+  const adminHash = einstellungLesen(SCHLUESSEL_ADMIN);
+  const benutzerHash = einstellungLesen(SCHLUESSEL_BENUTZER);
+
+  // Beide Vergleiche laufen immer, damit die Antwortzeit nichts verraet.
+  const istAdmin = adminHash ? passwortVergleichen(passwort, adminHash) : false;
+  const istBenutzer = benutzerHash ? passwortVergleichen(passwort, benutzerHash) : false;
+
+  const rolle = istAdmin ? 'admin' : istBenutzer ? 'benutzer' : null;
+  if (rolle) protokollieren(rolle, 'anmeldung', null, null, null);
+  return rolle;
 }

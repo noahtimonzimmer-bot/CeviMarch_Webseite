@@ -1,74 +1,37 @@
-// Anmelden, abmelden, eigenes Profil.
+// Anmelden mit einem der beiden Passwoerter, abmelden, Passwoerter aendern.
 import express from 'express';
-import { db, protokollieren } from '../db.js';
+import { protokollieren } from '../db.js';
 import {
-  anmelden, sitzungAnlegen, sitzungLoeschen, cookieSetzen, cookieLoeschen,
-  csrfPruefen, angemeldet, passwortHashen, passwortPruefen, passwortRegelnVerletzt,
+  anmelden, sitzungAnlegen, sitzungLoeschen, sitzungenBeenden, cookieSetzen, cookieLoeschen,
+  csrfPruefen, nurLeitung, passwortSetzen, passwortRegelnVerletzt, passwortVorschlagen,
   zuVieleVersuche, versuchZaehlen, versucheZuruecksetzen, SITZUNGS_COOKIE
 } from '../auth.js';
 
 const router = express.Router();
 
-/** Kassen, die dieser Benutzer sieht, inklusive seiner Rolle darin. */
-function kassenFuer(benutzer) {
-  if (benutzer.rolle === 'admin') {
-    return db
-      .prepare(`SELECT id, name, kuerzel, farbe, aktiv, 'kassier' AS meine_rolle
-                  FROM kassen ORDER BY aktiv DESC, name`)
-      .all();
-  }
-  return db
-    .prepare(
-      `SELECT k.id, k.name, k.kuerzel, k.farbe, k.aktiv, m.rolle AS meine_rolle
-         FROM kassen k
-         JOIN kassen_mitglieder m ON m.kasse_id = k.id
-        WHERE m.benutzer_id = ? AND k.aktiv = 1
-        ORDER BY k.name`
-    )
-    .all(benutzer.id);
-}
-
-export function ichAntwort(req) {
-  return {
-    benutzer: {
-      id: req.benutzer.id,
-      name: req.benutzer.name,
-      email: req.benutzer.email,
-      rolle: req.benutzer.rolle,
-      iban: req.benutzer.iban,
-      telefon: req.benutzer.telefon,
-      passwort_neu: Boolean(req.benutzer.passwort_neu)
-    },
-    csrf: req.sitzung.csrf,
-    kassen: kassenFuer(req.benutzer)
-  };
+function ichAntwort(req) {
+  return { rolle: req.sitzung.rolle, csrf: req.sitzung.csrf };
 }
 
 router.post('/anmelden', (req, res) => {
-  // Einfacher CSRF-Schutz fuer die Anmeldung: nur Anfragen aus unserem eigenen
-  // Javascript schicken diesen Kopfeintrag mit, ein HTML-Formular einer
-  // fremden Seite kann das nicht.
+  // Einfacher Schutz: nur unser eigenes Javascript schickt diesen Kopfeintrag
+  // mit, ein Formular einer fremden Seite kann das nicht.
   if (req.get('X-Requested-With') !== 'ce-march-kasse') {
     return res.status(403).json({ fehler: 'Ungueltige Anfrage.' });
   }
-  const { email, passwort } = req.body || {};
-  if (!email || !passwort) {
-    return res.status(400).json({ fehler: 'E-Mail und Passwort sind noetig.' });
+  const passwort = req.body?.passwort;
+  if (!passwort) return res.status(400).json({ fehler: 'Bitte das Passwort eingeben.' });
+  if (zuVieleVersuche()) {
+    return res.status(429).json({ fehler: 'Zu viele Fehlversuche. Bitte 15 Minuten warten.' });
   }
-  if (zuVieleVersuche(email)) {
-    return res.status(429).json({
-      fehler: 'Zu viele Fehlversuche. Bitte 15 Minuten warten.'
-    });
+  const rolle = anmelden(passwort);
+  if (!rolle) {
+    versuchZaehlen();
+    return res.status(401).json({ fehler: 'Das Passwort stimmt nicht.' });
   }
-  const benutzer = anmelden(email, passwort);
-  if (!benutzer) {
-    versuchZaehlen(email);
-    return res.status(401).json({ fehler: 'E-Mail oder Passwort stimmt nicht.' });
-  }
-  versucheZuruecksetzen(email);
-  const sitzung = sitzungAnlegen(benutzer.id);
+  versucheZuruecksetzen();
+  const sitzung = sitzungAnlegen(rolle);
   cookieSetzen(res, sitzung.sid, sitzung.ablauf);
-  req.benutzer = benutzer;
   req.sitzung = sitzung;
   res.json(ichAntwort(req));
 });
@@ -80,39 +43,25 @@ router.post('/abmelden', csrfPruefen, (req, res) => {
 });
 
 router.get('/ich', (req, res) => {
-  if (!req.benutzer) return res.status(401).json({ fehler: 'Nicht angemeldet.' });
+  if (!req.sitzung) return res.status(401).json({ fehler: 'Nicht angemeldet.' });
   res.json(ichAntwort(req));
 });
 
-router.patch('/ich', csrfPruefen, angemeldet, (req, res) => {
-  const { name, iban, telefon } = req.body || {};
-  db.prepare('UPDATE benutzer SET name = ?, iban = ?, telefon = ? WHERE id = ?').run(
-    String(name || req.benutzer.name).trim().slice(0, 120),
-    iban ? String(iban).replace(/\s/g, '').toUpperCase().slice(0, 34) : null,
-    telefon ? String(telefon).trim().slice(0, 40) : null,
-    req.benutzer.id
-  );
-  req.benutzer = db
-    .prepare('SELECT id, name, email, rolle, iban, telefon, aktiv, passwort_neu FROM benutzer WHERE id = ?')
-    .get(req.benutzer.id);
-  res.json(ichAntwort(req));
+/** Vorschlag fuer ein neues Passwort, damit man sich keines ausdenken muss. */
+router.get('/passwort-vorschlag', nurLeitung, (_req, res) => {
+  res.json({ passwort: passwortVorschlagen() });
 });
 
-router.post('/ich/passwort', csrfPruefen, angemeldet, (req, res) => {
-  const { altes_passwort: alt, neues_passwort: neu } = req.body || {};
-  const zeile = db.prepare('SELECT passwort_hash FROM benutzer WHERE id = ?').get(req.benutzer.id);
-  if (!passwortPruefen(alt, zeile.passwort_hash)) {
-    return res.status(400).json({ fehler: 'Das bisherige Passwort stimmt nicht.' });
-  }
-  const problem = passwortRegelnVerletzt(neu);
+router.post('/passwoerter', csrfPruefen, nurLeitung, (req, res) => {
+  const rolle = req.body?.rolle === 'admin' ? 'admin' : 'benutzer';
+  const neues = req.body?.passwort;
+  const problem = passwortRegelnVerletzt(neues);
   if (problem) return res.status(400).json({ fehler: problem });
 
-  db.prepare('UPDATE benutzer SET passwort_hash = ?, passwort_neu = 0 WHERE id = ?')
-    .run(passwortHashen(neu), req.benutzer.id);
-  // Alle anderen Sitzungen beenden.
-  db.prepare('DELETE FROM sitzungen WHERE benutzer_id = ? AND sid <> ?')
-    .run(req.benutzer.id, req.sitzung.sid);
-  protokollieren(req.benutzer.id, 'passwort_geaendert', 'benutzer', req.benutzer.id, null);
+  passwortSetzen(rolle, neues);
+  // Alle anderen Geraete mit dieser Rolle muessen sich neu anmelden.
+  sitzungenBeenden(rolle, rolle === req.sitzung.rolle ? req.sitzung.sid : null);
+  protokollieren(req.sitzung.rolle, 'passwort_geaendert', 'passwort', null, { rolle });
   res.json({ ok: true });
 });
 

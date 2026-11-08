@@ -23,12 +23,12 @@ export function schemaAnlegen() {
   db.exec(sql);
 }
 
-export function protokollieren(benutzerId, aktion, objekt, objektId, details) {
+export function protokollieren(rolle, aktion, objekt, objektId, details) {
   db.prepare(
-    `INSERT INTO protokoll (benutzer_id, aktion, objekt, objekt_id, details)
+    `INSERT INTO protokoll (rolle, aktion, objekt, objekt_id, details)
      VALUES (?, ?, ?, ?, ?)`
   ).run(
-    benutzerId ?? null,
+    rolle ?? null,
     aktion,
     objekt ?? null,
     objektId ?? null,

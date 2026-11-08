@@ -19,46 +19,39 @@
     <img src="img/logo.jpg" alt="Cevi March" class="logo-gross">
     <h1>Ce March Kasse</h1>
     <p class="unterzeile">Belege erfassen, Kasse führen, sauber abrechnen.</p>
-    <form id="anmelde-formular" autocomplete="on">
-      <label>E-Mail
-        <input type="email" name="email" autocomplete="username" required>
-      </label>
+    <form id="anmelde-formular">
       <label>Passwort
-        <input type="password" name="passwort" autocomplete="current-password" required>
+        <input type="password" name="passwort" autocomplete="current-password"
+               autocapitalize="off" autocorrect="off" required>
       </label>
       <p class="fehler" id="anmelde-fehler" hidden></p>
       <button class="knopf primaer breit" type="submit">Anmelden</button>
     </form>
-    <p class="hinweis">Kein Zugang? Melde dich bei der Abteilungsleitung.</p>
+    <p class="hinweis">
+      Es gibt ein Passwort für die Abteilungsleitung und eines zum Belege erfassen.
+      Beide gibt die Abteilungsleitung weiter.
+    </p>
   </div>
 </div>
 
 <!-- ----------------------------------------------------------------- App -->
 <div id="app" class="app" hidden>
-  <aside class="seitenleiste">
-    <div class="marke">
-      <img src="img/logo.jpg" alt="" class="logo-klein">
-      <div>
-        <strong>Ce March</strong>
-        <span>Kasse</span>
-      </div>
+  <header class="kopfleiste">
+    <div class="mitte kopf-inhalt">
+      <a class="marke" href="#/">
+        <img src="img/logo.jpg" alt="" class="logo-klein">
+        <span><strong>Ce March</strong> Kasse</span>
+      </a>
+      <nav id="navigation" class="kopf-navigation"></nav>
     </div>
-    <nav id="navigation"></nav>
-    <div class="seitenleiste-fuss">
-      <button class="knopf leise breit" data-ziel="#/profil" id="profil-knopf"></button>
-      <button class="knopf leise breit" id="abmelden">Abmelden</button>
-    </div>
-  </aside>
+  </header>
 
-  <div class="inhalt-spalte">
-    <header class="kopfleiste">
-      <img src="img/logo.jpg" alt="" class="logo-klein nur-mobil">
-      <h1 id="seitentitel">Belege</h1>
-      <button class="knopf primaer kompakt" data-ziel="#/neu" id="neu-knopf">+ Beleg</button>
-    </header>
-    <main id="ansicht" class="ansicht"></main>
-    <nav class="tableiste nur-mobil" id="tableiste"></nav>
-  </div>
+  <main id="ansicht" class="mitte ansicht"></main>
+
+  <footer class="fuss mitte">
+    <span id="rollen-text"></span>
+    <button class="knopf leise kompakt" id="abmelden">Abmelden</button>
+  </footer>
 </div>
 
 <div id="meldung" class="meldung" hidden></div>

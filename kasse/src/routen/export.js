@@ -1,42 +1,41 @@
-// Exporte: Excel-Kostenuebersicht und Druckansicht aller Belege.
+// Exporte einer einzelnen Kasse: Excel-Kostenuebersicht und Druckansicht.
 import express from 'express';
 import crypto from 'node:crypto';
 import ExcelJS from 'exceljs';
 import { db } from '../db.js';
-import { angemeldet } from '../auth.js';
-import { belegeLaden, sichtbarkeit } from '../belegabfrage.js';
-import { abrechnungBerechnen, schuldenBerechnen } from './abrechnung.js';
+import { nurLeitung } from '../auth.js';
+import {
+  kassenbuch, belegeDerKasse, schuldenDerKasse, kasseLesen,
+  ZAHLUNGSART_TEXT, STATUS_TEXT
+} from '../kassenbuch.js';
 import { alsZahl, ausRappen } from '../geld.js';
 
 const router = express.Router();
-router.use(angemeldet);
+router.use(nurLeitung);
 
-const ZAHLUNGSART_TEXT = {
-  privat: 'privat ausgelegt',
-  kasse_bar: 'Kasse bar',
-  kasse_karte: 'Kassenkarte',
-  rechnung: 'Rechnung'
-};
-const STATUS_TEXT = { offen: 'offen', geprueft: 'geprüft', abgelehnt: 'abgelehnt' };
+function dateiName(kasse, jahr, endung) {
+  const sauber = String(kasse.name).replace(/[^A-Za-z0-9äöüÄÖÜ -]/g, '').trim().replace(/\s+/g, '-');
+  return `Kassenbuch_${sauber || 'Kasse'}_${jahr || 'alle-Jahre'}.${endung}`;
+}
 
-function dateiName(req, endung) {
-  const kassen = String(req.query.kasse || '')
-    .split(',').map(Number).filter(Boolean);
-  let teil = 'alle-Kassen';
-  if (kassen.length === 1) {
-    const kasse = db.prepare('SELECT kuerzel FROM kassen WHERE id = ?').get(kassen[0]);
-    if (kasse) teil = kasse.kuerzel;
+function zusammenstellen(req, res) {
+  const kasse = kasseLesen(req.params.kasseId);
+  if (!kasse) {
+    res.status(404).json({ fehler: 'Kasse nicht gefunden.' });
+    return null;
   }
-  const von = req.query.von ? String(req.query.von).slice(0, 10) : 'Anfang';
-  const bis = req.query.bis ? String(req.query.bis).slice(0, 10) : 'heute';
-  return `Kassenbuch_${teil}_${von}_bis_${bis}.${endung}`;
+  const jahr = req.query.jahr === 'alle' || !req.query.jahr ? null : Number(req.query.jahr);
+  return { kasse, jahr, buch: kassenbuch(kasse.id, jahr) };
 }
 
 // ------------------------------------------------------------------- Excel
 
-router.get('/excel', async (req, res) => {
-  const { belege } = belegeLaden(req.benutzer, req.query, { limit: 20000 });
-  const zusammenzug = abrechnungBerechnen(req.benutzer, req.query);
+router.get('/:kasseId/excel', async (req, res) => {
+  const daten = zusammenstellen(req, res);
+  if (!daten) return;
+  const { kasse, jahr, buch } = daten;
+  const belege = belegeDerKasse(kasse.id, { jahr });
+  const schulden = schuldenDerKasse(kasse.id);
 
   const mappe = new ExcelJS.Workbook();
   mappe.creator = 'Ce March Kasse';
@@ -48,170 +47,117 @@ router.get('/excel', async (req, res) => {
     zeile.alignment = { vertical: 'middle' };
     zeile.height = 22;
   };
+  const geld = (zelle) => { zelle.numFmt = '#,##0.00'; };
 
-  // --- Blatt 1: Belege
-  const blatt = mappe.addWorksheet('Belege', {
+  // --- Blatt 1: Kassenbuch mit laufendem Saldo
+  const blatt = mappe.addWorksheet('Kassenbuch', {
+    views: [{ state: 'frozen', ySplit: 1 }],
+    pageSetup: { fitToPage: true, fitToWidth: 1, fitToHeight: 0 }
+  });
+  blatt.columns = [
+    { header: 'Datum', key: 'datum', width: 12 },
+    { header: 'Nr.', key: 'nummer', width: 7 },
+    { header: 'Beschreibung', key: 'text', width: 44 },
+    { header: 'Ausgelegt von', key: 'person', width: 20 },
+    { header: 'Einnahme', key: 'ein', width: 13 },
+    { header: 'Ausgabe', key: 'aus', width: 13 },
+    { header: 'Saldo', key: 'saldo', width: 14 }
+  ];
+  kopfStil(blatt.getRow(1));
+
+  const startZeile = blatt.addRow({ text: buch.start.text, saldo: alsZahl(buch.start.saldo_rappen) });
+  startZeile.font = { italic: true };
+  geld(startZeile.getCell('saldo'));
+
+  for (const zeile of buch.zeilen) {
+    const z = blatt.addRow({
+      datum: zeile.datum,
+      nummer: zeile.nummer ?? '',
+      text: zeile.haendler ? `${zeile.text} (${zeile.haendler})` : zeile.text,
+      person: zeile.person || '',
+      ein: zeile.einnahme_rappen ? alsZahl(zeile.einnahme_rappen) : null,
+      aus: zeile.ausgabe_rappen ? alsZahl(zeile.ausgabe_rappen) : null,
+      saldo: alsZahl(zeile.saldo_rappen)
+    });
+    geld(z.getCell('ein'));
+    geld(z.getCell('aus'));
+    geld(z.getCell('saldo'));
+  }
+
+  const summe = blatt.addRow({
+    text: 'Total',
+    ein: alsZahl(buch.einnahmen_rappen),
+    aus: alsZahl(buch.ausgaben_rappen),
+    saldo: alsZahl(buch.saldo_rappen)
+  });
+  summe.font = { bold: true };
+  geld(summe.getCell('ein'));
+  geld(summe.getCell('aus'));
+  geld(summe.getCell('saldo'));
+
+  // --- Blatt 2: alle Belege, auch die noch nicht geprüften
+  const belegBlatt = mappe.addWorksheet('Belege', {
     views: [{ state: 'frozen', ySplit: 1 }],
     pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 }
   });
-  blatt.columns = [
-    { header: 'Beleg-Nr.', key: 'nummer', width: 16 },
+  belegBlatt.columns = [
+    { header: 'Nr.', key: 'nummer', width: 7 },
+    { header: 'Jahr', key: 'jahr', width: 8 },
     { header: 'Datum', key: 'datum', width: 12 },
-    { header: 'Kasse', key: 'kasse', width: 18 },
     { header: 'Beschreibung', key: 'beschreibung', width: 38 },
-    { header: 'Händler', key: 'haendler', width: 20 },
-    { header: 'Kategorie', key: 'kategorie', width: 16 },
-    { header: 'Zahlungsart', key: 'zahlungsart', width: 18 },
+    { header: 'Laden', key: 'haendler', width: 20 },
+    { header: 'Bezahlt mit', key: 'zahlungsart', width: 18 },
     { header: 'Ausgelegt von', key: 'person', width: 20 },
     { header: 'Betrag CHF', key: 'betrag', width: 14 },
     { header: 'Status', key: 'status', width: 12 },
     { header: 'Zurückerstattet', key: 'rueck', width: 16 },
-    { header: 'Erfasst am', key: 'erfasst', width: 18 },
     { header: 'Fotos', key: 'dateien', width: 8 }
   ];
-  kopfStil(blatt.getRow(1));
-
-  for (const beleg of belege) {
-    const zeile = blatt.addRow({
+  kopfStil(belegBlatt.getRow(1));
+  for (const beleg of [...belege].reverse()) {
+    const z = belegBlatt.addRow({
       nummer: beleg.nummer,
+      jahr: beleg.jahr,
       datum: beleg.datum,
-      kasse: `${beleg.kasse_kuerzel} – ${beleg.kasse_name}`,
       beschreibung: beleg.beschreibung,
       haendler: beleg.haendler || '',
-      kategorie: beleg.kategorie,
       zahlungsart: ZAHLUNGSART_TEXT[beleg.zahlungsart] || beleg.zahlungsart,
-      person: beleg.bezahlt_von_name || '',
+      person: beleg.person || '',
       betrag: alsZahl(beleg.betrag_rappen),
       status: STATUS_TEXT[beleg.status] || beleg.status,
       rueck: beleg.rueckerstattet_am || (beleg.zahlungsart === 'privat' ? 'offen' : '–'),
-      erfasst: (beleg.erstellt_am || '').slice(0, 16),
       dateien: beleg.anzahl_dateien
     });
-    zeile.getCell('betrag').numFmt = '#,##0.00';
-    if (beleg.status === 'abgelehnt') zeile.font = { strike: true, color: { argb: 'FF888888' } };
-    if (beleg.status === 'offen') zeile.getCell('status').font = { color: { argb: 'FFD21A37' }, bold: true };
+    geld(z.getCell('betrag'));
+    if (beleg.status === 'abgelehnt') z.font = { strike: true, color: { argb: 'FF888888' } };
+    if (beleg.status === 'offen') z.getCell('status').font = { color: { argb: 'FFD21A37' }, bold: true };
   }
-  const summenZeile = blatt.addRow({
-    beschreibung: 'Total',
-    betrag: alsZahl(belege.reduce((s, b) => s + (b.status !== 'abgelehnt' ? b.betrag_rappen : 0), 0))
-  });
-  summenZeile.font = { bold: true };
-  summenZeile.getCell('betrag').numFmt = '#,##0.00';
-  blatt.autoFilter = { from: 'A1', to: `M1` };
+  belegBlatt.autoFilter = { from: 'A1', to: 'K1' };
 
-  // --- Blatt 2: Einnahmen
-  const gewaehlteKassen = String(req.query.kasse || '')
-    .split(',').map(Number).filter((x) => Number.isInteger(x) && x > 0);
-  const erlaubteKassen = sichtbarkeit(req.benutzer).kassier
-    .filter((id) => !gewaehlteKassen.length || gewaehlteKassen.includes(id));
-  const einnahmenBlatt = mappe.addWorksheet('Einnahmen');
-  einnahmenBlatt.columns = [
-    { header: 'Datum', key: 'datum', width: 12 },
-    { header: 'Kasse', key: 'kasse', width: 20 },
-    { header: 'Beschreibung', key: 'beschreibung', width: 40 },
-    { header: 'Kategorie', key: 'kategorie', width: 18 },
-    { header: 'Betrag CHF', key: 'betrag', width: 14 }
-  ];
-  kopfStil(einnahmenBlatt.getRow(1));
-  if (erlaubteKassen.length) {
-    const bedingungen = [`e.kasse_id IN (${erlaubteKassen.map(() => '?').join(', ')})`];
-    const werte = [...erlaubteKassen];
-    if (req.query.von) { bedingungen.push('e.datum >= ?'); werte.push(String(req.query.von).slice(0, 10)); }
-    if (req.query.bis) { bedingungen.push('e.datum <= ?'); werte.push(String(req.query.bis).slice(0, 10)); }
-    const einnahmen = db
-      .prepare(
-        `SELECT e.*, k.kuerzel, k.name AS kasse_name FROM einnahmen e
-           JOIN kassen k ON k.id = e.kasse_id
-          WHERE ${bedingungen.join(' AND ')} ORDER BY e.datum`
-      )
-      .all(...werte);
-    for (const eintrag of einnahmen) {
-      const zeile = einnahmenBlatt.addRow({
-        datum: eintrag.datum,
-        kasse: `${eintrag.kuerzel} – ${eintrag.kasse_name}`,
-        beschreibung: eintrag.beschreibung,
-        kategorie: eintrag.kategorie,
-        betrag: alsZahl(eintrag.betrag_rappen)
-      });
-      zeile.getCell('betrag').numFmt = '#,##0.00';
-    }
-  }
-
-  // --- Blatt 3: Zusammenzug
-  const uebersicht = mappe.addWorksheet('Zusammenzug');
-  uebersicht.columns = [
-    { header: '', key: 'a', width: 34 },
-    { header: '', key: 'b', width: 18 },
-    { header: '', key: 'c', width: 14 }
-  ];
-  const titel = uebersicht.addRow({ a: 'Kostenübersicht Ce March Kasse' });
-  titel.font = { bold: true, size: 14 };
-  uebersicht.addRow({
-    a: 'Zeitraum',
-    b: `${req.query.von || 'Anfang'} bis ${req.query.bis || 'heute'}`
-  });
-  uebersicht.addRow({});
-  const zahl = (beschriftung, rappen, fett = false) => {
-    const zeile = uebersicht.addRow({ a: beschriftung, b: alsZahl(rappen) });
-    zeile.getCell('b').numFmt = '#,##0.00';
-    if (fett) zeile.font = { bold: true };
-    return zeile;
-  };
-  zahl('Startsaldo', zusammenzug.startsaldo_rappen);
-  zahl('Einnahmen', zusammenzug.einnahmen_rappen);
-  zahl('Ausgaben (geprüfte Belege)', -zusammenzug.ausgaben_rappen);
-  zahl('Saldo', zusammenzug.saldo_rappen, true);
-  uebersicht.addRow({});
-  zahl('Noch offene Belege (ungeprüft)', zusammenzug.offen_rappen);
-
-  uebersicht.addRow({});
-  const k1 = uebersicht.addRow({ a: 'Nach Kategorie', b: 'Betrag CHF', c: 'Anzahl' });
-  kopfStil(k1);
-  for (const eintrag of zusammenzug.nach_kategorie) {
-    const zeile = uebersicht.addRow({ a: eintrag.kategorie, b: alsZahl(eintrag.summe), c: eintrag.anzahl });
-    zeile.getCell('b').numFmt = '#,##0.00';
-  }
-
-  uebersicht.addRow({});
-  const k2 = uebersicht.addRow({ a: 'Nach Kasse', b: 'Betrag CHF', c: 'Anzahl' });
-  kopfStil(k2);
-  for (const eintrag of zusammenzug.nach_kasse) {
-    const zeile = uebersicht.addRow({
-      a: `${eintrag.kuerzel} – ${eintrag.name}`, b: alsZahl(eintrag.summe), c: eintrag.anzahl
-    });
-    zeile.getCell('b').numFmt = '#,##0.00';
-  }
-
-  // --- Blatt 4: offene Auslagen
-  const schulden = schuldenBerechnen(req.benutzer, req.query);
+  // --- Blatt 3: wem die Kasse noch Geld schuldet
   const schuldenBlatt = mappe.addWorksheet('Offene Auslagen');
   schuldenBlatt.columns = [
     { header: 'Person', key: 'person', width: 26 },
-    { header: 'IBAN', key: 'iban', width: 30 },
     { header: 'Anzahl Belege', key: 'anzahl', width: 15 },
-    { header: 'Ältester Beleg', key: 'aeltester', width: 16 },
+    { header: 'Belegnummern', key: 'nummern', width: 28 },
     { header: 'Offen CHF', key: 'summe', width: 14 }
   ];
   kopfStil(schuldenBlatt.getRow(1));
   for (const person of schulden.personen) {
-    const zeile = schuldenBlatt.addRow({
-      person: person.name || 'unbekannt',
-      iban: person.iban || '',
+    const z = schuldenBlatt.addRow({
+      person: person.person,
       anzahl: person.anzahl,
-      aeltester: person.aeltester,
+      nummern: person.belege.map((b) => b.nummer).join(', '),
       summe: alsZahl(person.summe)
     });
-    zeile.getCell('summe').numFmt = '#,##0.00';
+    geld(z.getCell('summe'));
   }
   const total = schuldenBlatt.addRow({ person: 'Total', summe: alsZahl(schulden.gesamt_rappen) });
   total.font = { bold: true };
-  total.getCell('summe').numFmt = '#,##0.00';
+  geld(total.getCell('summe'));
 
-  res.setHeader(
-    'Content-Type',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-  );
-  res.setHeader('Content-Disposition', `attachment; filename="${dateiName(req, 'xlsx')}"`);
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename="${dateiName(kasse, jahr, 'xlsx')}"`);
   await mappe.xlsx.write(res);
   res.end();
 });
@@ -224,49 +170,77 @@ function escape(text) {
   );
 }
 
-router.get('/druck', (req, res) => {
-  const { belege, summe_rappen: summe } = belegeLaden(req.benutzer, req.query, { limit: 5000 });
-  const mitDateien = belege.map((beleg) => ({
-    ...beleg,
-    dateien: db
-      .prepare('SELECT id, mime FROM beleg_dateien WHERE beleg_id = ? ORDER BY id')
-      .all(beleg.id)
-  }));
+router.get('/:kasseId/druck', (req, res) => {
+  const daten = zusammenstellen(req, res);
+  if (!daten) return;
+  const { kasse, jahr, buch } = daten;
 
-  const zeitraum = `${req.query.von || 'Anfang'} – ${req.query.bis || 'heute'}`;
-  const kassenNamen = [...new Set(belege.map((b) => `${b.kasse_kuerzel} ${b.kasse_name}`))].join(', ') || '–';
+  // Gedruckt werden alle Belege ausser den abgelehnten.
+  const belege = belegeDerKasse(kasse.id, { jahr })
+    .filter((b) => b.status !== 'abgelehnt')
+    .sort((a, b) => a.nummer - b.nummer)
+    .map((beleg) => ({
+      ...beleg,
+      dateien: db
+        .prepare('SELECT id, mime FROM beleg_dateien WHERE beleg_id = ? ORDER BY id')
+        .all(beleg.id)
+    }));
 
-  const liste = mitDateien
-    .map(
-      (b) => `<tr>
-        <td class="nr">${escape(b.nummer)}</td>
-        <td>${escape(b.datum)}</td>
-        <td>${escape(b.beschreibung)}${b.haendler ? ` <span class="grau">(${escape(b.haendler)})</span>` : ''}</td>
-        <td>${escape(b.bezahlt_von_name || '–')}</td>
-        <td>${escape(STATUS_TEXT[b.status] || b.status)}</td>
-        <td class="betrag">${ausRappen(b.betrag_rappen)}</td>
+  const schulden = schuldenDerKasse(kasse.id);
+
+  const buchZeilen = [
+    `<tr class="start">
+       <td></td><td></td>
+       <td>${escape(buch.start.text)}</td>
+       <td></td><td class="betrag"></td><td class="betrag"></td>
+       <td class="betrag">${ausRappen(buch.start.saldo_rappen)}</td>
+     </tr>`,
+    ...buch.zeilen.map(
+      (z) => `<tr>
+        <td class="datum">${escape(z.datum)}</td>
+        <td class="nr">${z.nummer ?? ''}</td>
+        <td>${escape(z.text)}${z.haendler ? ` <span class="grau">(${escape(z.haendler)})</span>` : ''}</td>
+        <td>${escape(z.person || '')}</td>
+        <td class="betrag plus">${z.einnahme_rappen ? ausRappen(z.einnahme_rappen) : ''}</td>
+        <td class="betrag">${z.ausgabe_rappen ? ausRappen(z.ausgabe_rappen) : ''}</td>
+        <td class="betrag saldo">${ausRappen(z.saldo_rappen)}</td>
       </tr>`
     )
-    .join('\n');
+  ].join('\n');
 
-  const seiten = mitDateien
+  const schuldenBlock = schulden.personen.length
+    ? `<h2>Noch nicht zurückerstattet</h2>
+       <table class="klein">
+         <thead><tr><th>Person</th><th>Belege</th><th class="betrag">Offen CHF</th></tr></thead>
+         <tbody>${schulden.personen
+           .map(
+             (p) => `<tr><td>${escape(p.person)}</td>
+                         <td class="nr">${p.belege.map((b) => b.nummer).join(', ')}</td>
+                         <td class="betrag">${ausRappen(p.summe)}</td></tr>`
+           )
+           .join('')}</tbody>
+         <tfoot><tr><td colspan="2">Total</td><td class="betrag">${ausRappen(schulden.gesamt_rappen)}</td></tr></tfoot>
+       </table>`
+    : '';
+
+  const seiten = belege
     .map((b) => {
       const bilder = b.dateien.length
         ? b.dateien
             .map((d) =>
               d.mime === 'application/pdf'
-                ? `<p class="pdf-hinweis">PDF-Beleg: <a href="/api/belege/${b.id}/dateien/${d.id}">${escape(b.nummer)}.pdf</a> (bitte separat drucken)</p>`
-                : `<img src="/api/belege/${b.id}/dateien/${d.id}" alt="Beleg ${escape(b.nummer)}">`
+                ? `<p class="pdf-hinweis">PDF-Beleg: <a href="/api/belege/${b.id}/dateien/${d.id}">Nr. ${b.nummer}</a> (bitte separat drucken)</p>`
+                : `<img src="/api/belege/${b.id}/dateien/${d.id}" alt="Beleg Nr. ${b.nummer}">`
             )
             .join('\n')
         : '<p class="kein-beleg">Kein Foto hinterlegt</p>';
       return `<section class="beleg-seite">
         <header>
-          <div class="nummer">${escape(b.nummer)}</div>
+          <div class="nummer">Nr. ${b.nummer}</div>
           <div class="kopf-zeilen">
             <div><strong>${escape(b.beschreibung)}</strong></div>
-            <div>${escape(b.datum)} · ${escape(b.kasse_kuerzel)} ${escape(b.kasse_name)} · ${escape(b.kategorie)}</div>
-            <div>${escape(ZAHLUNGSART_TEXT[b.zahlungsart] || b.zahlungsart)}${b.bezahlt_von_name ? ` · ${escape(b.bezahlt_von_name)}` : ''}</div>
+            <div>${escape(b.datum)} · ${escape(kasse.name)}${b.haendler ? ` · ${escape(b.haendler)}` : ''}</div>
+            <div>${escape(ZAHLUNGSART_TEXT[b.zahlungsart] || b.zahlungsart)}${b.person ? ` · ${escape(b.person)}` : ''}${b.status === 'offen' ? ' · noch nicht geprüft' : ''}</div>
           </div>
           <div class="betrag-gross">CHF ${ausRappen(b.betrag_rappen)}</div>
         </header>
@@ -286,33 +260,39 @@ router.get('/druck', (req, res) => {
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<title>Belege drucken – ${escape(zeitraum)}</title>
+<title>${escape(kasse.name)} ${jahr || ''} – Kassenbuch</title>
 <style>
   @page { size: A4; margin: 14mm; }
   * { box-sizing: border-box; }
   body { font-family: -apple-system, "Segoe UI", system-ui, sans-serif; color: #15161a; margin: 0; }
   h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 22px 0 8px; }
   .kopf { border-bottom: 3px solid #d21a37; padding-bottom: 10px; margin-bottom: 16px;
           display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; }
   .meta { color: #4a4b52; font-size: 12px; line-height: 1.5; }
   table { width: 100%; border-collapse: collapse; font-size: 12px; }
   th { text-align: left; background: #1d4f9e; color: #fff; padding: 6px 8px; }
-  td { padding: 5px 8px; border-bottom: 1px solid #e7e0d1; vertical-align: top; }
-  .nr { font-family: ui-monospace, "Courier New", monospace; white-space: nowrap; }
+  td { padding: 5px 8px; border-bottom: 1px solid #e3e3e6; vertical-align: top; }
+  .datum, .nr { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .nr { text-align: right; }
   .betrag { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .saldo { font-weight: 600; }
+  .plus { color: #1d7a3c; }
+  .start td { font-style: italic; color: #4a4b52; }
   .grau { color: #87888f; }
+  .klein { max-width: 120mm; }
   tfoot td { font-weight: 700; border-top: 2px solid #15161a; border-bottom: none; }
   .beleg-seite { page-break-before: always; break-before: page; padding-top: 4mm; }
   .beleg-seite header { display: grid; grid-template-columns: auto 1fr auto; gap: 12px;
       align-items: start; border-bottom: 2px solid #d21a37; padding-bottom: 8px; margin-bottom: 10px; }
-  .nummer { font-family: ui-monospace, "Courier New", monospace; font-size: 15px; font-weight: 700;
-            background: #15161a; color: #fff; padding: 4px 8px; border-radius: 6px; white-space: nowrap; }
+  .nummer { font-size: 15px; font-weight: 700; background: #15161a; color: #fff;
+            padding: 4px 10px; border-radius: 6px; white-space: nowrap; }
   .kopf-zeilen { font-size: 12px; line-height: 1.5; }
   .betrag-gross { font-size: 20px; font-weight: 700; white-space: nowrap; }
   .bilder img { max-width: 100%; max-height: 220mm; object-fit: contain; display: block; margin: 0 auto 6mm; }
   .kein-beleg, .pdf-hinweis { color: #87888f; font-style: italic; font-size: 12px; }
-  .druckleiste { position: sticky; top: 0; background: #fbf8f1; border: 1px solid #e7e0d1;
-      padding: 10px 14px; margin-bottom: 14px; border-radius: 10px; display: flex; gap: 10px; align-items: center; }
+  .druckleiste { background: #f4f4f6; border: 1px solid #e3e3e6; padding: 10px 14px;
+      margin-bottom: 14px; border-radius: 10px; display: flex; gap: 10px; align-items: center; }
   .druckleiste button { background: #d21a37; color: #fff; border: 0; padding: 8px 16px;
       border-radius: 8px; font-size: 14px; cursor: pointer; font-weight: 600; }
   @media print { .druckleiste { display: none; } }
@@ -321,28 +301,39 @@ router.get('/druck', (req, res) => {
 <body>
 <div class="druckleiste">
   <button id="drucken" type="button">Jetzt drucken / als PDF speichern</button>
-  <span class="meta">${mitDateien.length} Belege · jede Seite ein Beleg mit Foto</span>
+  <span class="meta">${belege.length} Belege · jede Seite ein Beleg mit Foto</span>
 </div>
 
 <div class="kopf">
   <div>
-    <h1>Belegübersicht</h1>
+    <h1>${escape(kasse.name)}${jahr ? ` ${jahr}` : ''}</h1>
     <div class="meta">
-      Zeitraum: ${escape(zeitraum)}<br>
-      Kassen: ${escape(kassenNamen)}<br>
+      Kassenbuch mit laufendem Saldo<br>
       Gedruckt am ${new Date().toLocaleDateString('de-CH')}
     </div>
   </div>
-  <div class="betrag-gross">CHF ${ausRappen(summe)}</div>
+  <div class="betrag-gross">CHF ${ausRappen(buch.saldo_rappen)}</div>
 </div>
 
 <table>
   <thead>
-    <tr><th>Beleg-Nr.</th><th>Datum</th><th>Beschreibung</th><th>Ausgelegt von</th><th>Status</th><th class="betrag">CHF</th></tr>
+    <tr>
+      <th>Datum</th><th class="nr">Nr.</th><th>Beschreibung</th><th>Ausgelegt von</th>
+      <th class="betrag">Einnahme</th><th class="betrag">Ausgabe</th><th class="betrag">Saldo</th>
+    </tr>
   </thead>
-  <tbody>${liste || '<tr><td colspan="6">Keine Belege im gewählten Zeitraum.</td></tr>'}</tbody>
-  <tfoot><tr><td colspan="5">Total</td><td class="betrag">${ausRappen(summe)}</td></tr></tfoot>
+  <tbody>${buchZeilen}</tbody>
+  <tfoot>
+    <tr>
+      <td colspan="4">Total</td>
+      <td class="betrag">${ausRappen(buch.einnahmen_rappen)}</td>
+      <td class="betrag">${ausRappen(buch.ausgaben_rappen)}</td>
+      <td class="betrag">${ausRappen(buch.saldo_rappen)}</td>
+    </tr>
+  </tfoot>
 </table>
+
+${schuldenBlock}
 
 ${seiten}
 <script nonce="${nonce}">

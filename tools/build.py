@@ -257,6 +257,7 @@ def build_home():
           <div class="wrap buch__seiteninhalt">
             <span class="eyebrow">Drei Stufen</span>
             <h2>Für jedes Alter das passende Programm.</h2>
+            <p class="lead buch__lead">{e(HERO['sub'])}</p>
             <div class="grid grid--3 buch__stufen">
 {''.join(stufe_card(s) for s in STUFEN)}
             </div>
@@ -268,11 +269,11 @@ def build_home():
           <div class="buch__aussen">
             <div class="buch__praegung">
               <span class="buch__brand" aria-hidden="true"></span>
-              <h1>{e(HERO['title'][0])} {e(HERO['title'][1])}<br><span class="akzent">{e(HERO['title'][2]) if HERO['title'][2] else ''}</span></h1>
-              <p class="buch__sub">{e(HERO['sub'])}</p>
-              <a class="btn buch__knopf" href="kontakt.html#schnuppern">Schnuppern kommen</a>
+              <h1>{e(HERO['title'][0])} {e(HERO['title'][1])}<br>{e(HERO['title'][2]) if HERO['title'][2] else ''}</h1>
+              <span class="buch__linie" aria-hidden="true"></span>
+              <span class="buch__jahr">CEVI March · seit 2010</span>
+              <a class="buch__knopf" href="kontakt.html#schnuppern">Schnuppern kommen</a>
             </div>
-            <span class="buch__band" aria-hidden="true"></span>
             <span class="buch__glanz" aria-hidden="true"></span>
           </div>
           <div class="buch__innenseite" aria-hidden="true"></div>

@@ -1,76 +1,94 @@
-/* Ce March Kasse - Oberflaeche (ohne Framework, laeuft direkt im Browser). */
+// Ce March Kasse - Oberflaeche
+//
+// Kein Baukasten, kein Build-Schritt: reines Javascript im Browser.
+// Aufbau: zustand -> api() -> Ansichten -> zeichnen() ueber die Adresszeile.
 
 const zustand = {
-  ich: null,
-  csrf: '',
+  rolle: null,          // 'admin' | 'benutzer'
+  csrf: null,
   kassen: [],
-  personen: [],
-  kategorien: ['Lebensmittel', 'Material', 'Miete', 'Transport', 'Programm', 'Geschenke', 'Buero', 'Versicherung', 'Sonstiges'],
-  filter: { kasse: '', status: '', von: '', bis: '', q: '' },
-  auswahl: new Set()
+  geraet: null,         // zufaellige Kennung dieses Browsers
+  name: ''              // Name der Person, die hier Belege einreicht
 };
 
-const ZAHLUNGSARTEN = {
-  privat: 'Privat ausgelegt',
-  kasse_bar: 'Kasse bar',
-  kasse_karte: 'Kassenkarte',
-  rechnung: 'Rechnung an Kasse'
-};
-const STATUS_TEXT = { offen: 'offen', geprueft: 'geprüft', abgelehnt: 'abgelehnt' };
+// ------------------------------------------------------------- Kleinkram
 
-// ----------------------------------------------------------------- Helfer
-
-function el(tag, attrs = {}, ...kinder) {
+/** Erzeugt ein Element. Nie innerHTML, damit kein fremder Text Code wird. */
+function el(tag, eigenschaften = {}, kinder = []) {
   const knoten = document.createElement(tag);
-  for (const [schluessel, wert] of Object.entries(attrs || {})) {
-    if (wert === false || wert === null || wert === undefined) continue;
-    if (schluessel === 'class') knoten.className = wert;
-    else if (schluessel === 'text') knoten.textContent = wert;
-    else if (schluessel === 'dataset') Object.assign(knoten.dataset, wert);
-    else if (schluessel.startsWith('on') && typeof wert === 'function') {
-      knoten.addEventListener(schluessel.slice(2), wert);
-    } else knoten.setAttribute(schluessel, wert === true ? '' : wert);
+  for (const [name, wert] of Object.entries(eigenschaften)) {
+    if (wert === null || wert === undefined || wert === false) continue;
+    if (name === 'text') knoten.textContent = wert;
+    else if (name === 'class') knoten.className = wert;
+    else if (name === 'dataset') Object.assign(knoten.dataset, wert);
+    else if (name.startsWith('on') && typeof wert === 'function') {
+      knoten.addEventListener(name.slice(2).toLowerCase(), wert);
+    } else if (name in knoten && name !== 'list' && name !== 'form') {
+      knoten[name] = wert;
+    } else {
+      knoten.setAttribute(name, wert === true ? '' : wert);
+    }
   }
-  for (const kind of kinder.flat(3)) {
-    if (kind === null || kind === undefined || kind === false || kind === '') continue;
-    knoten.append(kind?.nodeType ? kind : document.createTextNode(String(kind)));
+  for (const kind of [].concat(kinder)) {
+    if (kind === null || kind === undefined || kind === false) continue;
+    knoten.append(typeof kind === 'string' || typeof kind === 'number' ? String(kind) : kind);
   }
   return knoten;
 }
 
-const franken = new Intl.NumberFormat('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
+/** 123405 -> "1'234.05" */
 function chf(rappen) {
-  return `CHF ${franken.format(Number(rappen || 0) / 100)}`;
+  const n = Number(rappen || 0);
+  const minus = n < 0 ? '-' : '';
+  const abs = Math.abs(n);
+  const ganz = String(Math.floor(abs / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, '’');
+  return `${minus}${ganz}.${String(abs % 100).padStart(2, '0')}`;
 }
-function betragKurz(rappen) {
-  return franken.format(Number(rappen || 0) / 100);
-}
+
+/** "2026-03-14" -> "14.03.2026" */
 function datum(iso) {
-  if (!iso) return '–';
+  if (!iso) return '';
   const [j, m, t] = String(iso).slice(0, 10).split('-');
   return `${t}.${m}.${j}`;
 }
+
 function heute() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-function jahresAnfang() {
-  return `${new Date().getFullYear()}-01-01`;
+  const jetzt = new Date();
+  return new Date(jetzt.getTime() - jetzt.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 }
 
-let meldungsZeit = null;
-function melden(text, fehlerhaft = false) {
+function speicherLesen(schluessel, ersatz = '') {
+  try { return localStorage.getItem(schluessel) ?? ersatz; } catch { return ersatz; }
+}
+
+function speicherSchreiben(schluessel, wert) {
+  try { localStorage.setItem(schluessel, wert); } catch { /* privater Modus */ }
+}
+
+function geraetKennung() {
+  let kennung = speicherLesen('cmk_geraet');
+  if (!/^[A-Za-z0-9_-]{8,64}$/.test(kennung)) {
+    kennung = (crypto.randomUUID?.() || String(Math.random()).slice(2) + Date.now())
+      .replace(/[^A-Za-z0-9]/g, '');
+    speicherSchreiben('cmk_geraet', kennung);
+  }
+  return kennung;
+}
+
+let meldungsUhr = null;
+function melden(text, schlecht = false) {
   const kasten = document.getElementById('meldung');
   kasten.textContent = text;
-  kasten.className = `meldung${fehlerhaft ? ' fehlerhaft' : ''}`;
+  kasten.className = schlecht ? 'meldung schlecht' : 'meldung';
   kasten.hidden = false;
-  clearTimeout(meldungsZeit);
-  meldungsZeit = setTimeout(() => { kasten.hidden = true; }, fehlerhaft ? 6000 : 3200);
+  clearTimeout(meldungsUhr);
+  meldungsUhr = setTimeout(() => { kasten.hidden = true; }, schlecht ? 6000 : 3200);
 }
 
-async function api(pfad, { methode = 'GET', daten, formular } = {}) {
-  const kopf = { 'X-Requested-With': 'ce-march-kasse' };
+// ----------------------------------------------------------------- Server
+
+async function api(pfad, { methode = 'GET', daten, formular, roh = false } = {}) {
+  const kopf = { 'X-Requested-With': 'ce-march-kasse', 'X-Geraet': zustand.geraet };
   if (zustand.csrf) kopf['X-CSRF-Token'] = zustand.csrf;
   if (daten) kopf['Content-Type'] = 'application/json';
 
@@ -79,1250 +97,989 @@ async function api(pfad, { methode = 'GET', daten, formular } = {}) {
     headers: kopf,
     body: formular || (daten ? JSON.stringify(daten) : undefined)
   });
-  const text = await antwort.text();
-  const inhalt = text ? JSON.parse(text) : {};
-  if (!antwort.ok) {
-    const fehler = new Error(inhalt.fehler || `Fehler ${antwort.status}`);
-    fehler.status = antwort.status;
-    throw fehler;
+
+  if (antwort.status === 401) {
+    zustand.rolle = null;
+    anmeldungZeigen();
+    throw new Error('Nicht angemeldet.');
   }
+  if (roh) return antwort;
+
+  const text = await antwort.text();
+  let inhalt = {};
+  try { inhalt = text ? JSON.parse(text) : {}; } catch { inhalt = {}; }
+  if (!antwort.ok) throw new Error(inhalt.fehler || 'Das hat nicht geklappt.');
   return inhalt;
 }
 
-function istKassier() {
-  return zustand.ich?.rolle === 'admin' || zustand.kassen.some((k) => k.meine_rolle === 'kassier');
-}
-function istAdmin() {
-  return zustand.ich?.rolle === 'admin';
-}
-function meineKassierKassen() {
-  return zustand.kassen.filter((k) => k.meine_rolle === 'kassier');
+// ----------------------------------------------------------------- Dialog
+
+function dialogSchliessen() {
+  const dialog = document.getElementById('dialog');
+  dialog.close();
+  dialog.replaceChildren();
 }
 
 function dialogZeigen(titel, inhalt, fussKnoepfe = []) {
   const dialog = document.getElementById('dialog');
   dialog.replaceChildren(
-    el('div', { class: 'dialog-kopf' },
-      el('h2', { text: titel }),
-      el('button', { class: 'schliessen', 'aria-label': 'Schliessen', onclick: () => dialog.close() }, '×')
-    ),
-    el('div', { class: 'dialog-leib' }, inhalt),
-    fussKnoepfe.length ? el('div', { class: 'dialog-fuss' }, fussKnoepfe) : null
+    el('div', { class: 'dialog-inhalt' }, [
+      el('div', { class: 'dialog-kopf' }, [
+        el('h2', { text: titel }),
+        el('button', { class: 'knopf leise kompakt', text: 'Schliessen', onclick: dialogSchliessen })
+      ]),
+      inhalt,
+      fussKnoepfe.length ? el('div', { class: 'dialog-fuss' }, fussKnoepfe) : null
+    ])
   );
-  if (!dialog.open) dialog.showModal();
+  dialog.showModal();
   return dialog;
 }
-function dialogSchliessen() {
-  document.getElementById('dialog').close();
-}
 
-async function bestaetigen(titel, text, knopfText = 'Ja, weiter') {
+function bestaetigen(titel, frage, knopfText = 'Ja, weiter') {
   return new Promise((aufloesen) => {
-    const dialog = dialogZeigen(titel, el('p', { text }), [
-      el('button', { class: 'knopf leise', onclick: () => { dialogSchliessen(); aufloesen(false); } }, 'Abbrechen'),
-      el('button', { class: 'knopf gefahr', onclick: () => { dialogSchliessen(); aufloesen(true); } }, knopfText)
+    const dialog = dialogZeigen(titel, el('p', { text: frage }), [
+      el('button', {
+        class: 'knopf', text: 'Abbrechen',
+        onclick: () => { dialogSchliessen(); aufloesen(false); }
+      }),
+      el('button', {
+        class: 'knopf primaer', text: knopfText,
+        onclick: () => { dialogSchliessen(); aufloesen(true); }
+      })
     ]);
     dialog.addEventListener('close', () => aufloesen(false), { once: true });
   });
 }
 
-// ------------------------------------------------------------- Anmeldung
+// -------------------------------------------------------------- Anmeldung
 
-async function ichLaden() {
-  try {
-    const antwort = await api('/ich');
-    zustand.ich = antwort.benutzer;
-    zustand.csrf = antwort.csrf;
-    zustand.kassen = antwort.kassen;
-    return true;
-  } catch {
-    return false;
-  }
+function anmeldungZeigen() {
+  document.getElementById('app').hidden = true;
+  document.getElementById('anmeldung').hidden = false;
+  document.querySelector('#anmelde-formular input[name="passwort"]')?.focus();
+}
+
+function appZeigen() {
+  document.getElementById('anmeldung').hidden = true;
+  document.getElementById('app').hidden = false;
 }
 
 document.getElementById('anmelde-formular').addEventListener('submit', async (ereignis) => {
   ereignis.preventDefault();
+  const fehlerfeld = document.getElementById('anmelde-fehler');
+  fehlerfeld.hidden = true;
   const formular = new FormData(ereignis.target);
-  const fehlerFeld = document.getElementById('anmelde-fehler');
-  fehlerFeld.hidden = true;
   try {
     const antwort = await api('/anmelden', {
       methode: 'POST',
-      daten: { email: formular.get('email'), passwort: formular.get('passwort') }
+      daten: { passwort: formular.get('passwort') }
     });
-    zustand.ich = antwort.benutzer;
+    zustand.rolle = antwort.rolle;
     zustand.csrf = antwort.csrf;
-    zustand.kassen = antwort.kassen;
-    appStarten();
+    ereignis.target.reset();
+    await starten();
   } catch (fehler) {
-    fehlerFeld.textContent = fehler.message;
-    fehlerFeld.hidden = false;
+    fehlerfeld.textContent = fehler.message;
+    fehlerfeld.hidden = false;
   }
 });
 
 document.getElementById('abmelden').addEventListener('click', async () => {
   try { await api('/abmelden', { methode: 'POST' }); } catch { /* egal */ }
-  location.hash = '';
-  location.reload();
+  zustand.rolle = null;
+  zustand.csrf = null;
+  anmeldungZeigen();
 });
 
 // ------------------------------------------------------------- Navigation
 
-const SEITEN = [
-  { pfad: '#/belege', titel: 'Belege', zeichen: '🧾', immer: true, tab: true },
-  { pfad: '#/neu', titel: 'Neuer Beleg', zeichen: '＋', immer: true, tab: true },
-  { pfad: '#/abrechnung', titel: 'Abrechnung', zeichen: '📊', nurKassier: true, tab: true },
-  { pfad: '#/auslagen', titel: 'Offene Auslagen', zeichen: '💸', nurKassier: true, tab: true },
-  { pfad: '#/kassen', titel: 'Kassen', zeichen: '🗃️', nurKassier: true },
-  { pfad: '#/personen', titel: 'Personen', zeichen: '👥', nurAdmin: true },
-  { pfad: '#/profil', titel: 'Mein Konto', zeichen: '⚙️', immer: true, tab: true }
-];
-
-function sichtbareSeiten() {
-  return SEITEN.filter((s) => s.immer || (s.nurAdmin && istAdmin()) || (s.nurKassier && istKassier()));
-}
-
 function navigationZeichnen() {
-  const aktuell = location.hash || '#/belege';
-  const navigation = document.getElementById('navigation');
-  navigation.replaceChildren(
-    ...sichtbareSeiten().map((seite) =>
-      el('button', {
-        class: `nav-knopf${aktuell.startsWith(seite.pfad) ? ' aktiv' : ''}`,
-        onclick: () => { location.hash = seite.pfad; }
-      }, el('span', { class: 'zeichen', text: seite.zeichen }), seite.titel)
-    )
-  );
+  const nav = document.getElementById('navigation');
+  const ziel = location.hash || '#/';
+  const eintraege = zustand.rolle === 'admin'
+    ? [['#/', 'Kassen'], ['#/neu', 'Beleg erfassen'], ['#/einstellungen', 'Einstellungen']]
+    : [['#/', 'Start'], ['#/neu', 'Beleg erfassen'], ['#/meine', 'Meine Belege']];
 
-  const tableiste = document.getElementById('tableiste');
-  tableiste.replaceChildren(
-    ...sichtbareSeiten().filter((s) => s.tab).map((seite) =>
-      el('button', {
-        class: `tab-knopf${aktuell.startsWith(seite.pfad) ? ' aktiv' : ''}`,
-        onclick: () => { location.hash = seite.pfad; }
-      }, el('span', { class: 'zeichen', text: seite.zeichen }),
-         seite.titel === 'Offene Auslagen' ? 'Auslagen' : seite.titel === 'Neuer Beleg' ? 'Neu' : seite.titel)
-    )
-  );
-
-  const profilKnopf = document.getElementById('profil-knopf');
-  profilKnopf.textContent = zustand.ich ? zustand.ich.name : '';
-  profilKnopf.onclick = () => { location.hash = '#/profil'; };
-}
-
-const ANSICHTEN = {
-  '#/belege': belegeAnsicht,
-  '#/neu': neuerBelegAnsicht,
-  '#/abrechnung': abrechnungAnsicht,
-  '#/auslagen': auslagenAnsicht,
-  '#/kassen': kassenAnsicht,
-  '#/personen': personenAnsicht,
-  '#/profil': profilAnsicht
-};
-
-async function routen() {
-  const pfad = location.hash || '#/belege';
-  const seite = sichtbareSeiten().find((s) => pfad.startsWith(s.pfad)) || sichtbareSeiten()[0];
-  document.getElementById('seitentitel').textContent = seite.titel;
-  document.getElementById('neu-knopf').hidden = seite.pfad === '#/neu';
-  navigationZeichnen();
-
-  const behaelter = document.getElementById('ansicht');
-  behaelter.replaceChildren(el('p', { class: 'notiz', text: 'Lädt …' }));
-  try {
-    const inhalt = await (ANSICHTEN[seite.pfad] || belegeAnsicht)();
-    behaelter.replaceChildren(inhalt);
-    behaelter.scrollIntoView({ block: 'start' });
-  } catch (fehler) {
-    behaelter.replaceChildren(el('div', { class: 'karte' }, el('div', { class: 'karte-leib' },
-      el('p', { class: 'fehler', text: fehler.message }))));
-  }
-}
-
-window.addEventListener('hashchange', routen);
-document.getElementById('neu-knopf').addEventListener('click', () => { location.hash = '#/neu'; });
-
-// =================================================================== Belege
-
-function statusSchild(beleg) {
-  return el('span', { class: `schild ${beleg.status}`, text: STATUS_TEXT[beleg.status] || beleg.status });
-}
-
-function belegZeile(beleg, { auswahlbar = false } = {}) {
-  const bild = beleg.anzahl_dateien
-    ? el('img', {
-        class: 'beleg-bild',
-        loading: 'lazy',
-        alt: `Beleg ${beleg.nummer}`,
-        src: `/api/belege/${beleg.id}/vorschau`,
-        onerror: (e) => e.target.replaceWith(el('div', { class: 'beleg-bild leer', text: '📄' }))
+  nav.replaceChildren(
+    ...eintraege.map(([adresse, beschriftung]) =>
+      el('a', {
+        href: adresse,
+        text: beschriftung,
+        'aria-current': ziel === adresse || (adresse !== '#/' && ziel.startsWith(adresse)) ? 'page' : null
       })
-    : el('div', { class: 'beleg-bild leer', text: '🧾' });
-
-  const zeile = el('button', {
-    class: 'belegzeile',
-    onclick: () => belegDialog(beleg.id)
-  },
-    bild,
-    el('div', { class: 'beleg-haupt' },
-      el('div', { class: 'beleg-titel', text: beleg.beschreibung }),
-      el('div', { class: 'beleg-meta' },
-        el('span', { class: 'beleg-nummer', text: beleg.nummer }),
-        '·', datum(beleg.datum),
-        '·', el('span', { class: 'marke-punkt', style: `background:${beleg.kasse_farbe}` }),
-        beleg.kasse_kuerzel,
-        beleg.bezahlt_von_name && beleg.zahlungsart === 'privat' ? ['·', beleg.bezahlt_von_name] : null
-      )
-    ),
-    el('div', { class: 'beleg-rechts' },
-      el('div', { class: 'beleg-betrag', text: betragKurz(beleg.betrag_rappen) }),
-      statusSchild(beleg)
     )
   );
 
-  if (!auswahlbar) return zeile;
-  const kaestchen = el('input', {
-    type: 'checkbox',
-    'aria-label': `Beleg ${beleg.nummer} auswählen`,
-    onchange: (e) => {
-      if (e.target.checked) zustand.auswahl.add(beleg.id);
-      else zustand.auswahl.delete(beleg.id);
-      document.dispatchEvent(new CustomEvent('auswahl-geaendert'));
-    }
-  });
-  if (zustand.auswahl.has(beleg.id)) kaestchen.checked = true;
-  return el('div', { class: 'auswahl', style: 'background:var(--flaeche);padding-left:12px' }, kaestchen, zeile);
+  document.getElementById('rollen-text').textContent =
+    zustand.rolle === 'admin' ? 'Angemeldet als Abteilungsleitung' : 'Angemeldet zum Belege erfassen';
 }
 
-function filterLeiste(beiAenderung) {
-  const kasseAuswahl = el('select', { onchange: (e) => { zustand.filter.kasse = e.target.value; beiAenderung(); } },
-    el('option', { value: '' }, 'Alle Kassen'),
-    ...zustand.kassen.map((k) => el('option', { value: String(k.id), selected: zustand.filter.kasse === String(k.id) },
-      `${k.kuerzel} – ${k.name}`))
-  );
-  const statusAuswahl = el('select', { onchange: (e) => { zustand.filter.status = e.target.value; beiAenderung(); } },
-    el('option', { value: '' }, 'Alle Status'),
-    ...Object.entries(STATUS_TEXT).map(([wert, text]) =>
-      el('option', { value: wert, selected: zustand.filter.status === wert }, text))
-  );
-  const suche = el('input', {
-    type: 'search', placeholder: 'Suchen (Beschreibung, Nummer, Laden) …', value: zustand.filter.q
-  });
-  let tippZeit = null;
-  suche.addEventListener('input', () => {
-    clearTimeout(tippZeit);
-    tippZeit = setTimeout(() => { zustand.filter.q = suche.value; beiAenderung(); }, 300);
-  });
+// ------------------------------------------------------- Ansicht: Kassen
 
-  return el('div', { class: 'werkzeugleiste' },
-    el('label', {}, 'Kasse', kasseAuswahl),
-    el('label', {}, 'Status', statusAuswahl),
-    el('label', {}, 'Von', el('input', {
-      type: 'date', value: zustand.filter.von,
-      onchange: (e) => { zustand.filter.von = e.target.value; beiAenderung(); }
-    })),
-    el('label', {}, 'Bis', el('input', {
-      type: 'date', value: zustand.filter.bis,
-      onchange: (e) => { zustand.filter.bis = e.target.value; beiAenderung(); }
-    })),
-    el('label', { class: 'wachsen' }, 'Suche', suche)
-  );
+async function kassenAnsicht() {
+  const kassen = await api('/kassen');
+  zustand.kassen = kassen;
+
+  const gesamt = kassen.reduce((summe, k) => summe + (k.saldo_rappen || 0), 0);
+  const offen = kassen.reduce((summe, k) => summe + (k.anzahl_offen || 0), 0);
+  const schulden = kassen.reduce((summe, k) => summe + (k.schulden_rappen || 0), 0);
+
+  return [
+    el('div', { class: 'seiten-kopf' }, [
+      el('div', {}, [
+        el('h1', { text: 'Kassen' }),
+        el('p', { text: 'Jede Kasse führt ihr eigenes Buch mit eigenen Belegnummern.' })
+      ]),
+      el('button', { class: 'knopf primaer', text: 'Neue Kasse', onclick: () => kasseBearbeiten(null) })
+    ]),
+
+    el('div', { class: 'zahlen' }, [
+      zahlKachel('Geld in allen Kassen', chf(gesamt), gesamt < 0 ? 'minus' : ''),
+      zahlKachel('Noch zu prüfen', `${offen} ${offen === 1 ? 'Beleg' : 'Belege'}`, offen ? 'minus' : ''),
+      zahlKachel('Noch zurückzuzahlen', chf(schulden), schulden ? 'minus' : '')
+    ]),
+
+    kassen.length
+      ? el('div', { class: 'kassen-gitter' }, kassen.map(kassenKachel))
+      : el('div', { class: 'karte leer' }, [
+          el('p', { text: 'Noch keine Kasse angelegt.' }),
+          el('button', { class: 'knopf primaer', text: 'Erste Kasse anlegen', onclick: () => kasseBearbeiten(null) })
+        ])
+  ];
 }
 
-function filterAbfrage(zusatz = {}) {
-  const parameter = new URLSearchParams();
-  for (const [schluessel, wert] of Object.entries({ ...zustand.filter, ...zusatz })) {
-    if (wert) parameter.set(schluessel, wert);
-  }
-  return parameter.toString();
-}
-
-let auswahlHandler = null;
-
-async function belegeAnsicht() {
-  const behaelter = el('div', {});
-  const listeBehaelter = el('div', {});
-  const sammelLeiste = el('div', {});
-
-  async function neuLaden() {
-    zustand.auswahl.clear();
-    listeBehaelter.replaceChildren(el('p', { class: 'notiz', text: 'Lädt …' }));
-    const antwort = await api(`/belege?${filterAbfrage()}`);
-    zustand.kategorien = antwort.kategorien || zustand.kategorien;
-
-    const kopf = el('div', { class: 'karte-kopf' },
-      el('h2', {}, `${antwort.anzahl} ${antwort.anzahl === 1 ? 'Beleg' : 'Belege'}`),
-      el('span', { class: 'schild blau', text: chf(antwort.summe_rappen) }),
-      istKassier() ? el('button', {
-        class: 'knopf leise kompakt',
-        onclick: () => window.open(`/api/export/druck?${filterAbfrage()}`, '_blank')
-      }, '🖨️ Drucken') : null,
-      istKassier() ? el('button', {
-        class: 'knopf leise kompakt',
-        onclick: () => { window.location.href = `/api/export/excel?${filterAbfrage()}`; }
-      }, '⬇️ Excel') : null
-    );
-
-    const liste = antwort.belege.length
-      ? el('div', { class: 'belegliste' },
-          ...antwort.belege.map((b) => belegZeile(b, { auswahlbar: istKassier() })))
-      : el('div', { class: 'leer-zustand' },
-          el('span', { class: 'zeichen', text: '🧾' }),
-          'Keine Belege gefunden.',
-          el('div', {}, el('button', { class: 'knopf primaer kompakt', style: 'margin-top:12px',
-            onclick: () => { location.hash = '#/neu'; } }, 'Ersten Beleg erfassen')));
-
-    listeBehaelter.replaceChildren(el('div', { class: 'karte' }, kopf, el('div', { class: 'karte-leib eng' }, liste)));
-    sammelAktualisieren();
-  }
-
-  function sammelAktualisieren() {
-    if (!istKassier() || zustand.auswahl.size === 0) {
-      sammelLeiste.replaceChildren();
-      return;
-    }
-    sammelLeiste.replaceChildren(
-      el('div', { class: 'karte', style: 'margin-bottom:14px' },
-        el('div', { class: 'karte-leib', style: 'display:flex;gap:10px;align-items:center;flex-wrap:wrap' },
-          el('strong', { text: `${zustand.auswahl.size} ausgewählt` }),
-          el('button', {
-            class: 'knopf blau kompakt',
-            onclick: async () => {
-              await api('/belege/sammel-status', {
-                methode: 'POST', daten: { ids: [...zustand.auswahl], status: 'geprueft' }
-              });
-              melden('Belege geprüft.');
-              neuLaden();
-            }
-          }, '✓ Als geprüft markieren'),
-          el('button', {
-            class: 'knopf leise kompakt',
-            onclick: () => { zustand.auswahl.clear(); neuLaden(); }
-          }, 'Auswahl aufheben')
-        ))
-    );
-  }
-
-  if (auswahlHandler) document.removeEventListener('auswahl-geaendert', auswahlHandler);
-  auswahlHandler = sammelAktualisieren;
-  document.addEventListener('auswahl-geaendert', auswahlHandler);
-
-  behaelter.append(filterLeiste(neuLaden), sammelLeiste, listeBehaelter);
-  await neuLaden();
-  return behaelter;
-}
-
-/** Einzelner Beleg im Dialog - ansehen, prüfen, bearbeiten, löschen. */
-async function belegDialog(id) {
-  const beleg = await api(`/belege/${id}`);
-  const darfVerwalten = istAdmin() || zustand.kassen.some((k) => k.id === beleg.kasse_id && k.meine_rolle === 'kassier');
-  const darfBearbeiten = darfVerwalten || (beleg.erfasst_von === zustand.ich.id && beleg.status === 'offen');
-
-  const bilder = beleg.dateien.length
-    ? beleg.dateien.map((d) =>
-        d.mime === 'application/pdf'
-          ? el('object', { data: `/api/belege/${beleg.id}/dateien/${d.id}`, type: 'application/pdf' },
-              el('a', { href: `/api/belege/${beleg.id}/dateien/${d.id}` }, 'PDF öffnen'))
-          : el('a', { href: `/api/belege/${beleg.id}/dateien/${d.id}`, target: '_blank' },
-              el('img', { src: `/api/belege/${beleg.id}/dateien/${d.id}`, alt: `Beleg ${beleg.nummer}`, loading: 'lazy' })))
-    : [el('p', { class: 'notiz', text: 'Für diesen Beleg wurde kein Foto hochgeladen.' })];
-
-  const inhalt = el('div', { class: 'stapel beleg-ansicht' },
-    el('div', { style: 'display:flex;gap:10px;align-items:center;flex-wrap:wrap' },
-      el('span', { class: 'schild', style: 'font-family:var(--mono)', text: beleg.nummer }),
-      statusSchild(beleg),
-      el('span', { style: 'margin-left:auto;font-size:22px;font-weight:700', text: chf(beleg.betrag_rappen) })
-    ),
-    el('dl', { class: 'daten' },
-      el('dt', {}, 'Datum'), el('dd', { text: datum(beleg.datum) }),
-      el('dt', {}, 'Kasse'), el('dd', { text: `${beleg.kasse_kuerzel} – ${beleg.kasse_name}` }),
-      el('dt', {}, 'Wofür'), el('dd', { text: beleg.beschreibung }),
-      beleg.haendler ? el('dt', {}, 'Laden') : null,
-      beleg.haendler ? el('dd', { text: beleg.haendler }) : null,
-      el('dt', {}, 'Kategorie'), el('dd', { text: beleg.kategorie }),
-      el('dt', {}, 'Bezahlt'), el('dd', { text: ZAHLUNGSARTEN[beleg.zahlungsart] || beleg.zahlungsart }),
-      beleg.bezahlt_von_name ? el('dt', {}, 'Ausgelegt von') : null,
-      beleg.bezahlt_von_name ? el('dd', { text: beleg.bezahlt_von_name }) : null,
-      el('dt', {}, 'Erfasst'), el('dd', { text: `${beleg.erfasst_von_name || '–'}, ${datum(beleg.erstellt_am)}` }),
-      beleg.geprueft_von_name ? el('dt', {}, 'Geprüft') : null,
-      beleg.geprueft_von_name ? el('dd', { text: `${beleg.geprueft_von_name}, ${datum(beleg.geprueft_am)}` }) : null,
-      beleg.rueckerstattet_am ? el('dt', {}, 'Zurückerstattet') : null,
-      beleg.rueckerstattet_am ? el('dd', { text: datum(beleg.rueckerstattet_am) }) : null,
-      beleg.notiz ? el('dt', {}, 'Notiz') : null,
-      beleg.notiz ? el('dd', { text: beleg.notiz }) : null,
-      beleg.ablehnungsgrund ? el('dt', {}, 'Abgelehnt weil') : null,
-      beleg.ablehnungsgrund ? el('dd', { text: beleg.ablehnungsgrund }) : null
-    ),
-    el('div', { class: 'trenner' }),
-    ...bilder
-  );
-
-  const knoepfe = [];
-  if (darfBearbeiten) {
-    knoepfe.push(el('button', { class: 'knopf leise', onclick: () => belegBearbeiten(beleg) }, '✏️ Bearbeiten'));
-  }
-  if (darfVerwalten) {
-    if (beleg.status !== 'geprueft') {
-      knoepfe.push(el('button', {
-        class: 'knopf blau',
-        onclick: async () => {
-          await api(`/belege/${beleg.id}/status`, { methode: 'POST', daten: { status: 'geprueft' } });
-          melden(`Beleg ${beleg.nummer} geprüft.`);
-          dialogSchliessen(); routen();
-        }
-      }, '✓ Prüfen'));
-    }
-    if (beleg.status !== 'abgelehnt') {
-      knoepfe.push(el('button', {
-        class: 'knopf leise',
-        onclick: async () => {
-          const grund = prompt('Grund für die Ablehnung (sichtbar für die Person):', '');
-          if (grund === null) return;
-          await api(`/belege/${beleg.id}/status`, { methode: 'POST', daten: { status: 'abgelehnt', grund } });
-          melden(`Beleg ${beleg.nummer} abgelehnt.`);
-          dialogSchliessen(); routen();
-        }
-      }, '✕ Ablehnen'));
-    }
-  }
-  if ((darfVerwalten || (beleg.erfasst_von === zustand.ich.id && beleg.status === 'offen')) && !beleg.rueckerstattet_am) {
-    knoepfe.push(el('button', {
-      class: 'knopf gefahr',
-      onclick: async () => {
-        if (!(await bestaetigen('Beleg löschen?',
-          `Beleg ${beleg.nummer} und alle Fotos werden endgültig gelöscht. Die Belegnummer bleibt danach leer.`,
-          'Endgültig löschen'))) return;
-        await api(`/belege/${beleg.id}`, { methode: 'DELETE' });
-        melden('Beleg gelöscht.');
-        dialogSchliessen(); routen();
-      }
-    }, '🗑 Löschen'));
-  }
-  knoepfe.push(el('button', { class: 'knopf', onclick: dialogSchliessen }, 'Schliessen'));
-
-  dialogZeigen(`Beleg ${beleg.nummer}`, inhalt, knoepfe);
-}
-
-function belegBearbeiten(beleg) {
-  const darfVerwalten = istAdmin() || zustand.kassen.some((k) => k.id === beleg.kasse_id && k.meine_rolle === 'kassier');
-  const formular = el('form', { class: 'stapel', id: 'beleg-bearbeiten' },
-    el('div', { class: 'feld-reihe' },
-      el('label', {}, 'Betrag CHF', el('input', { name: 'betrag', inputmode: 'decimal', required: true,
-        value: (beleg.betrag_rappen / 100).toFixed(2) })),
-      el('label', {}, 'Datum', el('input', { name: 'datum', type: 'date', required: true, value: beleg.datum }))
-    ),
-    el('label', {}, 'Wofür', el('input', { name: 'beschreibung', required: true, value: beleg.beschreibung })),
-    el('div', { class: 'feld-reihe' },
-      el('label', {}, 'Laden / Händler', el('input', { name: 'haendler', value: beleg.haendler || '' })),
-      el('label', {}, 'Kategorie', el('select', { name: 'kategorie' },
-        ...zustand.kategorien.map((k) => el('option', { value: k, selected: k === beleg.kategorie }, k))))
-    ),
-    el('div', { class: 'feld-reihe' },
-      el('label', {}, 'Bezahlt mit', el('select', { name: 'zahlungsart' },
-        ...Object.entries(ZAHLUNGSARTEN).map(([wert, text]) =>
-          el('option', { value: wert, selected: wert === beleg.zahlungsart }, text)))),
-      darfVerwalten
-        ? el('label', {}, 'Ausgelegt von', el('select', { name: 'bezahlt_von' },
-            el('option', { value: '' }, '– niemand –'),
-            ...zustand.personen.map((p) => el('option', { value: String(p.id), selected: p.id === beleg.bezahlt_von }, p.name))))
-        : null
-    ),
-    el('label', {}, 'Notiz', el('textarea', { name: 'notiz' }, beleg.notiz || '')),
-    el('label', {}, 'Weitere Fotos anhängen',
-      el('input', { type: 'file', name: 'dateien', multiple: true, accept: 'image/*,application/pdf' }))
-  );
-
-  dialogZeigen(`Beleg ${beleg.nummer} bearbeiten`, formular, [
-    el('button', { class: 'knopf leise', onclick: () => belegDialog(beleg.id) }, 'Zurück'),
-    el('button', {
-      class: 'knopf primaer',
-      onclick: async () => {
-        const daten = Object.fromEntries(new FormData(formular).entries());
-        const dateien = formular.querySelector('input[type="file"]').files;
-        delete daten.dateien;
-        try {
-          await api(`/belege/${beleg.id}`, { methode: 'PATCH', daten });
-          if (dateien.length) {
-            const anhang = new FormData();
-            for (const datei of dateien) anhang.append('dateien', datei);
-            await api(`/belege/${beleg.id}/dateien`, { methode: 'POST', formular: anhang });
-          }
-          melden('Beleg gespeichert.');
-          dialogSchliessen();
-          routen();
-        } catch (fehler) { melden(fehler.message, true); }
-      }
-    }, 'Speichern')
+function zahlKachel(beschriftung, wert, zusatz = '') {
+  return el('div', { class: 'zahl-kachel' }, [
+    el('div', { class: 'beschriftung', text: beschriftung }),
+    el('div', { class: `wert ${zusatz}`, text: wert })
   ]);
 }
 
-// ============================================================ Neuer Beleg
+function kassenKachel(kasse) {
+  return el('a', {
+    class: 'kassen-kachel',
+    href: `#/kasse/${kasse.id}`,
+    style: `border-top-color: ${kasse.farbe}`
+  }, [
+    el('h3', { text: kasse.name }),
+    el('div', { class: `saldo ${kasse.saldo_rappen < 0 ? 'minus' : ''}`, text: `CHF ${chf(kasse.saldo_rappen)}` }),
+    el('div', { class: 'unter', text: `${kasse.anzahl_belege} ${kasse.anzahl_belege === 1 ? 'Beleg' : 'Belege'} insgesamt` }),
+    el('div', { class: 'schilder' }, [
+      kasse.anzahl_offen ? el('span', { class: 'schild offen', text: `${kasse.anzahl_offen} zu prüfen` }) : null,
+      kasse.schulden_rappen ? el('span', { class: 'schild schuld', text: `schuldet ${chf(kasse.schulden_rappen)}` }) : null,
+      !kasse.aktiv ? el('span', { class: 'schild', text: 'geschlossen' }) : null
+    ])
+  ]);
+}
 
-async function neuerBelegAnsicht() {
-  if (!zustand.kassen.length) {
-    return el('div', { class: 'karte' }, el('div', { class: 'leer-zustand' },
-      el('span', { class: 'zeichen', text: '🔒' }),
-      'Du bist noch keiner Kasse zugeteilt. Melde dich bei der Abteilungsleitung.'));
-  }
-  if (istKassier() && !zustand.personen.length) {
-    zustand.personen = await api('/benutzer');
+/** Kasse anlegen oder ändern. kasse = null heisst: neu. */
+function kasseBearbeiten(kasse) {
+  const formular = el('form', { id: 'kasse-formular' }, [
+    el('label', { text: 'Name der Kasse' }, [
+      el('input', { name: 'name', required: true, value: kasse?.name || '', placeholder: 'z.B. Jungschar' })
+    ]),
+    el('label', { text: 'Kurze Beschreibung (freiwillig)' }, [
+      el('input', { name: 'beschreibung', value: kasse?.beschreibung || '' })
+    ]),
+    el('div', { class: 'feld-paar' }, [
+      el('label', { text: 'Startsaldo CHF' }, [
+        el('input', {
+          name: 'startsaldo', inputmode: 'decimal',
+          value: kasse ? chf(kasse.startsaldo_rappen) : '0.00'
+        })
+      ]),
+      el('label', { text: 'Farbe' }, [
+        el('input', { name: 'farbe', type: 'color', value: kasse?.farbe || '#d21a37' })
+      ])
+    ]),
+    kasse ? el('label', { text: 'Zustand' }, [
+      el('select', { name: 'aktiv' }, [
+        el('option', { value: '1', text: 'offen', selected: Boolean(kasse.aktiv) }),
+        el('option', { value: '0', text: 'geschlossen', selected: !kasse.aktiv })
+      ])
+    ]) : null,
+    el('p', { class: 'hinweis', text: 'Der Startsaldo ist das Geld, das schon in der Kasse liegt, bevor der erste Beleg erfasst wird.' })
+  ]);
+
+  dialogZeigen(kasse ? 'Kasse ändern' : 'Neue Kasse', formular, [
+    kasse ? el('button', {
+      class: 'knopf gefahr', text: 'Löschen',
+      onclick: async () => {
+        if (!(await bestaetigen('Kasse löschen', `Soll die Kasse "${kasse.name}" gelöscht werden?`, 'Löschen'))) return;
+        try {
+          await api(`/kassen/${kasse.id}`, { methode: 'DELETE' });
+          dialogSchliessen();
+          melden('Kasse gelöscht.');
+          location.hash = '#/';
+          zeichnen();
+        } catch (fehler) { melden(fehler.message, true); }
+      }
+    }) : null,
+    el('button', { class: 'knopf', text: 'Abbrechen', onclick: dialogSchliessen }),
+    el('button', {
+      class: 'knopf primaer', text: 'Speichern',
+      onclick: async () => {
+        const daten = Object.fromEntries(new FormData(formular));
+        if (daten.aktiv !== undefined) daten.aktiv = daten.aktiv === '1';
+        try {
+          await api(kasse ? `/kassen/${kasse.id}` : '/kassen', {
+            methode: kasse ? 'PATCH' : 'POST',
+            daten
+          });
+          dialogSchliessen();
+          melden('Gespeichert.');
+          zeichnen();
+        } catch (fehler) { melden(fehler.message, true); }
+      }
+    })
+  ]);
+}
+
+// -------------------------------------------------- Ansicht: eine Kasse
+
+async function kasseAnsicht(id, jahrWunsch) {
+  const daten = await api(`/kassen/${id}${jahrWunsch ? `?jahr=${jahrWunsch}` : ''}`);
+  const { kasse, buch, jahre, jahr, offene, schulden, personen } = daten;
+
+  const teile = [
+    el('a', { class: 'zurueck', href: '#/', text: 'Zurück zu allen Kassen' }),
+    el('div', { class: 'seiten-kopf' }, [
+      el('div', {}, [
+        el('h1', { text: kasse.name }),
+        el('p', { text: kasse.beschreibung || 'Kassenbuch, Belege und offene Auslagen dieser Kasse.' })
+      ]),
+      el('div', { class: 'knopf-reihe' }, [
+        jahre.length > 1 || jahr
+          ? el('select', {
+              style: 'width: auto; margin-top: 0;',
+              onchange: (e) => { location.hash = `#/kasse/${id}/${e.target.value}`; }
+            }, [
+              ...jahre.map((j) => el('option', { value: String(j), text: String(j), selected: j === jahr })),
+              el('option', { value: 'alle', text: 'Alle Jahre', selected: !jahr })
+            ])
+          : null,
+        el('a', {
+          class: 'knopf primaer', text: 'Beleg erfassen', href: `#/neu/${id}`
+        })
+      ])
+    ]),
+
+    el('div', { class: 'zahlen' }, [
+      zahlKachel('Geld in der Kasse', chf(kasse.saldo_rappen), kasse.saldo_rappen < 0 ? 'minus' : ''),
+      zahlKachel('Einnahmen', chf(buch.einnahmen_rappen), 'plus'),
+      zahlKachel('Ausgaben', chf(buch.ausgaben_rappen)),
+      zahlKachel('Noch zurückzuzahlen', chf(kasse.schulden_rappen), kasse.schulden_rappen ? 'minus' : '')
+    ])
+  ];
+
+  // --- Zu prüfen
+  if (offene.length) teile.push(pruefKarte(offene, id));
+
+  // --- Das Kassenbuch
+  teile.push(buchKarte(buch, kasse, jahr, id));
+
+  // --- Wem schuldet die Kasse noch Geld
+  teile.push(schuldenKarte(schulden, id, personen));
+
+  // --- Alle Belege mit Foto
+  teile.push(belegeKarte(daten.belege, id));
+
+  // --- Einnahme erfassen und Kasse ändern
+  teile.push(einnahmeKarte(buch, id, kasse));
+
+  return teile;
+}
+
+function pruefKarte(offene, kasseId) {
+  const ausgewaehlt = new Set();
+  const stapelKnopf = el('button', {
+    class: 'knopf primaer kompakt', disabled: true,
+    text: 'Ausgewählte prüfen',
+    onclick: async () => {
+      try {
+        const antwort = await api('/belege/sammel-status', {
+          methode: 'POST', daten: { ids: [...ausgewaehlt], status: 'geprueft' }
+        });
+        melden(`${antwort.geaendert} ${antwort.geaendert === 1 ? 'Beleg' : 'Belege'} geprüft.`);
+        zeichnen();
+      } catch (fehler) { melden(fehler.message, true); }
+    }
+  });
+
+  function auswahlGeaendert() {
+    stapelKnopf.disabled = ausgewaehlt.size === 0;
+    stapelKnopf.textContent = ausgewaehlt.size
+      ? `${ausgewaehlt.size} ${ausgewaehlt.size === 1 ? 'Beleg' : 'Belege'} prüfen`
+      : 'Ausgewählte prüfen';
   }
 
-  const gewaehlteDateien = [];
+  return el('div', { class: 'karte' }, [
+    el('div', { class: 'karte-kopf' }, [
+      el('h2', { text: `Neu eingereicht – ${offene.length} ${offene.length === 1 ? 'Beleg' : 'Belege'} prüfen` }),
+      el('div', { class: 'knopf-reihe' }, [
+        el('button', {
+          class: 'knopf kompakt', text: 'Alle auswählen',
+          onclick: (e) => {
+            const kaesten = e.target.closest('.karte').querySelectorAll('input[type="checkbox"]');
+            const alleAn = ausgewaehlt.size === offene.length;
+            kaesten.forEach((kasten) => {
+              kasten.checked = !alleAn;
+              if (kasten.checked) ausgewaehlt.add(Number(kasten.value));
+              else ausgewaehlt.delete(Number(kasten.value));
+            });
+            auswahlGeaendert();
+          }
+        }),
+        stapelKnopf
+      ])
+    ]),
+    el('p', {
+      class: 'hinweis',
+      text: 'Geprüfte Belege wandern ins Kassenbuch und zählen beim Saldo mit.'
+    }),
+    el('div', { class: 'belegliste' }, offene.map((beleg) =>
+      el('div', { class: 'beleg-auswahl' }, [
+        el('input', {
+          type: 'checkbox', value: String(beleg.id),
+          onchange: (e) => {
+            if (e.target.checked) ausgewaehlt.add(beleg.id);
+            else ausgewaehlt.delete(beleg.id);
+            auswahlGeaendert();
+          }
+        }),
+        belegZeile(beleg, kasseId)
+      ])
+    ))
+  ]);
+}
+
+function buchKarte(buch, kasse, jahr, kasseId) {
+  const kopf = el('tr', {}, [
+    el('th', { text: 'Datum' }),
+    el('th', { class: 'nr', text: 'Nr.' }),
+    el('th', { text: 'Beschreibung' }),
+    el('th', { text: 'Ausgelegt von' }),
+    el('th', { class: 'betrag', text: 'Einnahme' }),
+    el('th', { class: 'betrag', text: 'Ausgabe' }),
+    el('th', { class: 'betrag', text: 'Saldo' })
+  ]);
+
+  const zeilen = [
+    el('tr', { class: 'uebertrag' }, [
+      el('td', {}), el('td', { class: 'nr' }),
+      el('td', { text: buch.start.text }),
+      el('td', {}), el('td', { class: 'betrag' }), el('td', { class: 'betrag' }),
+      el('td', { class: 'betrag saldo', text: chf(buch.start.saldo_rappen) })
+    ]),
+    ...buch.zeilen.map((zeile) =>
+      el('tr', {
+        style: zeile.typ === 'beleg' ? 'cursor: pointer' : null,
+        onclick: zeile.typ === 'beleg' ? () => belegDialog(zeile.id, kasseId) : null
+      }, [
+        el('td', { class: 'datum', text: datum(zeile.datum) }),
+        el('td', { class: 'nr', text: zeile.nummer ?? '' }),
+        el('td', {}, [
+          zeile.text,
+          zeile.haendler ? el('div', { class: 'zeilen-notiz', text: zeile.haendler }) : null,
+          zeile.offen_an_person
+            ? el('div', { class: 'zeilen-notiz', text: 'noch nicht zurückerstattet' })
+            : null
+        ]),
+        el('td', { text: zeile.person || '' }),
+        el('td', { class: 'betrag plus', text: zeile.einnahme_rappen ? chf(zeile.einnahme_rappen) : '' }),
+        el('td', { class: 'betrag', text: zeile.ausgabe_rappen ? chf(zeile.ausgabe_rappen) : '' }),
+        el('td', { class: 'betrag saldo', text: chf(zeile.saldo_rappen) })
+      ])
+    )
+  ];
+
+  const fuss = el('tr', {}, [
+    el('td', { colSpan: 4, text: 'Total' }),
+    el('td', { class: 'betrag', text: chf(buch.einnahmen_rappen) }),
+    el('td', { class: 'betrag', text: chf(buch.ausgaben_rappen) }),
+    el('td', { class: 'betrag', text: chf(buch.saldo_rappen) })
+  ]);
+
+  const jahrTeil = jahr ? `?jahr=${jahr}` : '?jahr=alle';
+
+  return el('div', { class: 'karte' }, [
+    el('div', { class: 'karte-kopf' }, [
+      el('h2', { text: jahr ? `Kassenbuch ${jahr}` : 'Kassenbuch (alle Jahre)' }),
+      el('div', { class: 'knopf-reihe' }, [
+        el('a', {
+          class: 'knopf kompakt', text: 'Excel',
+          href: `/api/export/${kasseId}/excel${jahrTeil}`
+        }),
+        el('a', {
+          class: 'knopf blau kompakt', text: 'Belege drucken',
+          href: `/api/export/${kasseId}/druck${jahrTeil}`, target: '_blank', rel: 'noopener'
+        })
+      ])
+    ]),
+    buch.zeilen.length
+      ? el('div', { class: 'tabellen-rahmen' }, [
+          el('table', { class: 'buch' }, [
+            el('thead', {}, [kopf]),
+            el('tbody', {}, zeilen),
+            el('tfoot', {}, [fuss])
+          ])
+        ])
+      : el('div', { class: 'leer', text: 'Noch nichts gebucht. Geprüfte Belege und Einnahmen erscheinen hier.' })
+  ]);
+}
+
+function schuldenKarte(schulden, kasseId, personen) {
+  return el('div', { class: 'karte' }, [
+    el('div', { class: 'karte-kopf' }, [
+      el('h2', { text: 'Diese Kasse schuldet noch' }),
+      el('strong', { text: `CHF ${chf(schulden.gesamt_rappen)}` })
+    ]),
+    schulden.personen.length
+      ? el('div', {}, schulden.personen.map((person) =>
+          el('div', { class: 'schuld-zeile' }, [
+            el('div', {}, [
+              el('div', { class: 'name', text: person.person }),
+              el('div', {
+                class: 'zeilen-notiz',
+                text: `${person.anzahl} ${person.anzahl === 1 ? 'Beleg' : 'Belege'} · Nr. ${person.belege.map((b) => b.nummer).join(', ')}`
+              })
+            ]),
+            el('div', { class: 'knopf-reihe' }, [
+              el('span', { class: 'summe', text: `CHF ${chf(person.summe)}` }),
+              el('button', {
+                class: 'knopf kompakt', text: 'Ausbezahlt',
+                onclick: () => rueckerstattungBuchen(kasseId, person)
+              })
+            ])
+          ])
+        ))
+      : el('div', { class: 'leer', text: 'Niemandem mehr Geld schuldig – alles ausbezahlt.' }),
+    personen.length ? null : null
+  ]);
+}
+
+function rueckerstattungBuchen(kasseId, person) {
+  const formular = el('form', {}, [
+    el('p', { text: `${person.person} bekommt CHF ${chf(person.summe)} für ${person.anzahl} ${person.anzahl === 1 ? 'Beleg' : 'Belege'}.` }),
+    el('div', { class: 'feld-paar' }, [
+      el('label', { text: 'Datum der Auszahlung' }, [
+        el('input', { name: 'datum', type: 'date', value: heute(), required: true })
+      ]),
+      el('label', { text: 'Wie bezahlt?' }, [
+        el('select', { name: 'methode' }, [
+          el('option', { value: 'bank', text: 'Überweisung' }),
+          el('option', { value: 'bar', text: 'bar' }),
+          el('option', { value: 'twint', text: 'TWINT' }),
+          el('option', { value: 'verrechnet', text: 'verrechnet' })
+        ])
+      ])
+    ]),
+    el('label', { text: 'Notiz (freiwillig)' }, [el('input', { name: 'notiz' })])
+  ]);
+
+  dialogZeigen('Rückerstattung buchen', formular, [
+    el('button', { class: 'knopf', text: 'Abbrechen', onclick: dialogSchliessen }),
+    el('button', {
+      class: 'knopf primaer', text: 'Als ausbezahlt buchen',
+      onclick: async () => {
+        const daten = Object.fromEntries(new FormData(formular));
+        try {
+          await api(`/kassen/${kasseId}/rueckerstattungen`, {
+            methode: 'POST',
+            daten: { ...daten, person: person.person, beleg_ids: person.belege.map((b) => b.id) }
+          });
+          dialogSchliessen();
+          melden(`CHF ${chf(person.summe)} an ${person.person} gebucht.`);
+          zeichnen();
+        } catch (fehler) { melden(fehler.message, true); }
+      }
+    })
+  ]);
+}
+
+function belegeKarte(belege, kasseId) {
+  return el('div', { class: 'karte' }, [
+    el('div', { class: 'karte-kopf' }, [
+      el('h2', { text: `Belege dieser Kasse (${belege.length})` })
+    ]),
+    belege.length
+      ? el('div', { class: 'belegliste' }, belege.map((beleg) => belegZeile(beleg, kasseId)))
+      : el('div', { class: 'leer', text: 'Noch keine Belege in dieser Kasse.' })
+  ]);
+}
+
+function belegZeile(beleg, kasseId) {
+  const bild = beleg.anzahl_dateien
+    ? el('img', {
+        class: 'beleg-bild', alt: '', loading: 'lazy',
+        src: `/api/belege/${beleg.id}/vorschau`,
+        onerror: (e) => e.target.replaceWith(el('div', { class: 'beleg-bild ohne', text: 'PDF' }))
+      })
+    : el('div', { class: 'beleg-bild ohne', text: 'kein Foto' });
+
+  const schild = {
+    offen: el('span', { class: 'schild offen', text: 'zu prüfen' }),
+    geprueft: beleg.zahlungsart === 'privat' && !beleg.rueckerstattet_am
+      ? el('span', { class: 'schild schuld', text: 'noch offen an ' + (beleg.person || 'Person') })
+      : el('span', { class: 'schild geprueft', text: 'geprüft' }),
+    abgelehnt: el('span', { class: 'schild abgelehnt', text: 'abgelehnt' })
+  }[beleg.status];
+
+  return el('button', {
+    class: 'beleg-zeile', type: 'button',
+    onclick: () => belegDialog(beleg.id, kasseId)
+  }, [
+    bild,
+    el('div', { class: 'beleg-text' }, [
+      el('div', { class: 'titel', text: `Nr. ${beleg.nummer} · ${beleg.beschreibung}` }),
+      el('div', { class: 'unter', text: [datum(beleg.datum), beleg.person, beleg.haendler].filter(Boolean).join(' · ') }),
+      el('div', { class: 'schilder' }, [schild])
+    ]),
+    el('div', { class: 'beleg-betrag', text: `CHF ${chf(beleg.betrag_rappen)}` })
+  ]);
+}
+
+// --------------------------------------------------------- Beleg ansehen
+
+const ZAHLUNGSART_TEXT = {
+  privat: 'privat ausgelegt',
+  kasse_bar: 'Kasse bar',
+  kasse_karte: 'Kassenkarte',
+  rechnung: 'Rechnung'
+};
+
+async function belegDialog(id, kasseId) {
+  let beleg;
+  try { beleg = await api(`/belege/${id}`); }
+  catch (fehler) { return melden(fehler.message, true); }
+
+  const bilder = beleg.dateien.map((datei) =>
+    datei.mime === 'application/pdf'
+      ? el('p', {}, [el('a', { href: `/api/belege/${id}/dateien/${datei.id}`, target: '_blank', rel: 'noopener', text: 'PDF-Beleg öffnen' })])
+      : el('a', { href: `/api/belege/${id}/dateien/${datei.id}`, target: '_blank', rel: 'noopener' }, [
+          el('img', { class: 'beleg-gross', src: `/api/belege/${id}/dateien/${datei.id}`, alt: '' })
+        ])
+  );
+
+  const inhalt = el('div', {}, [
+    ...bilder,
+    el('dl', { class: 'daten-liste' }, [
+      el('dt', { text: 'Betrag' }), el('dd', { text: `CHF ${chf(beleg.betrag_rappen)}` }),
+      el('dt', { text: 'Nummer' }), el('dd', { text: `Nr. ${beleg.nummer} (${beleg.jahr})` }),
+      el('dt', { text: 'Datum' }), el('dd', { text: datum(beleg.datum) }),
+      el('dt', { text: 'Kasse' }), el('dd', { text: beleg.kasse_name }),
+      el('dt', { text: 'Wofür' }), el('dd', { text: beleg.beschreibung }),
+      beleg.haendler ? el('dt', { text: 'Laden' }) : null,
+      beleg.haendler ? el('dd', { text: beleg.haendler }) : null,
+      el('dt', { text: 'Bezahlt mit' }), el('dd', { text: ZAHLUNGSART_TEXT[beleg.zahlungsart] || beleg.zahlungsart }),
+      beleg.person ? el('dt', { text: 'Ausgelegt von' }) : null,
+      beleg.person ? el('dd', { text: beleg.person }) : null,
+      el('dt', { text: 'Status' }),
+      el('dd', { text: beleg.status === 'geprueft' ? 'geprüft' : beleg.status === 'offen' ? 'noch zu prüfen' : 'abgelehnt' }),
+      beleg.rueckerstattet_am ? el('dt', { text: 'Zurückerstattet' }) : null,
+      beleg.rueckerstattet_am ? el('dd', { text: datum(beleg.rueckerstattet_am) }) : null,
+      beleg.notiz ? el('dt', { text: 'Notiz' }) : null,
+      beleg.notiz ? el('dd', { text: beleg.notiz }) : null,
+      beleg.ablehnungsgrund ? el('dt', { text: 'Grund' }) : null,
+      beleg.ablehnungsgrund ? el('dd', { text: beleg.ablehnungsgrund }) : null
+    ])
+  ]);
+
+  const knoepfe = [];
+  if (zustand.rolle === 'admin') {
+    if (beleg.status !== 'geprueft') {
+      knoepfe.push(el('button', {
+        class: 'knopf primaer', text: 'Prüfen und buchen',
+        onclick: () => statusSetzen(beleg.id, 'geprueft')
+      }));
+    }
+    if (beleg.status !== 'abgelehnt' && !beleg.rueckerstattung_id) {
+      knoepfe.push(el('button', {
+        class: 'knopf gefahr', text: 'Ablehnen',
+        onclick: () => statusSetzen(beleg.id, 'abgelehnt')
+      }));
+    }
+    if (beleg.status === 'geprueft' && !beleg.rueckerstattung_id) {
+      knoepfe.push(el('button', {
+        class: 'knopf', text: 'Zurück auf offen',
+        onclick: () => statusSetzen(beleg.id, 'offen')
+      }));
+    }
+  }
+  if (zustand.rolle === 'admin' || beleg.status === 'offen') {
+    knoepfe.push(el('button', {
+      class: 'knopf gefahr', text: 'Löschen',
+      onclick: async () => {
+        if (!(await bestaetigen('Beleg löschen', `Beleg Nr. ${beleg.nummer} wirklich löschen?`, 'Löschen'))) return;
+        try {
+          await api(`/belege/${beleg.id}`, { methode: 'DELETE' });
+          dialogSchliessen();
+          melden('Beleg gelöscht.');
+          zeichnen();
+        } catch (fehler) { melden(fehler.message, true); }
+      }
+    }));
+  }
+
+  dialogZeigen(`Beleg Nr. ${beleg.nummer}`, inhalt, knoepfe);
+
+  async function statusSetzen(belegId, status) {
+    try {
+      await api(`/belege/${belegId}/status`, { methode: 'POST', daten: { status } });
+      dialogSchliessen();
+      melden(status === 'geprueft' ? 'Beleg geprüft und gebucht.' : 'Beleg geändert.');
+      zeichnen();
+    } catch (fehler) { melden(fehler.message, true); }
+  }
+}
+
+// ------------------------------------------------------ Einnahmen / Kasse
+
+function einnahmeKarte(buch, kasseId, kasse) {
+  const formular = el('form', {
+    onsubmit: async (ereignis) => {
+      ereignis.preventDefault();
+      const daten = Object.fromEntries(new FormData(ereignis.target));
+      try {
+        await api(`/kassen/${kasseId}/einnahmen`, { methode: 'POST', daten });
+        melden('Einnahme gebucht.');
+        zeichnen();
+      } catch (fehler) { melden(fehler.message, true); }
+    }
+  }, [
+    el('div', { class: 'feld-paar' }, [
+      el('label', { text: 'Datum' }, [el('input', { name: 'datum', type: 'date', value: heute(), required: true })]),
+      el('label', { text: 'Betrag CHF' }, [
+        el('input', { name: 'betrag', inputmode: 'decimal', placeholder: '250.00', required: true })
+      ])
+    ]),
+    el('label', { text: 'Wofür' }, [
+      el('input', { name: 'beschreibung', placeholder: 'z.B. Übertrag, Lagerbeiträge, Zuschuss', required: true })
+    ]),
+    el('button', { class: 'knopf blau', type: 'submit', text: 'Einnahme buchen' })
+  ]);
+
+  return el('div', { class: 'karte' }, [
+    el('div', { class: 'karte-kopf' }, [
+      el('h2', { text: 'Geld, das in die Kasse kommt' }),
+      el('button', {
+        class: 'knopf kompakt', text: 'Kasse ändern',
+        onclick: () => kasseBearbeiten(kasse)
+      })
+    ]),
+    formular
+  ]);
+}
+
+// ------------------------------------------------------ Ansicht: Startseite
+
+async function startAnsicht() {
+  if (zustand.rolle === 'admin') return kassenAnsicht();
+
+  const meine = await api('/belege/meine').catch(() => []);
+  return [
+    el('div', { class: 'seiten-kopf' }, [
+      el('div', {}, [
+        el('h1', { text: zustand.name ? `Hoi ${zustand.name}` : 'Ce March Kasse' }),
+        el('p', { text: 'Beleg fotografieren, Betrag eintippen, fertig. Die Nummer vergibt die App.' })
+      ])
+    ]),
+    el('a', { class: 'riesenknopf', href: '#/neu' }, [
+      'Beleg erfassen',
+      el('span', { text: 'Foto machen, Betrag und Datum eintippen' })
+    ]),
+    meine.length
+      ? el('div', { class: 'karte', style: 'margin-top: 24px' }, [
+          el('div', { class: 'karte-kopf' }, [el('h2', { text: 'Deine letzten Belege' })]),
+          el('div', { class: 'belegliste' }, meine.slice(0, 5).map((beleg) => belegZeile(beleg)))
+        ])
+      : null
+  ];
+}
+
+async function meineBelegeAnsicht() {
+  const meine = await api('/belege/meine');
+  return [
+    el('div', { class: 'seiten-kopf' }, [
+      el('div', {}, [
+        el('h1', { text: 'Meine Belege' }),
+        el('p', { text: 'Alle Belege, die von diesem Gerät eingereicht wurden.' })
+      ])
+    ]),
+    el('div', { class: 'karte' }, [
+      meine.length
+        ? el('div', { class: 'belegliste' }, meine.map((beleg) => belegZeile(beleg)))
+        : el('div', { class: 'leer', text: 'Noch nichts eingereicht.' })
+    ])
+  ];
+}
+
+// --------------------------------------------------- Ansicht: neuer Beleg
+
+async function neuerBelegAnsicht(kasseVorgabe) {
+  const kassen = await api('/kassen');
+  zustand.kassen = kassen;
+  if (!kassen.length) {
+    return el('div', { class: 'karte leer', text: 'Es gibt noch keine Kasse. Die Abteilungsleitung muss zuerst eine anlegen.' });
+  }
+
+  const dateien = [];
   const vorschau = el('div', { class: 'foto-gitter' });
+
   const dateiFeld = el('input', {
-    type: 'file', accept: 'image/*,application/pdf', multiple: true, capture: 'environment', hidden: true
+    type: 'file', accept: 'image/*,application/pdf', multiple: true, capture: 'environment',
+    onchange: (ereignis) => {
+      for (const datei of ereignis.target.files) dateien.push(datei);
+      ereignis.target.value = '';
+      vorschauZeichnen();
+    }
   });
 
   function vorschauZeichnen() {
     vorschau.replaceChildren(
-      ...gewaehlteDateien.map((datei, index) =>
-        el('figure', {},
-          datei.type === 'application/pdf'
-            ? el('div', { class: 'beleg-bild leer', style: 'width:100%;aspect-ratio:1;font-size:26px' }, '📄')
-            : el('img', { src: URL.createObjectURL(datei), alt: datei.name }),
+      ...dateien.map((datei, platz) =>
+        el('figure', {}, [
+          el('img', {
+            alt: datei.name,
+            src: datei.type === 'application/pdf'
+              ? 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22%3E%3Crect width=%2264%22 height=%2264%22 fill=%22%23e2e4ea%22/%3E%3Ctext x=%2232%22 y=%2238%22 font-size=%2214%22 text-anchor=%22middle%22 fill=%22%235d616e%22 font-family=%22sans-serif%22%3EPDF%3C/text%3E%3C/svg%3E'
+              : URL.createObjectURL(datei)
+          }),
           el('button', {
-            type: 'button', 'aria-label': 'Foto entfernen',
-            onclick: () => { gewaehlteDateien.splice(index, 1); vorschauZeichnen(); }
-          }, '×')))
+            class: 'foto-weg', type: 'button', title: 'Entfernen', text: '×',
+            onclick: () => { dateien.splice(platz, 1); vorschauZeichnen(); }
+          })
+        ])
+      )
     );
   }
 
-  dateiFeld.addEventListener('change', () => {
-    for (const datei of dateiFeld.files) gewaehlteDateien.push(datei);
-    dateiFeld.value = '';
-    vorschauZeichnen();
+  const nameFeld = el('input', {
+    name: 'person', value: zustand.name, required: true,
+    placeholder: 'Vorname Name', list: 'personen-liste'
+  });
+  const personenListe = el('datalist', { id: 'personen-liste' });
+
+  const kasseFeld = el('select', { name: 'kasse_id', required: true },
+    kassen.map((kasse) => el('option', {
+      value: String(kasse.id), text: kasse.name,
+      selected: String(kasse.id) === String(kasseVorgabe)
+    }))
+  );
+
+  // Namensvorschlaege der gewaehlten Kasse laden, damit sich das Feld
+  // beim naechsten Mal von selbst ausfuellt.
+  async function personenLaden() {
+    try {
+      const namen = await api(`/kassen/${kasseFeld.value}/personen`);
+      personenListe.replaceChildren(...namen.map((name) => el('option', { value: name })));
+    } catch { /* nicht schlimm */ }
+  }
+  kasseFeld.addEventListener('change', personenLaden);
+  personenLaden();
+
+  const zahlungsartFeld = el('select', { name: 'zahlungsart' }, [
+    el('option', { value: 'privat', text: 'Privat ausgelegt – ich bekomme das Geld zurück' }),
+    el('option', { value: 'kasse_bar', text: 'Direkt aus der Kasse (bar)' }),
+    el('option', { value: 'kasse_karte', text: 'Mit der Kassenkarte' }),
+    el('option', { value: 'rechnung', text: 'Rechnung an den Verein' })
+  ]);
+
+  const nameZeile = el('label', { text: 'Ausgelegt von' }, [nameFeld, personenListe]);
+  zahlungsartFeld.addEventListener('change', () => {
+    nameZeile.hidden = zahlungsartFeld.value !== 'privat';
+    nameFeld.required = zahlungsartFeld.value === 'privat';
   });
 
-  const aufnahmeFeld = el('div', {
-    class: 'aufnahme-feld', role: 'button', tabindex: '0',
-    onclick: () => dateiFeld.click(),
-    onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); dateiFeld.click(); } }
-  },
-    el('span', { class: 'zeichen', text: '📷' }),
-    el('strong', {}, 'Beleg fotografieren oder Datei wählen'),
-    el('span', {}, 'JPG, PNG oder PDF · mehrere möglich')
-  );
+  const senden = el('button', { class: 'knopf primaer breit', type: 'submit', text: 'Beleg einreichen' });
 
-  const kassenAuswahl = el('select', { name: 'kasse_id', required: true },
-    ...zustand.kassen.filter((k) => k.aktiv !== 0).map((k) =>
-      el('option', { value: String(k.id) }, `${k.kuerzel} – ${k.name}`)));
-
-  const personenFeld = istKassier()
-    ? el('label', {}, 'Ausgelegt von', el('select', { name: 'bezahlt_von' },
-        ...zustand.personen.map((p) =>
-          el('option', { value: String(p.id), selected: p.id === zustand.ich.id }, p.name))))
-    : null;
-
-  const formular = el('form', { class: 'stapel' },
-    aufnahmeFeld, dateiFeld, vorschau,
-    el('div', { class: 'feld-reihe' },
-      el('label', {}, 'Betrag CHF',
-        el('input', { name: 'betrag', inputmode: 'decimal', placeholder: '12.50', required: true, autofocus: true })),
-      el('label', {}, 'Einkaufsdatum', el('input', { name: 'datum', type: 'date', value: heute(), required: true }))
-    ),
-    el('label', {}, 'Wofür war das?',
-      el('input', { name: 'beschreibung', placeholder: 'z.B. Znüni Samstagsprogramm', required: true })),
-    el('div', { class: 'feld-reihe' },
-      el('label', {}, 'Kasse', kassenAuswahl),
-      el('label', {}, 'Kategorie', el('select', { name: 'kategorie' },
-        ...zustand.kategorien.map((k) => el('option', { value: k, selected: k === 'Lebensmittel' }, k))))
-    ),
-    el('div', { class: 'feld-reihe' },
-      el('label', {}, 'Laden / Händler', el('input', { name: 'haendler', placeholder: 'z.B. Migros Lachen' })),
-      el('label', {}, 'Bezahlt mit', el('select', { name: 'zahlungsart' },
-        ...Object.entries(ZAHLUNGSARTEN).map(([wert, text]) => el('option', { value: wert }, text))))
-    ),
-    personenFeld,
-    el('label', {}, 'Notiz (optional)', el('textarea', { name: 'notiz', placeholder: 'Für die Kassenführung' })),
-    el('p', { class: 'notiz' },
-      'Die Belegnummer wird beim Speichern automatisch vergeben – du musst nichts mehr von Hand nummerieren.'),
-    el('button', { class: 'knopf primaer breit', type: 'submit' }, 'Beleg einreichen')
-  );
-
-  formular.addEventListener('submit', async (ereignis) => {
-    ereignis.preventDefault();
-    const knopf = formular.querySelector('button[type="submit"]');
-    knopf.disabled = true;
-    knopf.textContent = 'Wird hochgeladen …';
-    try {
-      const daten = new FormData(formular);
-      for (const datei of gewaehlteDateien) daten.append('dateien', datei);
-      const beleg = await api('/belege', { methode: 'POST', formular: daten });
-      melden(`Beleg ${beleg.nummer} eingereicht.`);
-      location.hash = '#/belege';
-    } catch (fehler) {
-      melden(fehler.message, true);
-      knopf.disabled = false;
-      knopf.textContent = 'Beleg einreichen';
+  const formular = el('form', {
+    onsubmit: async (ereignis) => {
+      ereignis.preventDefault();
+      senden.disabled = true;
+      senden.textContent = 'Wird gesendet …';
+      const felder = new FormData(ereignis.target);
+      for (const datei of dateien) felder.append('dateien', datei);
+      try {
+        const beleg = await api('/belege', { methode: 'POST', formular: felder });
+        zustand.name = String(felder.get('person') || '').trim();
+        speicherSchreiben('cmk_name', zustand.name);
+        melden(`Gespeichert als Beleg Nr. ${beleg.nummer} in ${beleg.kasse_name}.`);
+        location.hash = zustand.rolle === 'admin' ? `#/kasse/${beleg.kasse_id}` : '#/';
+        zeichnen();
+      } catch (fehler) {
+        melden(fehler.message, true);
+        senden.disabled = false;
+        senden.textContent = 'Beleg einreichen';
+      }
     }
-  });
+  }, [
+    el('label', { class: 'aufnahmefeld' }, [
+      el('strong', { text: 'Beleg fotografieren oder Datei wählen' }),
+      'JPG, PNG oder PDF – mehrere möglich',
+      dateiFeld
+    ]),
+    vorschau,
+    el('div', { class: 'feld-paar', style: 'margin-top: 16px' }, [
+      el('label', { text: 'Betrag CHF' }, [
+        el('input', { name: 'betrag', inputmode: 'decimal', placeholder: '12.50', required: true, autofocus: true })
+      ]),
+      el('label', { text: 'Einkaufsdatum' }, [
+        el('input', { name: 'datum', type: 'date', value: heute(), required: true })
+      ])
+    ]),
+    el('label', { text: 'Wofür war das?' }, [
+      el('input', { name: 'beschreibung', placeholder: 'z.B. Znüni Samstagsprogramm', required: true })
+    ]),
+    el('div', { class: 'feld-paar' }, [
+      el('label', { text: 'Kasse' }, [kasseFeld]),
+      el('label', { text: 'Laden / Händler' }, [
+        el('input', { name: 'haendler', placeholder: 'z.B. Migros Lachen' })
+      ])
+    ]),
+    el('label', { text: 'Bezahlt mit' }, [zahlungsartFeld]),
+    nameZeile,
+    el('label', { text: 'Notiz (freiwillig)' }, [el('textarea', { name: 'notiz' })]),
+    el('p', { class: 'hinweis', text: 'Die Belegnummer vergibt die App beim Speichern – du musst nichts mehr von Hand nummerieren.' }),
+    senden
+  ]);
 
-  return el('div', { class: 'karte' },
-    el('div', { class: 'karte-kopf' }, el('h2', {}, 'Neuen Beleg einreichen')),
-    el('div', { class: 'karte-leib' }, formular));
+  return [
+    el('div', { class: 'seiten-kopf' }, [
+      el('div', {}, [
+        el('h1', { text: 'Beleg erfassen' }),
+        el('p', { text: 'Foto, Betrag, Datum – der Rest macht die App.' })
+      ])
+    ]),
+    el('div', { class: 'karte' }, [formular])
+  ];
 }
 
-// ============================================================= Abrechnung
+// ------------------------------------------------- Ansicht: Einstellungen
 
-function kachel(titel, wert, fuss, klasse = '') {
-  return el('div', { class: `kachel ${klasse}` },
-    el('div', { class: 'titel', text: titel }),
-    el('div', { class: 'wert', text: wert }),
-    fuss ? el('div', { class: 'fuss', text: fuss }) : null);
-}
-
-function balkenZeile(beschriftung, betragRappen, anteil, anzahl) {
-  return el('tr', {},
-    el('td', { text: beschriftung }),
-    el('td', {}, el('div', { class: 'balken' }, el('div', { style: `width:${Math.round(anteil * 100)}%` }))),
-    el('td', { class: 'zahl', text: String(anzahl) }),
-    el('td', { class: 'zahl', text: betragKurz(betragRappen) }));
-}
-
-async function abrechnungAnsicht() {
-  if (!zustand.filter.von) zustand.filter.von = jahresAnfang();
-  const behaelter = el('div', {});
-  const inhalt = el('div', {});
-
-  async function neuLaden() {
-    inhalt.replaceChildren(el('p', { class: 'notiz', text: 'Rechnet …' }));
-    const abfrage = filterAbfrage();
-    const [zahlen, einnahmen] = await Promise.all([
-      api(`/abrechnung?${abfrage}`),
-      api(`/einnahmen?${abfrage}`)
-    ]);
-
-    const maxKategorie = Math.max(1, ...zahlen.nach_kategorie.map((k) => k.summe));
-
-    const kacheln = el('div', { class: 'kachelreihe' },
-      kachel('Einnahmen', betragKurz(zahlen.einnahmen_rappen), `${zahlen.anzahl_einnahmen} Buchungen`, 'gruen'),
-      kachel('Ausgaben', betragKurz(zahlen.ausgaben_rappen), `${zahlen.anzahl_geprueft} geprüfte Belege`, 'rot'),
-      kachel('Saldo', betragKurz(zahlen.saldo_rappen), `inkl. Startsaldo ${betragKurz(zahlen.startsaldo_rappen)}`, 'blau'),
-      kachel('Noch nicht geprüft', betragKurz(zahlen.offen_rappen), `${zahlen.anzahl_offen} Belege`)
-    );
-
-    const exportKarte = el('div', { class: 'karte' },
-      el('div', { class: 'karte-kopf' }, el('h2', {}, 'Abrechnung ausgeben')),
-      el('div', { class: 'karte-leib', style: 'display:flex;gap:10px;flex-wrap:wrap' },
-        el('button', {
-          class: 'knopf blau',
-          onclick: () => { window.location.href = `/api/export/excel?${abfrage}`; }
-        }, '⬇️ Excel-Kostenübersicht'),
-        el('button', {
-          class: 'knopf leise',
-          onclick: () => window.open(`/api/export/druck?${abfrage}`, '_blank')
-        }, '🖨️ Alle Belege drucken (PDF)'),
-        el('span', { class: 'notiz', style: 'align-self:center' },
-          'Der Druck enthält zuerst die Liste, danach jeden Beleg einzeln mit Foto und Nummer.')
-      ));
-
-    const kassenTabelle = el('div', { class: 'karte' },
-      el('div', { class: 'karte-kopf' }, el('h2', {}, 'Nach Kasse')),
-      el('div', { class: 'karte-leib eng' },
-        el('table', { class: 'liste' },
-          el('thead', {}, el('tr', {},
-            el('th', {}, 'Kasse'), el('th', { class: 'zahl' }, 'Belege'),
-            el('th', { class: 'zahl' }, 'Offen'), el('th', { class: 'zahl' }, 'Ausgaben CHF'))),
-          el('tbody', {}, ...(zahlen.nach_kasse.length
-            ? zahlen.nach_kasse.map((k) => el('tr', {},
-                el('td', {}, el('span', { class: 'marke-punkt', style: `background:${k.farbe};margin-right:8px` }),
-                  `${k.kuerzel} – ${k.name}`),
-                el('td', { class: 'zahl', text: String(k.anzahl) }),
-                el('td', { class: 'zahl', text: betragKurz(k.offen) }),
-                el('td', { class: 'zahl', text: betragKurz(k.summe) })))
-            : [el('tr', {}, el('td', { colspan: '4', class: 'notiz' }, 'Keine Belege im Zeitraum.'))]))
-        )));
-
-    const kategorieTabelle = el('div', { class: 'karte' },
-      el('div', { class: 'karte-kopf' }, el('h2', {}, 'Wofür wurde ausgegeben')),
-      el('div', { class: 'karte-leib eng' },
-        el('table', { class: 'liste' },
-          el('thead', {}, el('tr', {},
-            el('th', {}, 'Kategorie'), el('th', {}, ''), el('th', { class: 'zahl' }, 'Anzahl'),
-            el('th', { class: 'zahl' }, 'CHF'))),
-          el('tbody', {}, ...(zahlen.nach_kategorie.length
-            ? zahlen.nach_kategorie.map((k) => balkenZeile(k.kategorie, k.summe, k.summe / maxKategorie, k.anzahl))
-            : [el('tr', {}, el('td', { colspan: '4', class: 'notiz' }, 'Noch nichts geprüft.'))]))
-        )));
-
-    const zahlungsartTabelle = el('div', { class: 'karte' },
-      el('div', { class: 'karte-kopf' }, el('h2', {}, 'Wie wurde bezahlt')),
-      el('div', { class: 'karte-leib eng' },
-        el('table', { class: 'liste' },
-          el('tbody', {}, ...zahlen.nach_zahlungsart.map((z) => el('tr', {},
-            el('td', { text: ZAHLUNGSARTEN[z.zahlungsart] || z.zahlungsart }),
-            el('td', { class: 'zahl', text: `${z.anzahl}×` }),
-            el('td', { class: 'zahl', text: betragKurz(z.summe) })))))));
-
-    // Einnahmen erfassen
-    const einnahmeFormular = el('form', { class: 'werkzeugleiste', style: 'margin:0' },
-      el('label', {}, 'Kasse', el('select', { name: 'kasse_id', required: true },
-        ...meineKassierKassen().map((k) => el('option', { value: String(k.id) }, `${k.kuerzel} – ${k.name}`)))),
-      el('label', {}, 'Datum', el('input', { name: 'datum', type: 'date', value: heute(), required: true })),
-      el('label', {}, 'Betrag CHF', el('input', { name: 'betrag', inputmode: 'decimal', required: true, placeholder: '250.00' })),
-      el('label', { class: 'wachsen' }, 'Wofür', el('input', { name: 'beschreibung', required: true, placeholder: 'z.B. Lagerbeiträge' })),
-      el('button', { class: 'knopf blau kompakt', type: 'submit' }, '+ Einnahme')
-    );
-    einnahmeFormular.addEventListener('submit', async (ereignis) => {
-      ereignis.preventDefault();
-      try {
-        await api('/einnahmen', {
-          methode: 'POST',
-          daten: Object.fromEntries(new FormData(einnahmeFormular).entries())
-        });
-        melden('Einnahme erfasst.');
-        neuLaden();
-      } catch (fehler) { melden(fehler.message, true); }
-    });
-
-    const einnahmenKarte = el('div', { class: 'karte' },
-      el('div', { class: 'karte-kopf' },
-        el('h2', {}, 'Einnahmen'),
-        el('span', { class: 'schild blau', text: chf(einnahmen.summe_rappen) })),
-      el('div', { class: 'karte-leib' }, einnahmeFormular),
-      el('div', { class: 'karte-leib eng' },
-        el('table', { class: 'liste' },
-          el('tbody', {}, ...(einnahmen.einnahmen.length
-            ? einnahmen.einnahmen.map((e) => el('tr', {},
-                el('td', { text: datum(e.datum) }),
-                el('td', { text: e.kasse_kuerzel }),
-                el('td', { text: e.beschreibung }),
-                el('td', { class: 'zahl', text: betragKurz(e.betrag_rappen) }),
-                el('td', { class: 'zahl' }, el('button', {
-                  class: 'knopf leise kompakt',
-                  onclick: async () => {
-                    if (!(await bestaetigen('Einnahme löschen?', `${e.beschreibung} (${chf(e.betrag_rappen)})`, 'Löschen'))) return;
-                    await api(`/einnahmen/${e.id}`, { methode: 'DELETE' });
-                    neuLaden();
-                  }
-                }, '🗑'))))
-            : [el('tr', {}, el('td', { colspan: '5', class: 'notiz' }, 'Noch keine Einnahmen erfasst.'))]))
-        )));
-
-    inhalt.replaceChildren(kacheln, exportKarte, kassenTabelle, kategorieTabelle, zahlungsartTabelle, einnahmenKarte);
-  }
-
-  behaelter.append(filterLeiste(neuLaden), inhalt);
-  await neuLaden();
-  return behaelter;
-}
-
-// ======================================================== Offene Auslagen
-
-async function auslagenAnsicht() {
-  const behaelter = el('div', {});
-
-  async function neuLaden() {
-    behaelter.replaceChildren(el('p', { class: 'notiz', text: 'Lädt …' }));
-    const [schulden, rueckerstattungen] = await Promise.all([
-      api('/schulden'),
-      api('/rueckerstattungen')
-    ]);
-
-    const kopf = el('div', { class: 'kachelreihe' },
-      kachel('Du schuldest insgesamt', betragKurz(schulden.gesamt_rappen),
-        `${schulden.personen.length} Personen`, 'rot'),
-      kachel('Älteste offene Auslage',
-        schulden.personen.length
-          ? datum(schulden.personen.map((p) => p.aeltester).sort()[0])
-          : '–',
-        'Datum des Einkaufs'),
-      kachel('Letzte Rückerstattung',
-        rueckerstattungen.length ? betragKurz(rueckerstattungen[0].betrag_rappen) : '–',
-        rueckerstattungen.length ? `${rueckerstattungen[0].benutzer_name}, ${datum(rueckerstattungen[0].datum)}` : 'noch keine')
-    );
-
-    const personenKarten = schulden.personen.map((person) => {
-      const ausgewaehlt = new Set(person.belege.map((b) => b.id));
-      const summeFeld = el('strong', { text: chf(person.summe) });
-
-      function summeAktualisieren() {
-        const summe = person.belege
-          .filter((b) => ausgewaehlt.has(b.id))
-          .reduce((s, b) => s + b.betrag_rappen, 0);
-        summeFeld.textContent = chf(summe);
-      }
-
-      return el('div', { class: 'karte' },
-        el('div', { class: 'karte-kopf' },
-          el('h2', {}, person.name || 'Unbekannt'),
-          el('span', { class: 'schild offen', text: `${person.anzahl} Belege` }),
-          summeFeld),
-        el('div', { class: 'karte-leib eng' },
-          el('table', { class: 'liste' },
-            el('tbody', {}, ...person.belege.map((beleg) => {
-              const kaestchen = el('input', {
-                type: 'checkbox', checked: true,
-                onchange: (e) => {
-                  if (e.target.checked) ausgewaehlt.add(beleg.id); else ausgewaehlt.delete(beleg.id);
-                  summeAktualisieren();
-                }
-              });
-              return el('tr', {},
-                el('td', { style: 'width:34px' }, kaestchen),
-                el('td', {}, el('span', { class: 'beleg-nummer', text: beleg.nummer })),
-                el('td', { text: datum(beleg.datum) }),
-                el('td', {}, el('button', {
-                  class: 'knopf leise kompakt', onclick: () => belegDialog(beleg.id)
-                }, beleg.beschreibung)),
-                el('td', { text: beleg.kasse_kuerzel }),
-                el('td', { class: 'zahl', text: betragKurz(beleg.betrag_rappen) }));
-            }))
-          )),
-        el('div', { class: 'karte-leib', style: 'display:flex;gap:10px;flex-wrap:wrap;align-items:center' },
-          person.iban ? el('span', { class: 'notiz', text: `IBAN: ${person.iban}` })
-                      : el('span', { class: 'notiz', text: 'Keine IBAN hinterlegt' }),
-          el('span', { style: 'flex:1' }),
+async function einstellungenAnsicht() {
+  function passwortKarte(rolle, titel, erklaerung) {
+    const feld = el('input', { name: 'passwort', type: 'text', required: true, minLength: 6 });
+    return el('div', { class: 'karte' }, [
+      el('div', { class: 'karte-kopf' }, [el('h2', { text: titel })]),
+      el('p', { class: 'hinweis', text: erklaerung }),
+      el('form', {
+        onsubmit: async (ereignis) => {
+          ereignis.preventDefault();
+          if (!(await bestaetigen(
+            'Passwort ändern',
+            'Alle Geräte, die dieses Passwort benutzen, müssen sich danach neu anmelden. Weiter?',
+            'Ändern'
+          ))) return;
+          try {
+            await api('/passwoerter', { methode: 'POST', daten: { rolle, passwort: feld.value } });
+            melden('Passwort geändert.');
+            feld.value = '';
+          } catch (fehler) { melden(fehler.message, true); }
+        }
+      }, [
+        el('label', { text: 'Neues Passwort' }, [feld]),
+        el('div', { class: 'knopf-reihe' }, [
+          el('button', { class: 'knopf primaer', type: 'submit', text: 'Passwort setzen' }),
           el('button', {
-            class: 'knopf primaer kompakt',
-            onclick: () => rueckerstattungBuchen(person, [...ausgewaehlt], neuLaden)
-          }, '💸 Rückerstattung buchen')));
-    });
-
-    const verlauf = el('div', { class: 'karte' },
-      el('div', { class: 'karte-kopf' }, el('h2', {}, 'Bisherige Rückerstattungen')),
-      el('div', { class: 'karte-leib eng' },
-        el('table', { class: 'liste' },
-          el('thead', {}, el('tr', {},
-            el('th', {}, 'Datum'), el('th', {}, 'Person'), el('th', {}, 'Art'),
-            el('th', { class: 'zahl' }, 'Belege'), el('th', { class: 'zahl' }, 'CHF'), el('th', {}, ''))),
-          el('tbody', {}, ...(rueckerstattungen.length
-            ? rueckerstattungen.map((r) => el('tr', {},
-                el('td', { text: datum(r.datum) }),
-                el('td', { text: r.benutzer_name }),
-                el('td', { text: r.methode }),
-                el('td', { class: 'zahl', text: String(r.anzahl_belege) }),
-                el('td', { class: 'zahl', text: betragKurz(r.betrag_rappen) }),
-                el('td', { class: 'zahl' }, istKassier() ? el('button', {
-                  class: 'knopf leise kompakt',
-                  onclick: async () => {
-                    if (!(await bestaetigen('Rückerstattung rückgängig machen?',
-                      'Die Belege gelten danach wieder als offen.', 'Rückgängig'))) return;
-                    await api(`/rueckerstattungen/${r.id}`, { methode: 'DELETE' });
-                    neuLaden();
-                  }
-                }, '↩︎') : null)))
-            : [el('tr', {}, el('td', { colspan: '6', class: 'notiz' }, 'Noch keine Rückerstattungen.'))]))
-        )));
-
-    behaelter.replaceChildren(
-      kopf,
-      ...(personenKarten.length
-        ? personenKarten
-        : [el('div', { class: 'karte' }, el('div', { class: 'leer-zustand' },
-            el('span', { class: 'zeichen', text: '✅' }), 'Alle Auslagen sind zurückerstattet.'))]),
-      verlauf
-    );
+            class: 'knopf', type: 'button', text: 'Vorschlag holen',
+            onclick: async () => {
+              try {
+                const antwort = await api('/passwort-vorschlag');
+                feld.value = antwort.passwort;
+                feld.focus();
+              } catch (fehler) { melden(fehler.message, true); }
+            }
+          })
+        ])
+      ])
+    ]);
   }
 
-  await neuLaden();
-  return behaelter;
+  const nameFeld = el('input', { value: zustand.name, placeholder: 'Vorname Name' });
+
+  return [
+    el('div', { class: 'seiten-kopf' }, [
+      el('div', {}, [
+        el('h1', { text: 'Einstellungen' }),
+        el('p', { text: 'Zwei Passwörter: eines für die Abteilungsleitung, eines zum Belege erfassen.' })
+      ])
+    ]),
+    passwortKarte('admin', 'Passwort Abteilungsleitung',
+      'Damit sieht man alle Kassen, prüft Belege, bucht Einnahmen und Rückerstattungen. Beide Abteilungsleitungen nehmen dasselbe Passwort.'),
+    passwortKarte('benutzer', 'Passwort zum Belege erfassen',
+      'Damit kann man nur Belege einreichen und die eigenen Belege dieses Geräts ansehen – keine Kassenstände, keine fremden Belege.'),
+    el('div', { class: 'karte' }, [
+      el('div', { class: 'karte-kopf' }, [el('h2', { text: 'Dein Name auf diesem Gerät' })]),
+      el('p', { class: 'hinweis', text: 'Dieser Name wird beim Erfassen automatisch im Feld "Ausgelegt von" vorgeschlagen.' }),
+      el('label', { text: 'Name' }, [nameFeld]),
+      el('button', {
+        class: 'knopf primaer', text: 'Namen merken',
+        onclick: () => {
+          zustand.name = nameFeld.value.trim();
+          speicherSchreiben('cmk_name', zustand.name);
+          melden('Name gemerkt.');
+        }
+      })
+    ])
+  ];
 }
 
-function rueckerstattungBuchen(person, belegIds, danach) {
-  if (!belegIds.length) { melden('Bitte mindestens einen Beleg auswählen.', true); return; }
-  const summe = person.belege.filter((b) => belegIds.includes(b.id)).reduce((s, b) => s + b.betrag_rappen, 0);
+// -------------------------------------------------------------- Zeichnen
 
-  const formular = el('form', { class: 'stapel' },
-    el('p', {}, `${belegIds.length} Belege · `, el('strong', { text: chf(summe) }), ` an ${person.name}`),
-    el('div', { class: 'feld-reihe' },
-      el('label', {}, 'Datum der Zahlung', el('input', { name: 'datum', type: 'date', value: heute(), required: true })),
-      el('label', {}, 'Art', el('select', { name: 'methode' },
-        el('option', { value: 'bank' }, 'Banküberweisung'),
-        el('option', { value: 'twint' }, 'Twint'),
-        el('option', { value: 'bar' }, 'Bar'),
-        el('option', { value: 'verrechnet' }, 'Verrechnet')))),
-    person.iban ? el('p', { class: 'notiz', text: `IBAN: ${person.iban}` }) : null,
-    el('label', {}, 'Notiz', el('input', { name: 'notiz', placeholder: 'optional' }))
-  );
+const ansicht = document.getElementById('ansicht');
 
-  dialogZeigen('Rückerstattung buchen', formular, [
-    el('button', { class: 'knopf leise', onclick: dialogSchliessen }, 'Abbrechen'),
-    el('button', {
-      class: 'knopf primaer',
-      onclick: async () => {
-        try {
-          const daten = Object.fromEntries(new FormData(formular).entries());
-          await api('/rueckerstattungen', {
-            methode: 'POST',
-            daten: { ...daten, benutzer_id: person.id, beleg_ids: belegIds }
-          });
-          melden('Rückerstattung gebucht.');
-          dialogSchliessen();
-          danach();
-        } catch (fehler) { melden(fehler.message, true); }
-      }
-    }, 'Buchen')
-  ]);
-}
+async function zeichnen() {
+  if (!zustand.rolle) return;
+  navigationZeichnen();
 
-// ================================================================= Kassen
+  const teile = (location.hash || '#/').slice(2).split('/').filter(Boolean);
+  const seite = teile[0] || '';
 
-async function kassenAnsicht() {
-  const behaelter = el('div', {});
+  ansicht.replaceChildren(el('div', { class: 'leer', text: 'Einen Moment …' }));
 
-  async function neuLaden() {
-    behaelter.replaceChildren(el('p', { class: 'notiz', text: 'Lädt …' }));
-    const kassen = await api('/kassen');
-    zustand.kassen = kassen.map((k) => ({ ...k, meine_rolle: k.meine_rolle }));
-    if (istAdmin() && !zustand.personen.length) zustand.personen = await api('/benutzer');
-
-    const karten = kassen.map((kasse) => el('div', { class: 'karte' },
-      el('div', { class: 'karte-kopf' },
-        el('span', { class: 'marke-punkt', style: `background:${kasse.farbe};width:12px;height:12px` }),
-        el('h2', {}, `${kasse.kuerzel} – ${kasse.name}`),
-        kasse.aktiv ? null : el('span', { class: 'schild abgelehnt' }, 'geschlossen'),
-        istAdmin() ? el('button', { class: 'knopf leise kompakt', onclick: () => kasseBearbeiten(kasse, neuLaden) }, '✏️') : null),
-      el('div', { class: 'karte-leib' },
-        kasse.beschreibung ? el('p', { class: 'notiz', text: kasse.beschreibung }) : null,
-        el('div', { class: 'kachelreihe', style: 'margin:0' },
-          kachel('Saldo', betragKurz(kasse.saldo_rappen ?? 0), null, 'blau'),
-          kachel('Einnahmen', betragKurz(kasse.einnahmen_rappen ?? 0), null, 'gruen'),
-          kachel('Ausgaben', betragKurz(kasse.ausgaben_rappen ?? 0), `${kasse.anzahl_belege ?? 0} Belege`, 'rot'),
-          kachel('Noch offen', betragKurz(kasse.offen_rappen ?? 0), 'ungeprüfte Belege'))),
-      el('div', { class: 'karte-leib' },
-        el('div', { class: 'zwischentitel', style: 'margin-bottom:8px' }, 'Zugeteilte Personen'),
-        mitgliederBereich(kasse, neuLaden))));
-
-    const neueKasse = istAdmin()
-      ? el('div', { class: 'karte' },
-          el('div', { class: 'karte-kopf' }, el('h2', {}, 'Neue Kasse anlegen')),
-          el('div', { class: 'karte-leib' }, kassenFormular(neuLaden)))
-      : null;
-
-    behaelter.replaceChildren(...karten, neueKasse);
+  try {
+    let inhalt;
+    if (seite === 'kasse' && zustand.rolle === 'admin') {
+      inhalt = await kasseAnsicht(teile[1], teile[2]);
+    } else if (seite === 'neu') {
+      inhalt = await neuerBelegAnsicht(teile[1]);
+    } else if (seite === 'einstellungen' && zustand.rolle === 'admin') {
+      inhalt = await einstellungenAnsicht();
+    } else if (seite === 'meine') {
+      inhalt = await meineBelegeAnsicht();
+    } else {
+      inhalt = await startAnsicht();
+    }
+    ansicht.replaceChildren(...[].concat(inhalt).filter(Boolean));
+    window.scrollTo({ top: 0 });
+  } catch (fehler) {
+    ansicht.replaceChildren(el('div', { class: 'karte leer' }, [
+      el('p', { text: fehler.message }),
+      el('button', { class: 'knopf', text: 'Nochmal versuchen', onclick: zeichnen })
+    ]));
   }
-
-  await neuLaden();
-  return behaelter;
 }
 
-function kassenFormular(danach) {
-  const formular = el('form', { class: 'stapel' },
-    el('div', { class: 'feld-reihe' },
-      el('label', {}, 'Name', el('input', { name: 'name', placeholder: 'z.B. Jungschar', required: true })),
-      el('label', {}, 'Kürzel (steht in der Belegnummer)',
-        el('input', { name: 'kuerzel', placeholder: 'JS', maxlength: '6', required: true }))),
-    el('div', { class: 'feld-reihe' },
-      el('label', {}, 'Startsaldo CHF', el('input', { name: 'startsaldo', inputmode: 'decimal', value: '0.00' })),
-      el('label', {}, 'Farbe', el('input', { name: 'farbe', type: 'color', value: '#d21a37' }))),
-    el('label', {}, 'Beschreibung', el('input', { name: 'beschreibung', placeholder: 'optional' })),
-    el('button', { class: 'knopf primaer', type: 'submit' }, 'Kasse anlegen'));
+window.addEventListener('hashchange', zeichnen);
 
-  formular.addEventListener('submit', async (ereignis) => {
-    ereignis.preventDefault();
-    try {
-      await api('/kassen', { methode: 'POST', daten: Object.fromEntries(new FormData(formular).entries()) });
-      melden('Kasse angelegt.');
-      await ichLaden();
-      danach();
-    } catch (fehler) { melden(fehler.message, true); }
-  });
-  return formular;
-}
+// ---------------------------------------------------------------- Start
 
-function kasseBearbeiten(kasse, danach) {
-  const formular = el('form', { class: 'stapel' },
-    el('label', {}, 'Name', el('input', { name: 'name', value: kasse.name, required: true })),
-    el('label', {}, 'Beschreibung', el('input', { name: 'beschreibung', value: kasse.beschreibung || '' })),
-    el('div', { class: 'feld-reihe' },
-      el('label', {}, 'Startsaldo CHF',
-        el('input', { name: 'startsaldo', inputmode: 'decimal', value: ((kasse.startsaldo_rappen || 0) / 100).toFixed(2) })),
-      el('label', {}, 'Farbe', el('input', { name: 'farbe', type: 'color', value: kasse.farbe }))),
-    el('label', { style: 'flex-direction:row;display:flex;gap:8px;align-items:center' },
-      el('input', { type: 'checkbox', name: 'aktiv', checked: Boolean(kasse.aktiv), style: 'width:18px;min-height:0' }),
-      'Kasse ist offen (geschlossene Kassen nehmen keine neuen Belege mehr an)'),
-    el('p', { class: 'notiz', text: `Kürzel ${kasse.kuerzel} bleibt fest, weil es in allen Belegnummern steht.` }));
-
-  dialogZeigen(`Kasse ${kasse.kuerzel} bearbeiten`, formular, [
-    el('button', { class: 'knopf leise', onclick: dialogSchliessen }, 'Abbrechen'),
-    el('button', {
-      class: 'knopf primaer',
-      onclick: async () => {
-        const daten = Object.fromEntries(new FormData(formular).entries());
-        daten.aktiv = formular.querySelector('input[name="aktiv"]').checked;
-        try {
-          await api(`/kassen/${kasse.id}`, { methode: 'PATCH', daten });
-          melden('Kasse gespeichert.');
-          dialogSchliessen();
-          await ichLaden();
-          danach();
-        } catch (fehler) { melden(fehler.message, true); }
-      }
-    }, 'Speichern')
-  ]);
-}
-
-function mitgliederBereich(kasse, danach) {
-  const bereich = el('div', {});
-
-  async function laden() {
-    const mitglieder = await api(`/kassen/${kasse.id}/mitglieder`);
-    const zeilen = mitglieder.map((person) => el('tr', {},
-      el('td', { text: person.name }),
-      el('td', {}, el('span', { class: `schild ${person.rolle === 'kassier' ? 'blau' : ''}` },
-        person.rolle === 'kassier' ? 'Kassier – sieht alles' : 'Melder – nur eigene Belege')),
-      el('td', { class: 'zahl' }, istAdmin() ? el('div', { class: 'zeile-aktionen', style: 'justify-content:flex-end' },
-        el('button', {
-          class: 'knopf leise kompakt',
-          onclick: async () => {
-            await api(`/kassen/${kasse.id}/mitglieder`, {
-              methode: 'PUT',
-              daten: { benutzer_id: person.id, rolle: person.rolle === 'kassier' ? 'melder' : 'kassier' }
-            });
-            laden();
-          }
-        }, person.rolle === 'kassier' ? 'zu Melder' : 'zu Kassier'),
-        el('button', {
-          class: 'knopf gefahr kompakt',
-          onclick: async () => {
-            if (!(await bestaetigen('Person entfernen?',
-              `${person.name} kann danach keine Belege mehr für ${kasse.kuerzel} einreichen.`, 'Entfernen'))) return;
-            await api(`/kassen/${kasse.id}/mitglieder/${person.id}`, { methode: 'DELETE' });
-            laden();
-          }
-        }, '✕')) : null)));
-
-    const hinzufuegen = istAdmin()
-      ? (() => {
-          const auswahl = el('select', {},
-            ...zustand.personen
-              .filter((p) => !mitglieder.some((m) => m.id === p.id))
-              .map((p) => el('option', { value: String(p.id) }, p.name)));
-          const rolle = el('select', {},
-            el('option', { value: 'melder' }, 'Melder – darf Belege einreichen'),
-            el('option', { value: 'kassier' }, 'Kassier – darf prüfen und abrechnen'));
-          return el('div', { class: 'werkzeugleiste', style: 'margin:12px 0 0' },
-            el('label', { class: 'wachsen' }, 'Person', auswahl),
-            el('label', { class: 'wachsen' }, 'Rolle', rolle),
-            el('button', {
-              class: 'knopf blau kompakt',
-              onclick: async () => {
-                if (!auswahl.value) return;
-                await api(`/kassen/${kasse.id}/mitglieder`, {
-                  methode: 'PUT', daten: { benutzer_id: Number(auswahl.value), rolle: rolle.value }
-                });
-                melden('Person zugeteilt.');
-                laden();
-                danach?.();
-              }
-            }, '+ Zuteilen'));
-        })()
-      : null;
-
-    bereich.replaceChildren(
-      zeilen.length
-        ? el('table', { class: 'liste' }, el('tbody', {}, ...zeilen))
-        : el('p', { class: 'notiz', text: 'Noch niemand zugeteilt.' }),
-      hinzufuegen
-    );
-  }
-
-  laden();
-  return bereich;
-}
-
-// =============================================================== Personen
-
-async function personenAnsicht() {
-  const behaelter = el('div', {});
-
-  async function neuLaden() {
-    behaelter.replaceChildren(el('p', { class: 'notiz', text: 'Lädt …' }));
-    const personen = await api('/benutzer');
-    zustand.personen = personen;
-
-    const zeilen = personen.map((person) => el('tr', {},
-      el('td', {},
-        el('div', { style: 'font-weight:600', text: person.name }),
-        el('div', { class: 'notiz', text: person.email })),
-      el('td', {}, person.rolle === 'admin'
-        ? el('span', { class: 'schild blau' }, 'Abteilungsleitung')
-        : el('span', { class: 'schild' }, 'Benutzer')),
-      el('td', {}, el('div', { class: 'zeile-aktionen' },
-        ...(person.kassen || []).map((k) =>
-          el('span', { class: 'schild', text: `${k.kuerzel} · ${k.rolle === 'kassier' ? 'Kassier' : 'Melder'}` })))),
-      el('td', {}, person.aktiv ? el('span', { class: 'schild geprueft' }, 'aktiv')
-                                : el('span', { class: 'schild abgelehnt' }, 'gesperrt')),
-      el('td', { class: 'zahl' }, el('div', { class: 'zeile-aktionen', style: 'justify-content:flex-end' },
-        el('button', { class: 'knopf leise kompakt', onclick: () => personBearbeiten(person, neuLaden) }, '✏️'),
-        el('button', {
-          class: 'knopf leise kompakt',
-          onclick: async () => {
-            if (!(await bestaetigen('Passwort zurücksetzen?',
-              `${person.name} erhält ein neues Startpasswort und wird überall abgemeldet.`, 'Zurücksetzen'))) return;
-            const antwort = await api(`/benutzer/${person.id}/passwort-zuruecksetzen`, { methode: 'POST' });
-            dialogZeigen('Neues Startpasswort',
-              el('div', { class: 'stapel' },
-                el('p', {}, `Bitte ${person.name} persönlich mitteilen:`),
-                el('p', { style: 'font-family:var(--mono);font-size:20px;font-weight:700', text: antwort.startpasswort }),
-                el('p', { class: 'notiz' }, 'Beim nächsten Anmelden muss das Passwort geändert werden.')),
-              [el('button', { class: 'knopf primaer', onclick: dialogSchliessen }, 'Verstanden')]);
-          }
-        }, '🔑')))));
-
-    const tabelle = el('div', { class: 'karte' },
-      el('div', { class: 'karte-kopf' }, el('h2', {}, `${personen.length} Personen`)),
-      el('div', { class: 'karte-leib eng' },
-        el('table', { class: 'liste' },
-          el('thead', {}, el('tr', {},
-            el('th', {}, 'Name'), el('th', {}, 'Rolle'), el('th', {}, 'Kassen'),
-            el('th', {}, 'Status'), el('th', {}, ''))),
-          el('tbody', {}, ...zeilen))));
-
-    const formular = el('form', { class: 'stapel' },
-      el('div', { class: 'feld-reihe' },
-        el('label', {}, 'Name', el('input', { name: 'name', required: true, placeholder: 'Vorname Name' })),
-        el('label', {}, 'E-Mail', el('input', { name: 'email', type: 'email', required: true }))),
-      el('label', {}, 'Rolle', el('select', { name: 'rolle' },
-        el('option', { value: 'benutzer' }, 'Benutzer – reicht Belege ein'),
-        el('option', { value: 'admin' }, 'Abteilungsleitung – sieht und darf alles'))),
-      el('button', { class: 'knopf primaer', type: 'submit' }, 'Person anlegen'));
-
-    formular.addEventListener('submit', async (ereignis) => {
-      ereignis.preventDefault();
-      try {
-        const antwort = await api('/benutzer', {
-          methode: 'POST', daten: Object.fromEntries(new FormData(formular).entries())
-        });
-        dialogZeigen('Person angelegt',
-          el('div', { class: 'stapel' },
-            el('p', {}, `${antwort.name} kann sich mit dieser E-Mail anmelden: ${antwort.email}`),
-            el('p', {}, 'Startpasswort (bitte persönlich weitergeben):'),
-            el('p', { style: 'font-family:var(--mono);font-size:20px;font-weight:700', text: antwort.startpasswort }),
-            el('p', { class: 'notiz' }, 'Danach noch der passenden Kasse zuteilen.')),
-          [el('button', { class: 'knopf primaer', onclick: dialogSchliessen }, 'Verstanden')]);
-        neuLaden();
-      } catch (fehler) { melden(fehler.message, true); }
-    });
-
-    behaelter.replaceChildren(tabelle,
-      el('div', { class: 'karte' },
-        el('div', { class: 'karte-kopf' }, el('h2', {}, 'Neue Person anlegen')),
-        el('div', { class: 'karte-leib' }, formular)));
-  }
-
-  await neuLaden();
-  return behaelter;
-}
-
-function personBearbeiten(person, danach) {
-  const formular = el('form', { class: 'stapel' },
-    el('div', { class: 'feld-reihe' },
-      el('label', {}, 'Name', el('input', { name: 'name', value: person.name, required: true })),
-      el('label', {}, 'E-Mail', el('input', { name: 'email', type: 'email', value: person.email, required: true }))),
-    el('div', { class: 'feld-reihe' },
-      el('label', {}, 'Rolle', el('select', { name: 'rolle' },
-        el('option', { value: 'benutzer', selected: person.rolle !== 'admin' }, 'Benutzer'),
-        el('option', { value: 'admin', selected: person.rolle === 'admin' }, 'Abteilungsleitung'))),
-      el('label', {}, 'IBAN', el('input', { name: 'iban', value: person.iban || '', placeholder: 'CH..' }))),
-    el('label', { style: 'flex-direction:row;display:flex;gap:8px;align-items:center' },
-      el('input', { type: 'checkbox', name: 'aktiv', checked: Boolean(person.aktiv), style: 'width:18px;min-height:0' }),
-      'Konto ist aktiv'));
-
-  dialogZeigen(`${person.name} bearbeiten`, formular, [
-    el('button', { class: 'knopf leise', onclick: dialogSchliessen }, 'Abbrechen'),
-    el('button', {
-      class: 'knopf primaer',
-      onclick: async () => {
-        const daten = Object.fromEntries(new FormData(formular).entries());
-        daten.aktiv = formular.querySelector('input[name="aktiv"]').checked;
-        try {
-          await api(`/benutzer/${person.id}`, { methode: 'PATCH', daten });
-          melden('Gespeichert.');
-          dialogSchliessen();
-          danach();
-        } catch (fehler) { melden(fehler.message, true); }
-      }
-    }, 'Speichern')
-  ]);
-}
-
-// ================================================================= Profil
-
-async function profilAnsicht() {
-  const profilFormular = el('form', { class: 'stapel' },
-    el('div', { class: 'feld-reihe' },
-      el('label', {}, 'Name', el('input', { name: 'name', value: zustand.ich.name, required: true })),
-      el('label', {}, 'Telefon', el('input', { name: 'telefon', value: zustand.ich.telefon || '' }))),
-    el('label', {}, 'IBAN (für Rückerstattungen)',
-      el('input', { name: 'iban', value: zustand.ich.iban || '', placeholder: 'CH00 0000 0000 0000 0000 0' })),
-    el('button', { class: 'knopf primaer', type: 'submit' }, 'Speichern'));
-
-  profilFormular.addEventListener('submit', async (ereignis) => {
-    ereignis.preventDefault();
-    try {
-      const antwort = await api('/ich', {
-        methode: 'PATCH', daten: Object.fromEntries(new FormData(profilFormular).entries())
-      });
-      zustand.ich = antwort.benutzer;
-      melden('Profil gespeichert.');
-      navigationZeichnen();
-    } catch (fehler) { melden(fehler.message, true); }
-  });
-
-  const passwortFormular = el('form', { class: 'stapel' },
-    el('label', {}, 'Bisheriges Passwort',
-      el('input', { name: 'altes_passwort', type: 'password', autocomplete: 'current-password', required: true })),
-    el('label', {}, 'Neues Passwort (mindestens 8 Zeichen)',
-      el('input', { name: 'neues_passwort', type: 'password', autocomplete: 'new-password', required: true, minlength: '8' })),
-    el('button', { class: 'knopf blau', type: 'submit' }, 'Passwort ändern'));
-
-  passwortFormular.addEventListener('submit', async (ereignis) => {
-    ereignis.preventDefault();
-    try {
-      await api('/ich/passwort', {
-        methode: 'POST', daten: Object.fromEntries(new FormData(passwortFormular).entries())
-      });
-      melden('Passwort geändert.');
-      passwortFormular.reset();
-      zustand.ich.passwort_neu = false;
-      routen();
-    } catch (fehler) { melden(fehler.message, true); }
-  });
-
-  const meineKassen = el('div', { class: 'zeile-aktionen' },
-    ...zustand.kassen.map((k) => el('span', { class: 'schild', style: `border-left:4px solid ${k.farbe}` },
-      `${k.kuerzel} · ${k.meine_rolle === 'kassier' ? 'Kassier' : 'Melder'}`)));
-
-  return el('div', {},
-    zustand.ich.passwort_neu
-      ? el('div', { class: 'karte', style: 'border-color:var(--rot)' },
-          el('div', { class: 'karte-leib' },
-            el('strong', {}, '🔐 Bitte zuerst ein eigenes Passwort setzen.'),
-            el('p', { class: 'notiz' }, 'Du bist mit einem Startpasswort angemeldet.')))
-      : null,
-    el('div', { class: 'karte' },
-      el('div', { class: 'karte-kopf' }, el('h2', {}, 'Mein Konto')),
-      el('div', { class: 'karte-leib' },
-        el('p', { class: 'notiz', text: `${zustand.ich.email} · ${zustand.ich.rolle === 'admin' ? 'Abteilungsleitung' : 'Benutzer'}` }),
-        meineKassen,
-        el('div', { class: 'trenner' }),
-        profilFormular)),
-    el('div', { class: 'karte' },
-      el('div', { class: 'karte-kopf' }, el('h2', {}, 'Passwort ändern')),
-      el('div', { class: 'karte-leib' }, passwortFormular)));
-}
-
-// =================================================================== Start
-
-function appStarten() {
-  document.getElementById('anmeldung').hidden = true;
-  document.getElementById('app').hidden = false;
-  if (zustand.ich.passwort_neu) location.hash = '#/profil';
-  else if (!location.hash) location.hash = '#/belege';
-  routen();
+async function starten() {
+  appZeigen();
+  await zeichnen();
 }
 
 (async function los() {
-  if (await ichLaden()) {
-    if (istKassier()) {
-      try { zustand.personen = await api('/benutzer'); } catch { /* egal */ }
-    }
-    appStarten();
-  } else {
-    document.getElementById('anmeldung').hidden = false;
-    document.querySelector('#anmelde-formular input[name="email"]').focus();
+  zustand.geraet = geraetKennung();
+  zustand.name = speicherLesen('cmk_name');
+  try {
+    const antwort = await api('/ich');
+    zustand.rolle = antwort.rolle;
+    zustand.csrf = antwort.csrf;
+    await starten();
+  } catch {
+    anmeldungZeigen();
   }
 })();

@@ -12,11 +12,8 @@ import { sitzungLaden, csrfPruefen, alteSitzungenAufraeumen } from './auth.js';
 import { ersteEinrichtung } from './einrichtung.js';
 
 import anmeldungRouter from './routen/anmeldung.js';
-import benutzerRouter from './routen/benutzer.js';
 import kassenRouter from './routen/kassen.js';
 import belegeRouter from './routen/belege.js';
-import einnahmenRouter from './routen/einnahmen.js';
-import abrechnungRouter from './routen/abrechnung.js';
 import exportRouter from './routen/export.js';
 
 const hier = path.dirname(fileURLToPath(import.meta.url));
@@ -68,11 +65,8 @@ app.use(
 // API  (die Anmeldung braucht noch kein CSRF-Token, sie schuetzt sich selbst)
 app.use('/api', anmeldungRouter);
 app.use('/api', csrfPruefen);
-app.use('/api/benutzer', benutzerRouter);
 app.use('/api/kassen', kassenRouter);
 app.use('/api/belege', belegeRouter);
-app.use('/api/einnahmen', einnahmenRouter);
-app.use('/api', abrechnungRouter);
 app.use('/api/export', exportRouter);
 
 app.get('/api/*', (_req, res) => res.status(404).json({ fehler: 'Unbekannter Endpunkt.' }));

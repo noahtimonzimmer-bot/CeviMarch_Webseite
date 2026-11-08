@@ -1,31 +1,38 @@
-// Legt beim allerersten Start ein Administratorkonto an.
+// Legt beim allerersten Start die beiden Passwoerter an und schreibt sie
+// ins Terminal. Danach kann die Abteilungsleitung sie in der App aendern.
 import { db } from './db.js';
-import { passwortHashen, startpasswortErzeugen } from './auth.js';
+import {
+  SCHLUESSEL_ADMIN, SCHLUESSEL_BENUTZER,
+  einstellungLesen, einstellungSetzen, passwortHashen, passwortVorschlagen
+} from './auth.js';
 
 export function ersteEinrichtung() {
-  const anzahl = db.prepare('SELECT COUNT(*) AS n FROM benutzer').get().n;
-  if (anzahl > 0) return;
+  const fehltAdmin = !einstellungLesen(SCHLUESSEL_ADMIN);
+  const fehltBenutzer = !einstellungLesen(SCHLUESSEL_BENUTZER);
+  if (!fehltAdmin && !fehltBenutzer) return;
 
-  const email = (process.env.ADMIN_EMAIL || 'admin@cevimarch.ch').trim();
-  const name = process.env.ADMIN_NAME || 'Abteilungsleitung';
-  const passwort = process.env.ADMIN_PASSWORT || startpasswortErzeugen();
-  const selbstGesetzt = Boolean(process.env.ADMIN_PASSWORT);
+  const adminPasswort = process.env.PASSWORT_LEITUNG || passwortVorschlagen();
+  const benutzerPasswort = process.env.PASSWORT_MITARBEIT || passwortVorschlagen();
 
-  db.prepare(
-    `INSERT INTO benutzer (name, email, passwort_hash, rolle, passwort_neu)
-     VALUES (?, ?, ?, 'admin', ?)`
-  ).run(name, email, passwortHashen(passwort), selbstGesetzt ? 0 : 1);
+  if (fehltAdmin) einstellungSetzen(SCHLUESSEL_ADMIN, passwortHashen(adminPasswort));
+  if (fehltBenutzer) einstellungSetzen(SCHLUESSEL_BENUTZER, passwortHashen(benutzerPasswort));
 
   console.log('');
   console.log('========================================================');
-  console.log(' Erstes Administratorkonto angelegt');
-  console.log(`   E-Mail:   ${email}`);
-  if (!selbstGesetzt) {
-    console.log(`   Passwort: ${passwort}`);
-    console.log('   (Bitte nach der ersten Anmeldung sofort aendern.)');
-  } else {
-    console.log('   Passwort: wie in ADMIN_PASSWORT gesetzt');
+  console.log(' Ce March Kasse - Passwoerter');
+  if (fehltAdmin) {
+    console.log(`   Leitung   (sieht und verwaltet alles): ${process.env.PASSWORT_LEITUNG ? 'wie in PASSWORT_LEITUNG gesetzt' : adminPasswort}`);
   }
+  if (fehltBenutzer) {
+    console.log(`   Mitarbeit (nur Belege erfassen):       ${process.env.PASSWORT_MITARBEIT ? 'wie in PASSWORT_MITARBEIT gesetzt' : benutzerPasswort}`);
+  }
+  console.log('   Beide lassen sich in der App unter "Einstellungen" aendern.');
   console.log('========================================================');
   console.log('');
+
+  // Beim ersten Start gleich eine AL-Kasse anlegen, damit die Seite nicht leer ist.
+  if (db.prepare('SELECT COUNT(*) AS n FROM kassen').get().n === 0) {
+    db.prepare('INSERT INTO kassen (name, beschreibung, farbe) VALUES (?, ?, ?)')
+      .run('AL-Kasse', 'Kasse der Abteilungsleitung', '#1d4f9e');
+  }
 }

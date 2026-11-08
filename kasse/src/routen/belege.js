@@ -1,24 +1,31 @@
 // Belege: einreichen, ansehen, pruefen, Fotos ausliefern.
+//
+// Die Abteilungsleitung sieht alle Belege. Wer mit dem Mitarbeitspasswort
+// angemeldet ist, sieht nur die Belege, die von diesem Geraet eingereicht
+// wurden - erkennbar an einer zufaelligen Kennung, die der Browser mitschickt.
 import express from 'express';
 import fs from 'node:fs';
 import { db, protokollieren } from '../db.js';
-import { angemeldet, darfKasseVerwalten, darfBelegEinreichen, kassenRolle } from '../auth.js';
+import { angemeldet, nurLeitung } from '../auth.js';
 import { zuRappen } from '../geld.js';
-import { belegeLaden, BELEG_AUSWAHL } from '../belegabfrage.js';
+import { ZAHLUNGSARTEN, kasseLesen } from '../kassenbuch.js';
 import { belegUpload, belegDateiSpeichern, vollerPfad, dateiLoeschen } from '../dateien.js';
 
 const router = express.Router();
 router.use(angemeldet);
 
-export const KATEGORIEN = [
-  'Lebensmittel', 'Material', 'Miete', 'Transport', 'Programm',
-  'Geschenke', 'Buero', 'Versicherung', 'Sonstiges'
-];
-
-const ZAHLUNGSARTEN = ['privat', 'kasse_bar', 'kasse_karte', 'rechnung'];
-
 function belegLesen(id) {
-  return db.prepare(`${BELEG_AUSWAHL} WHERE b.id = ?`).get(id);
+  return db
+    .prepare(
+      `SELECT b.*, k.name AS kasse_name, k.farbe AS kasse_farbe,
+              r.datum AS rueckerstattet_am,
+              (SELECT COUNT(*) FROM beleg_dateien d WHERE d.beleg_id = b.id) AS anzahl_dateien
+         FROM belege b
+         JOIN kassen k ON k.id = b.kasse_id
+         LEFT JOIN rueckerstattungen r ON r.id = b.rueckerstattung_id
+        WHERE b.id = ?`
+    )
+    .get(Number(id));
 }
 
 function dateienLesen(belegId) {
@@ -30,42 +37,57 @@ function dateienLesen(belegId) {
     .all(belegId);
 }
 
-function darfSehen(benutzer, beleg) {
-  if (!beleg) return false;
-  if (darfKasseVerwalten(benutzer, beleg.kasse_id)) return true;
-  if (!kassenRolle(benutzer, beleg.kasse_id)) return false;
-  return beleg.erfasst_von === benutzer.id || beleg.bezahlt_von === benutzer.id;
+function geraetKennung(req) {
+  const wert = String(req.get('X-Geraet') || req.query.geraet || '').trim();
+  return /^[A-Za-z0-9_-]{8,64}$/.test(wert) ? wert : null;
 }
 
-function darfBearbeiten(benutzer, beleg) {
-  if (darfKasseVerwalten(benutzer, beleg.kasse_id)) return true;
-  return beleg.erfasst_von === benutzer.id && beleg.status === 'offen';
+function darfSehen(req, beleg) {
+  if (!beleg) return false;
+  if (req.rolle === 'admin') return true;
+  const geraet = geraetKennung(req);
+  return Boolean(geraet && beleg.geraet === geraet);
+}
+
+/** Eigene Belege darf man aendern und loeschen, solange sie offen sind. */
+function darfBearbeiten(req, beleg) {
+  if (req.rolle === 'admin') return true;
+  return darfSehen(req, beleg) && beleg.status === 'offen';
 }
 
 function istDatum(text) {
   return /^\d{4}-\d{2}-\d{2}$/.test(text) && !Number.isNaN(Date.parse(text));
 }
 
-// ------------------------------------------------------------------- Liste
+// ----------------------------------------------- Eigene Belege dieses Geraets
 
-router.get('/', (req, res) => {
-  const limit = Math.min(Number(req.query.limit) || 200, 1000);
-  const offset = Math.max(Number(req.query.offset) || 0, 0);
-  res.json({ ...belegeLaden(req.benutzer, req.query, { limit, offset }), kategorien: KATEGORIEN });
+router.get('/meine', (req, res) => {
+  const geraet = geraetKennung(req);
+  if (!geraet) return res.json([]);
+  res.json(
+    db
+      .prepare(
+        `SELECT b.id, b.nummer, b.jahr, b.datum, b.betrag_rappen, b.beschreibung,
+                b.status, b.person, b.zahlungsart, b.erstellt_am,
+                k.name AS kasse_name, k.farbe AS kasse_farbe,
+                (SELECT COUNT(*) FROM beleg_dateien d WHERE d.beleg_id = b.id) AS anzahl_dateien
+           FROM belege b JOIN kassen k ON k.id = b.kasse_id
+          WHERE b.geraet = ? ORDER BY b.erstellt_am DESC LIMIT 50`
+      )
+      .all(geraet)
+  );
 });
 
 router.get('/:id', (req, res) => {
-  const beleg = belegLesen(Number(req.params.id));
-  if (!darfSehen(req.benutzer, beleg)) {
-    return res.status(404).json({ fehler: 'Beleg nicht gefunden.' });
-  }
+  const beleg = belegLesen(req.params.id);
+  if (!darfSehen(req, beleg)) return res.status(404).json({ fehler: 'Beleg nicht gefunden.' });
   res.json({ ...beleg, dateien: dateienLesen(beleg.id) });
 });
 
 /** Kleines Vorschaubild des ersten Fotos - fuer die Listenansicht. */
 router.get('/:id/vorschau', (req, res) => {
-  const beleg = belegLesen(Number(req.params.id));
-  if (!darfSehen(req.benutzer, beleg)) return res.status(404).end();
+  const beleg = belegLesen(req.params.id);
+  if (!darfSehen(req, beleg)) return res.status(404).end();
   const datei = db
     .prepare(
       `SELECT * FROM beleg_dateien WHERE beleg_id = ? AND mime <> 'application/pdf'
@@ -82,25 +104,21 @@ router.get('/:id/vorschau', (req, res) => {
 
 // ---------------------------------------------------------------- Anlegen
 
+// Die Nummer zaehlt pro Kasse und Jahr von 1 an hoch, genau wie im
+// Kassenbuch auf Papier. Sie wird in einer Transaktion vergeben, damit zwei
+// gleichzeitige Belege nie dieselbe Nummer bekommen.
 const naechsteNummer = db.transaction((kasseId, jahr) => {
-  const kasse = db.prepare('SELECT kuerzel FROM kassen WHERE id = ?').get(kasseId);
   const max = db
-    .prepare('SELECT COALESCE(MAX(laufnummer), 0) AS n FROM belege WHERE kasse_id = ? AND jahr = ?')
+    .prepare('SELECT COALESCE(MAX(nummer), 0) AS n FROM belege WHERE kasse_id = ? AND jahr = ?')
     .get(kasseId, jahr).n;
-  const laufnummer = max + 1;
-  return {
-    laufnummer,
-    nummer: `${kasse.kuerzel}-${jahr}-${String(laufnummer).padStart(4, '0')}`
-  };
+  return max + 1;
 });
 
 router.post('/', belegUpload.array('dateien', 8), async (req, res) => {
-  const kasseId = Number(req.body?.kasse_id);
-  if (!darfBelegEinreichen(req.benutzer, kasseId)) {
-    return res.status(403).json({ fehler: 'Du bist dieser Kasse nicht zugeteilt.' });
+  const kasse = kasseLesen(Number(req.body?.kasse_id));
+  if (!kasse || !kasse.aktiv) {
+    return res.status(404).json({ fehler: 'Kasse nicht gefunden oder geschlossen.' });
   }
-  const kasse = db.prepare('SELECT * FROM kassen WHERE id = ? AND aktiv = 1').get(kasseId);
-  if (!kasse) return res.status(404).json({ fehler: 'Kasse nicht gefunden oder geschlossen.' });
 
   const datum = String(req.body?.datum || '').slice(0, 10);
   if (!istDatum(datum)) return res.status(400).json({ fehler: 'Bitte ein gueltiges Datum angeben.' });
@@ -114,31 +132,27 @@ router.post('/', belegUpload.array('dateien', 8), async (req, res) => {
     return res.status(400).json({ fehler: 'Bitte kurz beschreiben, wofuer der Beleg ist.' });
   }
   const zahlungsart = ZAHLUNGSARTEN.includes(req.body?.zahlungsart) ? req.body.zahlungsart : 'privat';
-
-  // Wer ausgelegt hat: normale Melder immer sie selbst, Kassiere duerfen es setzen.
-  let bezahltVon = req.benutzer.id;
-  if (req.body?.bezahlt_von && darfKasseVerwalten(req.benutzer, kasseId)) {
-    bezahltVon = Number(req.body.bezahlt_von);
+  const person = String(req.body?.person || '').trim().slice(0, 120);
+  if (zahlungsart === 'privat' && !person) {
+    return res.status(400).json({ fehler: 'Bitte angeben, wer das Geld ausgelegt hat.' });
   }
-  if (zahlungsart !== 'privat' && req.body?.bezahlt_von === '') bezahltVon = null;
 
   const jahr = Number(datum.slice(0, 4));
-  const { laufnummer, nummer } = naechsteNummer(kasseId, jahr);
+  const nummer = naechsteNummer(kasse.id, jahr);
 
   const info = db
     .prepare(
       `INSERT INTO belege
-         (kasse_id, nummer, jahr, laufnummer, datum, betrag_rappen, beschreibung,
-          haendler, kategorie, zahlungsart, bezahlt_von, notiz, erfasst_von, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'offen')`
+         (kasse_id, jahr, nummer, datum, betrag_rappen, beschreibung, haendler,
+          zahlungsart, person, notiz, geraet, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'offen')`
     )
     .run(
-      kasseId, nummer, jahr, laufnummer, datum, betrag, beschreibung.slice(0, 500),
+      kasse.id, jahr, nummer, datum, betrag, beschreibung.slice(0, 500),
       String(req.body?.haendler || '').trim().slice(0, 160) || null,
-      KATEGORIEN.includes(req.body?.kategorie) ? req.body.kategorie : 'Sonstiges',
-      zahlungsart, bezahltVon,
+      zahlungsart, person || null,
       String(req.body?.notiz || '').trim().slice(0, 1000) || null,
-      req.benutzer.id
+      geraetKennung(req)
     );
 
   const belegId = Number(info.lastInsertRowid);
@@ -151,7 +165,7 @@ router.post('/', belegUpload.array('dateien', 8), async (req, res) => {
           gespeichert.original_name, gespeichert.groesse);
   }
 
-  protokollieren(req.benutzer.id, 'beleg_eingereicht', 'beleg', belegId, { nummer, betrag });
+  protokollieren(req.rolle, 'beleg_eingereicht', 'beleg', belegId, { kasse: kasse.name, nummer, betrag });
   const beleg = belegLesen(belegId);
   res.status(201).json({ ...beleg, dateien: dateienLesen(belegId) });
 });
@@ -159,54 +173,46 @@ router.post('/', belegUpload.array('dateien', 8), async (req, res) => {
 // --------------------------------------------------------------- Aendern
 
 router.patch('/:id', (req, res) => {
-  const beleg = belegLesen(Number(req.params.id));
-  if (!darfSehen(req.benutzer, beleg)) return res.status(404).json({ fehler: 'Beleg nicht gefunden.' });
-  if (!darfBearbeiten(req.benutzer, beleg)) {
-    return res.status(403).json({ fehler: 'Geprüfte Belege kann nur die Kassenfuehrung aendern.' });
+  const beleg = belegLesen(req.params.id);
+  if (!darfSehen(req, beleg)) return res.status(404).json({ fehler: 'Beleg nicht gefunden.' });
+  if (!darfBearbeiten(req, beleg)) {
+    return res.status(403).json({ fehler: 'Geprüfte Belege kann nur die Abteilungsleitung aendern.' });
   }
 
   const datum = req.body?.datum !== undefined ? String(req.body.datum).slice(0, 10) : beleg.datum;
   if (!istDatum(datum)) return res.status(400).json({ fehler: 'Bitte ein gueltiges Datum angeben.' });
-  // Das Jahr steckt in der Belegnummer: Datum darf das Jahr nicht mehr wechseln.
+  // Die Nummer zaehlt pro Jahr: ein Jahreswechsel wuerde die Reihe zerreissen.
   if (Number(datum.slice(0, 4)) !== beleg.jahr) {
     return res.status(400).json({
-      fehler: `Die Belegnummer ${beleg.nummer} gehoert zum Jahr ${beleg.jahr}. Bitte den Beleg loeschen und neu erfassen.`
+      fehler: `Beleg Nr. ${beleg.nummer} gehoert ins Jahr ${beleg.jahr}. Bitte loeschen und neu erfassen.`
     });
   }
 
   const betrag = req.body?.betrag !== undefined ? zuRappen(req.body.betrag) : beleg.betrag_rappen;
   if (betrag === null || betrag <= 0) return res.status(400).json({ fehler: 'Ungueltiger Betrag.' });
 
-  const darfVerwalten = darfKasseVerwalten(req.benutzer, beleg.kasse_id);
-
   db.prepare(
     `UPDATE belege SET datum = ?, betrag_rappen = ?, beschreibung = ?, haendler = ?,
-            kategorie = ?, zahlungsart = ?, bezahlt_von = ?, notiz = ?
+            zahlungsart = ?, person = ?, notiz = ?
       WHERE id = ?`
   ).run(
     datum,
     betrag,
     String(req.body?.beschreibung ?? beleg.beschreibung).trim().slice(0, 500),
     req.body?.haendler !== undefined ? (String(req.body.haendler).trim().slice(0, 160) || null) : beleg.haendler,
-    KATEGORIEN.includes(req.body?.kategorie) ? req.body.kategorie : beleg.kategorie,
     ZAHLUNGSARTEN.includes(req.body?.zahlungsart) ? req.body.zahlungsart : beleg.zahlungsart,
-    darfVerwalten && req.body?.bezahlt_von !== undefined
-      ? (req.body.bezahlt_von ? Number(req.body.bezahlt_von) : null)
-      : beleg.bezahlt_von,
+    req.body?.person !== undefined ? (String(req.body.person).trim().slice(0, 120) || null) : beleg.person,
     req.body?.notiz !== undefined ? (String(req.body.notiz).trim().slice(0, 1000) || null) : beleg.notiz,
     beleg.id
   );
-  protokollieren(req.benutzer.id, 'beleg_geaendert', 'beleg', beleg.id, { nummer: beleg.nummer });
+  protokollieren(req.rolle, 'beleg_geaendert', 'beleg', beleg.id, { nummer: beleg.nummer });
   const neu = belegLesen(beleg.id);
   res.json({ ...neu, dateien: dateienLesen(neu.id) });
 });
 
-router.post('/:id/status', (req, res) => {
-  const beleg = belegLesen(Number(req.params.id));
+router.post('/:id/status', nurLeitung, (req, res) => {
+  const beleg = belegLesen(req.params.id);
   if (!beleg) return res.status(404).json({ fehler: 'Beleg nicht gefunden.' });
-  if (!darfKasseVerwalten(req.benutzer, beleg.kasse_id)) {
-    return res.status(403).json({ fehler: 'Nur die Kassenfuehrung kann Belege pruefen.' });
-  }
   const status = req.body?.status;
   if (!['offen', 'geprueft', 'abgelehnt'].includes(status)) {
     return res.status(400).json({ fehler: 'Unbekannter Status.' });
@@ -217,20 +223,18 @@ router.post('/:id/status', (req, res) => {
     });
   }
   db.prepare(
-    `UPDATE belege SET status = ?, geprueft_von = ?, geprueft_am = datetime('now'), ablehnungsgrund = ?
-      WHERE id = ?`
+    `UPDATE belege SET status = ?, geprueft_am = datetime('now'), ablehnungsgrund = ? WHERE id = ?`
   ).run(
     status,
-    status === 'offen' ? null : req.benutzer.id,
     status === 'abgelehnt' ? (String(req.body?.grund || '').trim().slice(0, 500) || null) : null,
     beleg.id
   );
-  protokollieren(req.benutzer.id, `beleg_${status}`, 'beleg', beleg.id, { nummer: beleg.nummer });
+  protokollieren(req.rolle, `beleg_${status}`, 'beleg', beleg.id, { nummer: beleg.nummer });
   res.json(belegLesen(beleg.id));
 });
 
 /** Mehrere Belege auf einmal pruefen. */
-router.post('/sammel-status', (req, res) => {
+router.post('/sammel-status', nurLeitung, (req, res) => {
   const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(Number).filter(Boolean) : [];
   const status = req.body?.status;
   if (!ids.length) return res.status(400).json({ fehler: 'Keine Belege ausgewaehlt.' });
@@ -238,27 +242,26 @@ router.post('/sammel-status', (req, res) => {
     return res.status(400).json({ fehler: 'Unbekannter Status.' });
   }
   let geaendert = 0;
-  const lauf = db.transaction(() => {
+  db.transaction(() => {
+    const setzen = db.prepare(
+      `UPDATE belege SET status = ?, geprueft_am = datetime('now') WHERE id = ?`
+    );
     for (const id of ids) {
-      const beleg = db.prepare('SELECT id, kasse_id, rueckerstattung_id FROM belege WHERE id = ?').get(id);
-      if (!beleg || !darfKasseVerwalten(req.benutzer, beleg.kasse_id)) continue;
+      const beleg = db.prepare('SELECT id, rueckerstattung_id FROM belege WHERE id = ?').get(id);
+      if (!beleg) continue;
       if (beleg.rueckerstattung_id && status !== 'geprueft') continue;
-      db.prepare(
-        `UPDATE belege SET status = ?, geprueft_von = ?, geprueft_am = datetime('now') WHERE id = ?`
-      ).run(status, status === 'offen' ? null : req.benutzer.id, id);
+      setzen.run(status, id);
       geaendert += 1;
     }
-  });
-  lauf();
-  protokollieren(req.benutzer.id, 'belege_sammel_status', 'beleg', null, { status, anzahl: geaendert });
+  })();
+  protokollieren(req.rolle, 'belege_sammel_status', 'beleg', null, { status, anzahl: geaendert });
   res.json({ geaendert });
 });
 
 router.delete('/:id', (req, res) => {
-  const beleg = belegLesen(Number(req.params.id));
-  if (!darfSehen(req.benutzer, beleg)) return res.status(404).json({ fehler: 'Beleg nicht gefunden.' });
-  const darfVerwalten = darfKasseVerwalten(req.benutzer, beleg.kasse_id);
-  if (!darfVerwalten && !(beleg.erfasst_von === req.benutzer.id && beleg.status === 'offen')) {
+  const beleg = belegLesen(req.params.id);
+  if (!darfSehen(req, beleg)) return res.status(404).json({ fehler: 'Beleg nicht gefunden.' });
+  if (!darfBearbeiten(req, beleg)) {
     return res.status(403).json({ fehler: 'Dieser Beleg kann nicht mehr geloescht werden.' });
   }
   if (beleg.rueckerstattung_id) {
@@ -269,7 +272,7 @@ router.delete('/:id', (req, res) => {
     dateiLoeschen(datei.vorschau_pfad);
   }
   db.prepare('DELETE FROM belege WHERE id = ?').run(beleg.id);
-  protokollieren(req.benutzer.id, 'beleg_geloescht', 'beleg', beleg.id, {
+  protokollieren(req.rolle, 'beleg_geloescht', 'beleg', beleg.id, {
     nummer: beleg.nummer, betrag: beleg.betrag_rappen, beschreibung: beleg.beschreibung
   });
   res.json({ ok: true });
@@ -278,11 +281,9 @@ router.delete('/:id', (req, res) => {
 // ---------------------------------------------------------------- Dateien
 
 router.post('/:id/dateien', belegUpload.array('dateien', 8), async (req, res) => {
-  const beleg = belegLesen(Number(req.params.id));
-  if (!darfSehen(req.benutzer, beleg)) return res.status(404).json({ fehler: 'Beleg nicht gefunden.' });
-  if (!darfBearbeiten(req.benutzer, beleg)) {
-    return res.status(403).json({ fehler: 'Keine Berechtigung.' });
-  }
+  const beleg = belegLesen(req.params.id);
+  if (!darfSehen(req, beleg)) return res.status(404).json({ fehler: 'Beleg nicht gefunden.' });
+  if (!darfBearbeiten(req, beleg)) return res.status(403).json({ fehler: 'Keine Berechtigung.' });
   for (const datei of req.files || []) {
     const gespeichert = await belegDateiSpeichern(datei);
     db.prepare(
@@ -295,8 +296,8 @@ router.post('/:id/dateien', belegUpload.array('dateien', 8), async (req, res) =>
 });
 
 router.get('/:id/dateien/:dateiId', (req, res) => {
-  const beleg = belegLesen(Number(req.params.id));
-  if (!darfSehen(req.benutzer, beleg)) return res.status(404).json({ fehler: 'Beleg nicht gefunden.' });
+  const beleg = belegLesen(req.params.id);
+  if (!darfSehen(req, beleg)) return res.status(404).json({ fehler: 'Beleg nicht gefunden.' });
   const datei = db
     .prepare('SELECT * FROM beleg_dateien WHERE id = ? AND beleg_id = ?')
     .get(Number(req.params.dateiId), beleg.id);
@@ -310,15 +311,15 @@ router.get('/:id/dateien/:dateiId', (req, res) => {
   res.setHeader('Cache-Control', 'private, max-age=86400');
   res.setHeader(
     'Content-Disposition',
-    `inline; filename="${beleg.nummer}${vorschau ? '_klein' : ''}${datei.mime === 'application/pdf' ? '.pdf' : '.jpg'}"`
+    `inline; filename="Beleg-${beleg.jahr}-${beleg.nummer}${datei.mime === 'application/pdf' ? '.pdf' : '.jpg'}"`
   );
   fs.createReadStream(pfad).pipe(res);
 });
 
 router.delete('/:id/dateien/:dateiId', (req, res) => {
-  const beleg = belegLesen(Number(req.params.id));
-  if (!darfSehen(req.benutzer, beleg)) return res.status(404).json({ fehler: 'Beleg nicht gefunden.' });
-  if (!darfBearbeiten(req.benutzer, beleg)) return res.status(403).json({ fehler: 'Keine Berechtigung.' });
+  const beleg = belegLesen(req.params.id);
+  if (!darfSehen(req, beleg)) return res.status(404).json({ fehler: 'Beleg nicht gefunden.' });
+  if (!darfBearbeiten(req, beleg)) return res.status(403).json({ fehler: 'Keine Berechtigung.' });
   const datei = db
     .prepare('SELECT * FROM beleg_dateien WHERE id = ? AND beleg_id = ?')
     .get(Number(req.params.dateiId), beleg.id);

@@ -1,48 +1,48 @@
-// Kleines Hilfswerkzeug fuer den Server:
-//   npm run admin -- liste
-//   npm run admin -- neu "Name" mail@example.ch admin
-//   npm run admin -- passwort mail@example.ch
+// Kleines Hilfswerkzeug fuer den Server, falls man sich aussperrt:
+//   npm run admin -- leitung            (neues Leitungspasswort erzeugen)
+//   npm run admin -- leitung Geheim123  (Leitungspasswort selbst setzen)
+//   npm run admin -- mitarbeit          (neues Mitarbeitspasswort erzeugen)
+//   npm run admin -- kassen             (Kassen und Saldi anzeigen)
 import 'dotenv/config';
-import { db, schemaAnlegen } from './db.js';
-import { passwortHashen, startpasswortErzeugen } from './auth.js';
+import { schemaAnlegen } from './db.js';
+import {
+  passwortSetzen, passwortVorschlagen, passwortRegelnVerletzt, sitzungenBeenden
+} from './auth.js';
+import { alleKassen, kasseZahlen } from './kassenbuch.js';
+import { formatieren } from './geld.js';
 
 schemaAnlegen();
 
 const [befehl, ...rest] = process.argv.slice(2);
 
-function liste() {
-  const zeilen = db.prepare('SELECT id, name, email, rolle, aktiv FROM benutzer ORDER BY name').all();
-  if (!zeilen.length) return console.log('Noch keine Benutzer.');
-  for (const z of zeilen) {
-    console.log(`${String(z.id).padStart(3)}  ${z.rolle === 'admin' ? '[Leitung]' : '[Benutzer]'}  ${z.name} <${z.email}>${z.aktiv ? '' : '  (gesperrt)'}`);
+function setzen(rolle, bezeichnung) {
+  const gewuenscht = rest[0];
+  const passwort = gewuenscht || passwortVorschlagen();
+  const problem = passwortRegelnVerletzt(passwort);
+  if (problem) return console.log(problem);
+  passwortSetzen(rolle, passwort);
+  sitzungenBeenden(rolle);
+  console.log(`Neues ${bezeichnung}: ${passwort}`);
+  console.log('Alle Geraete mit dieser Rolle muessen sich neu anmelden.');
+}
+
+function kassen() {
+  const liste = alleKassen().map(kasseZahlen);
+  if (!liste.length) return console.log('Noch keine Kassen.');
+  for (const kasse of liste) {
+    console.log(
+      `${String(kasse.id).padStart(3)}  ${kasse.name.padEnd(24)} ` +
+      `Saldo ${formatieren(kasse.saldo_rappen).padStart(14)}  ` +
+      `offen: ${kasse.anzahl_offen}  schuldet: ${formatieren(kasse.schulden_rappen)}` +
+      `${kasse.aktiv ? '' : '  (geschlossen)'}`
+    );
   }
 }
 
-function neu([name, email, rolle]) {
-  if (!name || !email) return console.log('Aufruf: npm run admin -- neu "Vorname Name" mail@example.ch [admin]');
-  const passwort = startpasswortErzeugen();
-  db.prepare(
-    `INSERT INTO benutzer (name, email, passwort_hash, rolle, passwort_neu) VALUES (?, ?, ?, ?, 1)`
-  ).run(name, email.toLowerCase(), passwortHashen(passwort), rolle === 'admin' ? 'admin' : 'benutzer');
-  console.log(`Angelegt: ${name} <${email}>`);
-  console.log(`Startpasswort: ${passwort}`);
-}
-
-function passwort([email]) {
-  if (!email) return console.log('Aufruf: npm run admin -- passwort mail@example.ch');
-  const person = db.prepare('SELECT id FROM benutzer WHERE email = ? COLLATE NOCASE').get(email);
-  if (!person) return console.log('Nicht gefunden.');
-  const neues = startpasswortErzeugen();
-  db.prepare('UPDATE benutzer SET passwort_hash = ?, passwort_neu = 1 WHERE id = ?')
-    .run(passwortHashen(neues), person.id);
-  db.prepare('DELETE FROM sitzungen WHERE benutzer_id = ?').run(person.id);
-  console.log(`Neues Startpasswort fuer ${email}: ${neues}`);
-}
-
 switch (befehl) {
-  case 'liste': liste(); break;
-  case 'neu': neu(rest); break;
-  case 'passwort': passwort(rest); break;
+  case 'leitung': setzen('admin', 'Leitungspasswort'); break;
+  case 'mitarbeit': setzen('benutzer', 'Mitarbeitspasswort'); break;
+  case 'kassen': kassen(); break;
   default:
-    console.log('Befehle: liste | neu "Name" mail@example.ch [admin] | passwort mail@example.ch');
+    console.log('Befehle: leitung [passwort] | mitarbeit [passwort] | kassen');
 }

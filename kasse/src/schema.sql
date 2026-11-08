@@ -1,80 +1,68 @@
 -- Datenbankschema "Ce March Kasse"
 -- Alle Geldbetraege werden als ganze Rappen (INTEGER) gespeichert,
 -- damit es keine Rundungsfehler gibt.
+--
+-- Es gibt keine persoenlichen Konten: der Zugang laeuft ueber zwei
+-- Passwoerter (Leitung und Mitarbeit). Wer etwas ausgelegt hat, steht als
+-- Name direkt beim Beleg.
 
 PRAGMA journal_mode = WAL;
 PRAGMA foreign_keys = ON;
 
-CREATE TABLE IF NOT EXISTS benutzer (
-  id             INTEGER PRIMARY KEY AUTOINCREMENT,
-  name           TEXT    NOT NULL,
-  email          TEXT    NOT NULL UNIQUE COLLATE NOCASE,
-  passwort_hash  TEXT    NOT NULL,
-  rolle          TEXT    NOT NULL DEFAULT 'benutzer' CHECK (rolle IN ('admin', 'benutzer')),
-  iban           TEXT,
-  telefon        TEXT,
-  aktiv          INTEGER NOT NULL DEFAULT 1,
-  passwort_neu   INTEGER NOT NULL DEFAULT 0,  -- 1 = Passwort muss beim Login geaendert werden
-  erstellt_am    TEXT    NOT NULL DEFAULT (datetime('now'))
+-- Schluessel/Wert-Tabelle, unter anderem fuer die beiden Passwoerter.
+CREATE TABLE IF NOT EXISTS einstellungen (
+  schluessel  TEXT PRIMARY KEY,
+  wert        TEXT NOT NULL,
+  geaendert_am TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS kassen (
-  id            INTEGER PRIMARY KEY AUTOINCREMENT,
-  name          TEXT    NOT NULL,
-  kuerzel       TEXT    NOT NULL UNIQUE COLLATE NOCASE,  -- z.B. JS, PF, AL
-  beschreibung  TEXT,
-  farbe         TEXT    NOT NULL DEFAULT '#d21a37',
+  id                INTEGER PRIMARY KEY AUTOINCREMENT,
+  name              TEXT    NOT NULL,
+  beschreibung      TEXT,
+  farbe             TEXT    NOT NULL DEFAULT '#d21a37',
   startsaldo_rappen INTEGER NOT NULL DEFAULT 0,
-  aktiv         INTEGER NOT NULL DEFAULT 1,
+  aktiv             INTEGER NOT NULL DEFAULT 1,
+  reihenfolge       INTEGER NOT NULL DEFAULT 0,
+  erstellt_am       TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Auszahlung an eine Person, die etwas ausgelegt hat.
+CREATE TABLE IF NOT EXISTS rueckerstattungen (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  kasse_id      INTEGER NOT NULL REFERENCES kassen(id) ON DELETE CASCADE,
+  person        TEXT    NOT NULL,
+  datum         TEXT    NOT NULL,
+  betrag_rappen INTEGER NOT NULL,
+  methode       TEXT    NOT NULL DEFAULT 'bank' CHECK (methode IN ('bank', 'bar', 'twint', 'verrechnet')),
+  notiz         TEXT,
   erstellt_am   TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 
--- Wer darf bei welcher Kasse was?
---   melder  = darf Belege fuer diese Kasse einreichen und nur die eigenen sehen
---   kassier = sieht und prueft alle Belege dieser Kasse, darf abrechnen und exportieren
-CREATE TABLE IF NOT EXISTS kassen_mitglieder (
-  kasse_id    INTEGER NOT NULL REFERENCES kassen(id)   ON DELETE CASCADE,
-  benutzer_id INTEGER NOT NULL REFERENCES benutzer(id) ON DELETE CASCADE,
-  rolle       TEXT    NOT NULL DEFAULT 'melder' CHECK (rolle IN ('melder', 'kassier')),
-  erstellt_am TEXT    NOT NULL DEFAULT (datetime('now')),
-  PRIMARY KEY (kasse_id, benutzer_id)
-);
-
-CREATE TABLE IF NOT EXISTS rueckerstattungen (
-  id             INTEGER PRIMARY KEY AUTOINCREMENT,
-  benutzer_id    INTEGER NOT NULL REFERENCES benutzer(id),
-  datum          TEXT    NOT NULL,
-  betrag_rappen  INTEGER NOT NULL,
-  methode        TEXT    NOT NULL DEFAULT 'bank' CHECK (methode IN ('bank', 'bar', 'twint', 'verrechnet')),
-  notiz          TEXT,
-  erstellt_von   INTEGER REFERENCES benutzer(id),
-  erstellt_am    TEXT    NOT NULL DEFAULT (datetime('now'))
-);
-
+-- Ein Beleg gehoert immer genau einer Kasse. Die Nummer zaehlt innerhalb
+-- dieser Kasse und innerhalb des Jahres von 1 an hoch - wie im Kassenbuch
+-- auf Papier.
 CREATE TABLE IF NOT EXISTS belege (
   id                 INTEGER PRIMARY KEY AUTOINCREMENT,
-  kasse_id           INTEGER NOT NULL REFERENCES kassen(id),
-  nummer             TEXT    NOT NULL UNIQUE,   -- z.B. JS-2026-0042
+  kasse_id           INTEGER NOT NULL REFERENCES kassen(id) ON DELETE CASCADE,
   jahr               INTEGER NOT NULL,
-  laufnummer         INTEGER NOT NULL,
+  nummer             INTEGER NOT NULL,          -- fortlaufend pro Kasse und Jahr
   datum              TEXT    NOT NULL,          -- Einkaufsdatum, ISO: YYYY-MM-DD
   betrag_rappen      INTEGER NOT NULL CHECK (betrag_rappen > 0),
   beschreibung       TEXT    NOT NULL,
   haendler           TEXT,
-  kategorie          TEXT    NOT NULL DEFAULT 'Sonstiges',
   zahlungsart        TEXT    NOT NULL DEFAULT 'privat'
                      CHECK (zahlungsart IN ('privat', 'kasse_bar', 'kasse_karte', 'rechnung')),
-  bezahlt_von        INTEGER REFERENCES benutzer(id),  -- wer ausgelegt hat (bei 'privat' Pflicht)
+  person             TEXT,                      -- wer ausgelegt hat (bei 'privat' Pflicht)
   status             TEXT    NOT NULL DEFAULT 'offen'
                      CHECK (status IN ('offen', 'geprueft', 'abgelehnt')),
   notiz              TEXT,
   ablehnungsgrund    TEXT,
-  erfasst_von        INTEGER NOT NULL REFERENCES benutzer(id),
+  geraet             TEXT,                      -- anonyme Kennung des einreichenden Geraets
   erstellt_am        TEXT    NOT NULL DEFAULT (datetime('now')),
-  geprueft_von       INTEGER REFERENCES benutzer(id),
   geprueft_am        TEXT,
   rueckerstattung_id INTEGER REFERENCES rueckerstattungen(id) ON DELETE SET NULL,
-  UNIQUE (kasse_id, jahr, laufnummer)
+  UNIQUE (kasse_id, jahr, nummer)
 );
 
 CREATE TABLE IF NOT EXISTS beleg_dateien (
@@ -88,21 +76,19 @@ CREATE TABLE IF NOT EXISTS beleg_dateien (
   erstellt_am   TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 
--- Einnahmen / Einzahlungen in eine Kasse (Beitraege, Zuschuesse, Bareinlage ...)
+-- Einnahmen und Einzahlungen in eine Kasse (Uebertrag, Beitraege, Zuschuesse).
 CREATE TABLE IF NOT EXISTS einnahmen (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   kasse_id      INTEGER NOT NULL REFERENCES kassen(id) ON DELETE CASCADE,
   datum         TEXT    NOT NULL,
   betrag_rappen INTEGER NOT NULL CHECK (betrag_rappen > 0),
   beschreibung  TEXT    NOT NULL,
-  kategorie     TEXT    NOT NULL DEFAULT 'Einnahme',
-  erfasst_von   INTEGER NOT NULL REFERENCES benutzer(id),
   erstellt_am   TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS sitzungen (
   sid         TEXT    PRIMARY KEY,
-  benutzer_id INTEGER NOT NULL REFERENCES benutzer(id) ON DELETE CASCADE,
+  rolle       TEXT    NOT NULL CHECK (rolle IN ('admin', 'benutzer')),
   csrf        TEXT    NOT NULL,
   ablauf      INTEGER NOT NULL,
   erstellt_am TEXT    NOT NULL DEFAULT (datetime('now'))
@@ -110,7 +96,7 @@ CREATE TABLE IF NOT EXISTS sitzungen (
 
 CREATE TABLE IF NOT EXISTS protokoll (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  benutzer_id INTEGER REFERENCES benutzer(id),
+  rolle       TEXT,
   aktion      TEXT    NOT NULL,
   objekt      TEXT,
   objekt_id   INTEGER,
@@ -118,9 +104,9 @@ CREATE TABLE IF NOT EXISTS protokoll (
   erstellt_am TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 
-CREATE INDEX IF NOT EXISTS idx_belege_kasse   ON belege(kasse_id, datum);
-CREATE INDEX IF NOT EXISTS idx_belege_status  ON belege(status);
-CREATE INDEX IF NOT EXISTS idx_belege_person  ON belege(bezahlt_von);
-CREATE INDEX IF NOT EXISTS idx_einnahmen      ON einnahmen(kasse_id, datum);
-CREATE INDEX IF NOT EXISTS idx_dateien_beleg  ON beleg_dateien(beleg_id);
-CREATE INDEX IF NOT EXISTS idx_sitzungen_abl  ON sitzungen(ablauf);
+CREATE INDEX IF NOT EXISTS idx_belege_kasse  ON belege(kasse_id, datum);
+CREATE INDEX IF NOT EXISTS idx_belege_status ON belege(kasse_id, status);
+CREATE INDEX IF NOT EXISTS idx_belege_person ON belege(person);
+CREATE INDEX IF NOT EXISTS idx_einnahmen     ON einnahmen(kasse_id, datum);
+CREATE INDEX IF NOT EXISTS idx_dateien_beleg ON beleg_dateien(beleg_id);
+CREATE INDEX IF NOT EXISTS idx_sitzungen_abl ON sitzungen(ablauf);

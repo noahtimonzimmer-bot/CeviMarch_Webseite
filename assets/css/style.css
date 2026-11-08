@@ -188,8 +188,10 @@ p{margin:0 0 1.15em}
   background-blend-mode:multiply;
   display:grid;align-items:center
 }
-.buch__seiteninhalt{width:100%;opacity:clamp(0,calc(var(--p) * 2.6 - 1.3),1)}
-.buch__seiteninhalt h2{max-width:22ch;margin-bottom:clamp(20px,2.6vw,34px)}
+.buch__seiteninhalt{width:100%;text-align:center;opacity:clamp(0,calc(var(--p) * 2.6 - 1.3),1)}
+.buch__seiteninhalt h2{max-width:22ch;margin:0 auto}
+.buch__lead{margin:clamp(14px,1.8vw,22px) auto clamp(24px,3vw,38px);max-width:48ch}
+.buch__seiteninhalt .stufe{text-align:left}
 /* Die Karten müssen in den aufgeschlagenen Bildschirm passen, darum
    hier etwas knapper als auf den übrigen Seiten. */
 .buch__stufen .stufe__media{aspect-ratio:16/10}
@@ -215,76 +217,97 @@ p{margin:0 0 1.15em}
 
 .buch__aussen,.buch__innenseite{position:absolute;inset:0;backface-visibility:hidden}
 
-/* Aussenseite: dunkles Leder */
+/* Aussenseite: dunkles Leder. Vier Lagen übereinander - Licht von oben,
+   dunkle Ränder, der schmale Falz am Bund und die Grundfarbe. */
 .buch__aussen{
   background:
-    radial-gradient(130% 90% at 18% 10%,rgba(255,232,180,.12),transparent 60%),
-    linear-gradient(118deg,#4a3826 0%,#3a2b1c 46%,#271c12 100%);
-  box-shadow:inset -16px 0 40px rgba(0,0,0,.52),
-             inset 2px 0 0 rgba(255,228,170,.12);
+    radial-gradient(90% 60% at 50% 2%,rgba(255,228,172,.13),transparent 62%),
+    linear-gradient(90deg,rgba(0,0,0,.62) 0,rgba(0,0,0,.26) 2.2%,transparent 7%),
+    radial-gradient(130% 112% at 50% 44%,transparent 34%,rgba(0,0,0,.66) 100%),
+    linear-gradient(118deg,#453325 0%,#332518 48%,#1f160d 100%);
   display:grid;place-items:center;overflow:hidden
 }
 /* Die Papierfaser dient hier als Ledernarbe */
 .buch__aussen::before{
   content:"";position:absolute;inset:0;
-  background:url("../img/papier.jpg") repeat 0 0/260px 260px;
-  mix-blend-mode:overlay;opacity:.34
+  background:url("../img/papier.jpg") repeat 0 0/190px 190px;
+  mix-blend-mode:overlay;opacity:.62
 }
 /* Blindprägung als Rahmenlinie */
+/* Rahmen: zwei eingepresste Linien, wie auf einem Einband */
 .buch__aussen::after{
-  content:"";position:absolute;inset:clamp(16px,3vw,40px);
-  border:1px solid rgba(222,190,126,.24);
-  box-shadow:inset 0 0 0 5px rgba(0,0,0,.16),0 1px 0 rgba(255,232,180,.09);
-  border-radius:3px;pointer-events:none
+  content:"";position:absolute;inset:clamp(20px,3.2vw,46px);
+  border:1px solid rgba(206,172,110,.22);
+  box-shadow:
+    inset 0 0 0 1px rgba(0,0,0,.45),
+    inset 0 0 0 7px transparent,
+    inset 0 0 0 8px rgba(206,172,110,.14),
+    inset 0 0 0 9px rgba(0,0,0,.35),
+    0 1px 0 rgba(255,232,180,.07);
+  border-radius:2px;pointer-events:none
 }
 
 .buch__praegung{
-  position:relative;z-index:1;width:100%;max-width:var(--maxw);
-  padding:0 clamp(24px,6vw,76px);text-align:left;
+  position:relative;z-index:1;width:100%;max-width:34rem;
+  padding:0 clamp(24px,6vw,48px);text-align:center;
+  display:flex;flex-direction:column;align-items:center;
   transform:translateX(calc(var(--p) * 16px));opacity:calc(1 - var(--p) * 1.7)
 }
 
 /* Das Brandzeichen. Die Form kommt aus einer freigestellten Fassung des
-   Logos (assets/img/logo-marke.png, erzeugt aus logo.jpg) und dient hier
-   nur als Maske. Gefüllt wird sie mit einem dunklen Farbverlauf, dazu
-   eine helle Kante unten und ein dunkler Rand oben - so sieht es aus,
-   als wäre das Zeichen ins Leder gebrannt. */
+   Logos (assets/img/logo-marke.png) und dient nur als Maske. Gefüllt wird
+   sie dunkel, mit heller Kante unten - so wirkt sie ins Leder gebrannt. */
 .buch__brand{
-  display:block;width:clamp(58px,6.5vw,86px);aspect-ratio:1/1;
-  margin-bottom:clamp(14px,2vw,24px);
-  background:linear-gradient(160deg,#1a1109 0%,#2c1d10 52%,#120c06 100%);
+  display:block;width:clamp(54px,5.6vw,76px);aspect-ratio:1/1;
+  margin-bottom:clamp(18px,2.4vw,30px);
+  background:linear-gradient(160deg,#17100a 0%,#2a1c10 52%,#100b05 100%);
   -webkit-mask:url("../img/logo-marke.png") no-repeat center/contain;
           mask:url("../img/logo-marke.png") no-repeat center/contain;
-  filter:drop-shadow(0 1px 0 rgba(255,228,172,.26))
-         drop-shadow(0 -1px 1px rgba(0,0,0,.5));
-  opacity:.88
+  filter:drop-shadow(0 1.5px 0 rgba(255,230,178,.34))
+         drop-shadow(0 -1px 1px rgba(0,0,0,.6));
+  opacity:.95
 }
 
+/* Der Titel als Goldprägung: ein Verlauf durch die Buchstaben, dazu eine
+   dunkle Kante oben und ein heller Grat unten. */
 .buch__praegung h1{
-  color:#e6d2a6;max-width:14ch;
-  font-size:clamp(2.2rem,6.4vw,4.6rem);
-  text-shadow:0 1px 0 rgba(255,238,200,.20),0 -1px 2px rgba(0,0,0,.65)
+  max-width:16ch;font-size:clamp(2rem,5.4vw,3.8rem);line-height:1.06;
+  background:linear-gradient(168deg,#f2dfaf 0%,#cdab66 36%,#8c6f38 58%,#e8d2a0 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 1.5px 0 rgba(0,0,0,.6))
+         drop-shadow(0 -1px 0 rgba(255,236,196,.16))
 }
-.buch__praegung .akzent{color:#e07a5f}
-.buch__sub{
-  margin:clamp(14px,2vw,22px) 0 clamp(20px,2.6vw,30px);max-width:40ch;
-  color:rgba(236,219,186,.74);font-size:clamp(.98rem,1.3vw,1.1rem)
-}
-.buch__knopf{
-  background:#e6d2a6;color:#2a1e13;border-color:#e6d2a6;
-  box-shadow:0 10px 30px -14px rgba(0,0,0,.8)
-}
-.buch__knopf:hover{background:#f2e3bf;border-color:#f2e3bf}
 
-/* Das Gummiband, es schnellt beim Öffnen beiseite */
-.buch__band{
-  position:absolute;top:-4%;bottom:-4%;right:clamp(40px,8vw,110px);
-  width:clamp(9px,1.1vw,14px);
-  background:linear-gradient(90deg,#1d150d,#473627 42%,#1d150d);
-  box-shadow:0 0 18px rgba(0,0,0,.6);
-  transform:translateX(calc(var(--p) * 42vw)) rotate(calc(var(--p) * 7deg));
-  opacity:clamp(0,calc(1 - var(--p) * 5),1)
+/* Zierlinie zwischen Titel und Signatur */
+.buch__linie{
+  display:block;width:clamp(70px,9vw,120px);height:2px;
+  margin:clamp(20px,2.6vw,32px) 0 clamp(14px,1.8vw,22px);
+  background:linear-gradient(90deg,transparent,rgba(206,172,110,.5),transparent);
+  box-shadow:0 1px 0 rgba(0,0,0,.5)
 }
+
+.buch__jahr{
+  font-family:var(--font-mono);font-size:.68rem;font-weight:500;letter-spacing:.32em;
+  text-transform:uppercase;color:rgba(214,183,124,.62);
+  text-shadow:0 1px 0 rgba(0,0,0,.6)
+}
+
+/* Der Knopf ist kein aufgeklebtes Schild, sondern eine eingepresste
+   Fläche mit Goldlinie. */
+.buch__knopf{
+  display:inline-flex;align-items:center;margin-top:clamp(26px,3.4vw,40px);
+  padding:14px 28px;border-radius:var(--pill);
+  border:1px solid rgba(206,172,110,.5);background:rgba(0,0,0,.18);
+  font-family:var(--font-mono);font-size:.74rem;font-weight:500;
+  letter-spacing:.14em;text-transform:uppercase;color:#dcbf84;
+  box-shadow:inset 0 2px 5px rgba(0,0,0,.5),0 1px 0 rgba(255,232,180,.1);
+  text-shadow:0 1px 0 rgba(0,0,0,.6);
+  transition:color .25s,border-color .25s,background .25s
+}
+.buch__knopf:hover{
+  color:#f4e2b4;border-color:rgba(226,195,134,.85);background:rgba(206,172,110,.12)
+}
+
 /* Lichtkante, die beim Aufklappen über das Leder wandert */
 .buch__glanz{
   position:absolute;inset:0;pointer-events:none;
@@ -325,7 +348,6 @@ p{margin:0 0 1.15em}
   .buch--aktiv{height:190svh}
   .buch__szene{perspective:1000px}
   .buch__praegung h1{font-size:clamp(2rem,9vw,2.8rem)}
-  .buch__band{right:clamp(22px,6vw,56px)}
   /* Hochkant passen drei Karten nicht untereinander auf eine Seite.
      Sie stehen deshalb nebeneinander und lassen sich schieben. */
   /* .grid steht weiter unten im Stylesheet, darum hier zwei Klassen,
