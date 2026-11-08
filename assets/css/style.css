@@ -177,29 +177,91 @@ p{margin:0 0 1.15em}
 }
 .buch--aktiv .buch__buehne{position:sticky;top:var(--navh,64px)}
 
-/* Der Fluchtpunkt liegt bewusst nicht auf dem Scharnier: so verkürzt sich
-   der Deckel beim Drehen sichtbar und gibt die Seite früher frei. */
-.buch__szene{position:absolute;inset:0;perspective:1500px;perspective-origin:32% 46%}
+/* Die Szene ist der Tisch, auf dem das Buch liegt. Der Fluchtpunkt sitzt
+   bewusst nicht auf dem Scharnier: so verkürzt sich der Deckel beim Drehen
+   sichtbar und gibt die Seite früher frei. */
+.buch__szene{
+  position:absolute;inset:0;perspective:1600px;perspective-origin:34% 46%;
+  background:url("../img/holz.jpg") repeat center/720px 720px #4a3220;
+  overflow:hidden
+}
+/* Licht von schräg oben, dadurch wirkt die Platte nicht wie Tapete */
+.buch__szene::before{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:
+    radial-gradient(70% 55% at 28% 0%,rgba(255,228,180,.16),transparent 62%),
+    radial-gradient(120% 110% at 50% 46%,transparent 38%,rgba(0,0,0,.55) 100%)
+}
+
+/* Das Buch selbst: ein Gegenstand mit Rand ringsum */
+.buch__objekt{
+  position:absolute;left:50%;top:50%;translate:-50% -50%;
+  /* Buchformat statt Bildschirmformat: so bleibt ringsum Tisch sichtbar.
+     Die Höhe führt, die Breite folgt über das Seitenverhältnis - sonst
+     deckelt die Höhenbegrenzung das Format wieder auf Breitformat. */
+  height:min(84%,calc(84vw / 1.34));
+  aspect-ratio:1.34;max-width:84vw;
+  transform-style:preserve-3d
+}
+/* Buchrücken links - bleibt stehen, wenn der Deckel aufgeht */
+.buch__objekt::before{
+  content:"";position:absolute;top:-2px;bottom:-2px;left:clamp(-18px,-1.1vw,-11px);
+  width:clamp(12px,1.2vw,18px);border-radius:7px 0 0 7px;
+  background:linear-gradient(90deg,#140e07 0%,#3b2c1d 55%,#1d150d 100%);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.6)
+}
+/* Schnitt rechts: der Stapel Seiten */
+.buch__objekt::after{
+  content:"";position:absolute;top:7px;bottom:7px;right:clamp(-11px,-.7vw,-6px);
+  width:clamp(7px,.8vw,12px);border-radius:0 4px 4px 0;
+  background:repeating-linear-gradient(180deg,
+    #efe4cb 0 2px,#cbbb97 2px 3px,#e3d6b8 3px 5px);
+  box-shadow:0 2px 6px rgba(0,0,0,.45)
+}
+/* Der Schatten liegt unter dem Buch und bleibt beim Aufklappen liegen */
+.buch__schatten{
+  position:absolute;left:50%;top:50%;translate:-50% -50%;
+  height:min(84%,calc(84vw / 1.34));
+  aspect-ratio:1.34;max-width:84vw;
+  border-radius:6px;
+  box-shadow:0 34px 70px -22px rgba(0,0,0,.78),
+             0 10px 26px -10px rgba(0,0,0,.6)
+}
 
 /* Die erste Seite ------------------------------------------------- */
 .buch__seite{
-  position:absolute;inset:0;overflow:hidden;
+  position:absolute;inset:0;overflow:hidden;border-radius:3px 6px 6px 3px;
   background:url("../img/papier.jpg") repeat 0 0/520px 520px var(--paper);
   background-blend-mode:multiply;
   display:grid;align-items:center
 }
-.buch__seiteninhalt{width:100%;text-align:center;opacity:clamp(0,calc(var(--p) * 2.6 - 1.3),1)}
+/* Der Satzspiegel richtet sich nach der Buchseite, nicht nach dem
+   Bildschirm - sonst laufen die Karten über den Buchrand hinaus. */
+.buch__seiteninhalt{
+  width:100%;max-width:none;text-align:center;
+  padding-inline:clamp(18px,3.4vw,54px);
+  opacity:clamp(0,calc(var(--p) * 2.6 - 1.3),1)
+}
+.buch__seiteninhalt h2{font-size:clamp(1.4rem,2.6vw,2.2rem)}
+.buch__lead{font-size:clamp(.94rem,1.3vw,1.08rem)}
+.buch__seiteninhalt .eyebrow{margin-bottom:12px}
 .buch__seiteninhalt h2{max-width:22ch;margin:0 auto}
 .buch__lead{margin:clamp(14px,1.8vw,22px) auto clamp(24px,3vw,38px);max-width:48ch}
 .buch__seiteninhalt .stufe{text-align:left}
 /* Die Karten müssen in den aufgeschlagenen Bildschirm passen, darum
    hier etwas knapper als auf den übrigen Seiten. */
-.buch__stufen .stufe__media{aspect-ratio:16/10}
+/* Drei feste Spalten: auto-fit würde bei schmalem Buch umbrechen */
+.buch__seiteninhalt .buch__stufen{
+  grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(10px,1.5vw,22px)
+}
+.buch__stufen .stufe__media{aspect-ratio:3/2}
+.buch__stufen h3{font-size:clamp(1rem,1.5vw,1.3rem)}
+.buch__stufen .stufe__age{font-size:.62rem}
 .buch__stufen .stufe p{display:none}
 .buch__stufen .stufe{padding-bottom:18px}
 /* Schatten aus dem Bund, verschwindet mit dem Öffnen */
 .buch__falz{
-  position:absolute;inset:0;pointer-events:none;
+  position:absolute;inset:0;pointer-events:none;border-radius:3px 6px 6px 3px;
   background:linear-gradient(90deg,rgba(74,56,24,.40) 0%,rgba(74,56,24,.16) 8%,transparent 24%);
   opacity:calc(1 - var(--p) * .55)
 }
@@ -215,7 +277,8 @@ p{margin:0 0 1.15em}
 .buch__deckel{pointer-events:auto}
 .buch--offen .buch__deckel{pointer-events:none;visibility:hidden}
 
-.buch__aussen,.buch__innenseite{position:absolute;inset:0;backface-visibility:hidden}
+.buch__aussen,.buch__innenseite{position:absolute;inset:0;backface-visibility:hidden;
+  border-radius:3px 7px 7px 3px}
 
 /* Aussenseite: dunkles Leder. Vier Lagen übereinander - Licht von oben,
    dunkle Ränder, der schmale Falz am Bund und die Grundfarbe. */
@@ -236,7 +299,7 @@ p{margin:0 0 1.15em}
 /* Blindprägung als Rahmenlinie */
 /* Rahmen: zwei eingepresste Linien, wie auf einem Einband */
 .buch__aussen::after{
-  content:"";position:absolute;inset:clamp(20px,3.2vw,46px);
+  content:"";position:absolute;inset:clamp(16px,2.4vw,34px);
   border:1px solid rgba(206,172,110,.22);
   box-shadow:
     inset 0 0 0 1px rgba(0,0,0,.45),
@@ -272,7 +335,7 @@ p{margin:0 0 1.15em}
    dunkle Kante oben und ein heller Grat unten. */
 .buch__praegung h1{
   max-width:16ch;font-size:clamp(2rem,5.4vw,3.8rem);line-height:1.06;
-  background:linear-gradient(168deg,#f2dfaf 0%,#cdab66 36%,#8c6f38 58%,#e8d2a0 100%);
+  background:linear-gradient(168deg,#f7e8c2 0%,#d8b878 42%,#b89550 70%,#eeddaf 100%);
   -webkit-background-clip:text;background-clip:text;color:transparent;
   filter:drop-shadow(0 1.5px 0 rgba(0,0,0,.6))
          drop-shadow(0 -1px 0 rgba(255,236,196,.16))
@@ -331,7 +394,7 @@ p{margin:0 0 1.15em}
 
 /* Hinweis unten --------------------------------------------------- */
 .buch__hinweis{
-  position:absolute;left:50%;bottom:clamp(10px,1.6vw,20px);transform:translateX(-50%);
+  position:absolute;left:50%;bottom:clamp(2px,.6vw,8px);transform:translateX(-50%);
   z-index:2;display:flex;align-items:center;gap:10px;padding:12px 20px;
   border-radius:var(--pill);font-family:var(--font-mono);font-size:.7rem;
   font-weight:500;letter-spacing:.16em;text-transform:uppercase;
@@ -346,6 +409,8 @@ p{margin:0 0 1.15em}
 
 @media(max-width:760px){
   .buch--aktiv{height:190svh}
+  .buch__objekt,.buch__schatten{height:86%;aspect-ratio:.82;max-width:90vw}
+  .buch__szene{background-size:460px 460px}
   .buch__szene{perspective:1000px}
   .buch__praegung h1{font-size:clamp(2rem,9vw,2.8rem)}
   /* Hochkant passen drei Karten nicht untereinander auf eine Seite.

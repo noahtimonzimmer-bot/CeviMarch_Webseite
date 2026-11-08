@@ -251,6 +251,8 @@ def build_home():
     body = f"""  <section class="buch" id="buch">
     <div class="buch__buehne">
       <div class="buch__szene">
+        <div class="buch__schatten" aria-hidden="true"></div>
+        <div class="buch__objekt">
 
         <!-- Unter dem Deckel liegt schon die erste Seite -->
         <div class="buch__seite" id="stufen">
@@ -280,6 +282,7 @@ def build_home():
         </div>
 
         <div class="buch__falz" aria-hidden="true"></div>
+        </div>
       </div>
 
       <button class="buch__hinweis" type="button" id="aufschlagen">
