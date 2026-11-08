@@ -280,22 +280,22 @@ p{margin:0 0 1.15em}
 .buch__aussen,.buch__innenseite{position:absolute;inset:0;backface-visibility:hidden;
   border-radius:3px 7px 7px 3px}
 
-/* Aussenseite: dunkles Leder. Vier Lagen übereinander - Licht von oben,
-   dunkle Ränder, der schmale Falz am Bund und die Grundfarbe. */
+/* Aussenseite: echtes Leder aus assets/img/leder.jpg.
+   Das Bild wird auf 125 Prozent Höhe gezogen und mittig beschnitten. So
+   bleibt die Narbung unverzerrt - egal ob der Deckel quer oder hochkant
+   steht - und die aufgedruckte Zierlinie des Bildes fällt weg. Den Rahmen
+   zeichnet das CSS, der sitzt dann auf jedem Format richtig.
+   Darüber nur noch ein wenig Licht von oben und dunklere Ränder. */
 .buch__aussen{
   background:
-    radial-gradient(90% 60% at 50% 2%,rgba(255,228,172,.13),transparent 62%),
-    linear-gradient(90deg,rgba(0,0,0,.62) 0,rgba(0,0,0,.26) 2.2%,transparent 7%),
-    radial-gradient(130% 112% at 50% 44%,transparent 34%,rgba(0,0,0,.66) 100%),
-    linear-gradient(118deg,#453325 0%,#332518 48%,#1f160d 100%);
+    radial-gradient(90% 58% at 50% 0%,rgba(255,232,182,.11),transparent 60%),
+    linear-gradient(90deg,rgba(0,0,0,.55) 0,rgba(0,0,0,.22) 2.4%,transparent 8%),
+    radial-gradient(132% 114% at 50% 44%,transparent 40%,rgba(0,0,0,.42) 100%),
+    url("../img/leder.jpg") center/auto 125% no-repeat,
+    #4a3522;
   display:grid;place-items:center;overflow:hidden
 }
-/* Die Papierfaser dient hier als Ledernarbe */
-.buch__aussen::before{
-  content:"";position:absolute;inset:0;
-  background:url("../img/papier.jpg") repeat 0 0/190px 190px;
-  mix-blend-mode:overlay;opacity:.62
-}
+
 /* Blindprägung als Rahmenlinie */
 /* Rahmen: zwei eingepresste Linien, wie auf einem Einband */
 .buch__aussen::after{
