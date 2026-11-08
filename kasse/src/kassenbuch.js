@@ -86,7 +86,8 @@ export function kassenbuch(kasseId, jahr = null) {
       )
       .get(kasseId, String(j), kasseId, j);
     startsaldo = kasse.startsaldo_rappen + vorher.ein - vorher.aus;
-    startText = `Übertrag aus ${j - 1}`;
+    // Nur wenn vorher wirklich etwas gebucht wurde, ist es ein Uebertrag.
+    if (vorher.ein || vorher.aus) startText = `Übertrag aus ${j - 1}`;
   }
 
   const bewegungen = [

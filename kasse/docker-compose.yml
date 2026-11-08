@@ -12,9 +12,9 @@ services:
       TRUST_PROXY: "true"
       COOKIE_SECURE: "true"
       MAX_UPLOAD_MB: "20"
-      ADMIN_NAME: "Abteilungsleitung"
-      ADMIN_EMAIL: "al@cevimarch.ch"
-      # ADMIN_PASSWORT: "beim-ersten-Start-setzen"
+      # Ohne Angabe erzeugt der Server beide Passwoerter und zeigt sie im Log.
+      # PASSWORT_LEITUNG: "beim-ersten-Start-setzen"
+      # PASSWORT_MITARBEIT: "beim-ersten-Start-setzen"
     volumes:
       - kassendaten:/daten
 

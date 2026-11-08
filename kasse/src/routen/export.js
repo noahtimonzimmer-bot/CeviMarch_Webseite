@@ -164,6 +164,13 @@ router.get('/:kasseId/excel', async (req, res) => {
 
 // --------------------------------------------------------------- Druckansicht
 
+/** "2026-03-14" -> "14.03.2026", wie im Kassenbuch auf Papier. */
+function datumCH(iso) {
+  if (!iso) return '';
+  const [j, m, t] = String(iso).slice(0, 10).split('-');
+  return `${t}.${m}.${j}`;
+}
+
 function escape(text) {
   return String(text ?? '').replace(/[&<>"']/g, (z) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[z])
@@ -197,7 +204,7 @@ router.get('/:kasseId/druck', (req, res) => {
      </tr>`,
     ...buch.zeilen.map(
       (z) => `<tr>
-        <td class="datum">${escape(z.datum)}</td>
+        <td class="datum">${escape(datumCH(z.datum))}</td>
         <td class="nr">${z.nummer ?? ''}</td>
         <td>${escape(z.text)}${z.haendler ? ` <span class="grau">(${escape(z.haendler)})</span>` : ''}</td>
         <td>${escape(z.person || '')}</td>
@@ -239,7 +246,7 @@ router.get('/:kasseId/druck', (req, res) => {
           <div class="nummer">Nr. ${b.nummer}</div>
           <div class="kopf-zeilen">
             <div><strong>${escape(b.beschreibung)}</strong></div>
-            <div>${escape(b.datum)} · ${escape(kasse.name)}${b.haendler ? ` · ${escape(b.haendler)}` : ''}</div>
+            <div>${escape(datumCH(b.datum))} · ${escape(kasse.name)}${b.haendler ? ` · ${escape(b.haendler)}` : ''}</div>
             <div>${escape(ZAHLUNGSART_TEXT[b.zahlungsart] || b.zahlungsart)}${b.person ? ` · ${escape(b.person)}` : ''}${b.status === 'offen' ? ' · noch nicht geprüft' : ''}</div>
           </div>
           <div class="betrag-gross">CHF ${ausRappen(b.betrag_rappen)}</div>

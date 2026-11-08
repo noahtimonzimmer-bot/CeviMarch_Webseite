@@ -3,54 +3,75 @@
 Web-App für die Belege und das Kassenbuch des Cevi March. Alle Leiterinnen und
 Leiter fotografieren ihren Beleg direkt mit dem Handy und schicken ihn mit
 Betrag, Datum und Beschreibung ein. Die App vergibt automatisch eine
-Belegnummer, rechnet auf den Rappen genau ab und zeigt, wem noch wie viel
-Geld geschuldet wird. Am Schluss lassen sich alle Belege drucken und die
-Kostenübersicht als Excel-Datei herunterladen.
+Belegnummer, führt pro Kasse ein Kassenbuch mit laufendem Saldo und zeigt,
+wem die Kasse noch wie viel Geld schuldet. Am Schluss lassen sich alle Belege
+drucken und die Kostenübersicht als Excel-Datei herunterladen.
 
 Die App läuft auf einem eigenen VPS, speichert alles lokal (SQLite + Dateien)
 und braucht keine externen Dienste.
 
 ---
 
+## Zwei Passwörter statt Benutzerkonten
+
+Es gibt keine persönlichen Konten und keine E-Mail-Adressen. Die Anmeldeseite
+hat nur ein Feld, und welches Passwort man eingibt, entscheidet, was man sieht:
+
+| Passwort        | Was man darf                                                                 |
+|-----------------|------------------------------------------------------------------------------|
+| **Leitung**     | alles: Kassen anlegen und ändern, Belege prüfen, Einnahmen und Rückerstattungen buchen, drucken, exportieren |
+| **Mitarbeit**   | nur Belege einreichen und die eigenen Belege dieses Geräts ansehen – keine Kassenstände, keine fremden Belege |
+
+Beide Abteilungsleitungen benutzen dasselbe Leitungspasswort. Beim allerersten
+Start erzeugt die App beide Passwörter und schreibt sie ins Terminal; danach
+ändert man sie in der App unter **Einstellungen**.
+
+Wer etwas ausgelegt hat, steht als **Name** direkt beim Beleg. Der Browser
+merkt sich den Namen und setzt ihn beim nächsten Beleg von selbst ein; dazu
+schlägt die App die Namen vor, die in dieser Kasse schon vorkamen.
+
+---
+
 ## Was die App kann
 
-**Für alle (Rolle „Melder“)**
+**Für alle (Mitarbeitspasswort)**
 
+- Ein grosser Knopf: *Beleg erfassen*
 - Beleg mit dem Handy fotografieren (oder PDF hochladen), Betrag, Datum,
-  Beschreibung, Laden und Kategorie erfassen
-- Nur die eigenen Belege sehen, solange sie offen sind auch korrigieren
-- Sehen, welche Belege geprüft und welche schon zurückerstattet wurden
+  Beschreibung und Laden erfassen
+- Die eigenen Belege dieses Geräts ansehen, solange sie offen sind auch
+  korrigieren oder löschen
 
-**Für Kassiere einer Kasse**
+**Für die Abteilungsleitung (Leitungspasswort)**
 
-- Alle Belege dieser Kasse sehen, prüfen (einzeln oder mehrere auf einmal)
-  oder mit Begründung ablehnen
+- Übersicht über **alle Kassen** mit Saldo, offenen Belegen und offenen Auslagen
+- In jeder Kasse: Kassenbuch, Belege, Schulden, Einnahmen, Excel und Druck –
+  alles an einem Ort, nichts über mehrere Kassen gemischt
+- Belege prüfen (einzeln oder mehrere auf einmal) oder ablehnen
 - Einnahmen und Einzahlungen erfassen
-- Abrechnung mit Saldo, Auswertung nach Kategorie, Kasse, Zahlungsart
-- Excel-Export und Druckansicht aller Belege
 - Rückerstattungen an Personen buchen
-
-**Für die Abteilungsleitung (Rolle „admin“)**
-
-- Alles von oben, über alle Kassen hinweg
 - Kassen anlegen, umbenennen, schliessen, Startsaldo setzen
-- Personen anlegen, sperren, Passwort zurücksetzen
-- **Nur die Abteilungsleitung teilt Personen einer Kasse zu** und entscheidet,
-  wer dort nur meldet und wer prüfen und abrechnen darf
+
+### Das Kassenbuch
+
+Jede Kasse hat ihr eigenes Buch, genau wie auf Papier – Übertrag zuoberst,
+danach jede Bewegung mit laufendem Saldo:
+
+| Datum | Nr. | Beschreibung | Ausgelegt von | Einnahme | Ausgabe | Saldo |
+|-------|-----|--------------|---------------|----------|---------|-------|
+|       |     | Übertrag aus 2025 |          |          |         | 500.00 |
+| 15.01.2026 |  | Lagerbeiträge |          | 2’000.00 |         | 2’500.00 |
+| 14.03.2026 | 1 | Znüni Samstag | Lea       |          | 12.50   | 2’487.50 |
+
+Ins Buch kommt nur, was **geprüft** ist. Neu eingereichte Belege stehen
+darüber in einem eigenen Kasten und zählen erst nach dem Prüfen beim Saldo mit.
 
 ### Belegnummern
 
-Jeder Beleg bekommt beim Einreichen automatisch eine Nummer nach dem Muster
-
-```
-JS-2026-0001
-│  │    └── fortlaufend pro Kasse und Jahr
-│  └─────── Jahr des Einkaufsdatums
-└────────── Kürzel der Kasse
-```
-
-Die Nummer ist eindeutig, lässt sich nicht mehr ändern und steht auf jeder
-gedruckten Belegseite. Das Kürzel einer Kasse bleibt darum fest.
+Jeder Beleg bekommt beim Einreichen eine Nummer, die **pro Kasse und Jahr**
+von 1 an hochzählt: Nr. 1, Nr. 2, Nr. 3 … Jede Kasse hat ihre eigene Reihe,
+und die Nummer lässt sich nicht mehr ändern. Sie steht auf jeder gedruckten
+Belegseite.
 
 ### Geldbeträge
 
@@ -70,9 +91,9 @@ npm install
 npm start
 ```
 
-Beim allerersten Start legt die App ein Administratorkonto an und schreibt
-E-Mail und Startpasswort ins Terminal. Danach im Browser `http://localhost:3000`
-öffnen, anmelden und sofort ein eigenes Passwort setzen.
+Beim allerersten Start schreibt die App die beiden Passwörter ins Terminal und
+legt eine erste Kasse („AL-Kasse“) an. Danach im Browser `http://localhost:3000`
+öffnen, anmelden und die Passwörter unter *Einstellungen* ändern.
 
 Datenbank und Fotos liegen in `kasse/data/` (nicht im Git).
 
@@ -86,7 +107,7 @@ Datenbank und Fotos liegen in `kasse/data/` (nicht im Git).
 git clone <dein-repo> /opt/ce-march-kasse
 cd /opt/ce-march-kasse/kasse
 docker compose up -d --build
-docker compose logs -f        # zeigt das Startpasswort der Leitung
+docker compose logs -f        # zeigt die beiden Startpasswörter
 ```
 
 Der Container hört nur auf `127.0.0.1:3000`; davor gehört ein Reverse Proxy
@@ -163,17 +184,20 @@ journalctl -u ce-march-kasse -f
 
 ## Einstellungen (.env)
 
-| Variable         | Bedeutung                                                   |
-|------------------|-------------------------------------------------------------|
-| `PORT`           | Port des Servers (Standard 3000)                             |
-| `HOST`           | Adresse, Standard `0.0.0.0`                                  |
-| `DATA_DIR`       | Ordner für Datenbank und Fotos                               |
-| `TRUST_PROXY`    | `true`, wenn ein Reverse Proxy davor läuft                   |
-| `COOKIE_SECURE`  | `true` bei HTTPS – sonst bleibt niemand angemeldet           |
-| `MAX_UPLOAD_MB`  | Maximale Grösse pro Foto (Standard 20)                       |
-| `ADMIN_NAME`     | Name des ersten Kontos (nur beim allerersten Start)          |
-| `ADMIN_EMAIL`    | E-Mail des ersten Kontos                                     |
-| `ADMIN_PASSWORT` | Optional. Ohne Angabe erzeugt die App eines und zeigt es an. |
+| Variable             | Bedeutung                                                      |
+|----------------------|-----------------------------------------------------------------|
+| `PORT`               | Port des Servers (Standard 3000)                                  |
+| `HOST`               | Adresse, Standard `0.0.0.0`                                       |
+| `DATA_DIR`           | Ordner für Datenbank und Fotos                                    |
+| `TRUST_PROXY`        | `true`, wenn ein Reverse Proxy davor läuft                        |
+| `COOKIE_SECURE`      | `true` bei HTTPS – sonst bleibt niemand angemeldet                |
+| `MAX_UPLOAD_MB`      | Maximale Grösse pro Foto (Standard 20)                            |
+| `PASSWORT_LEITUNG`   | Optional. Ohne Angabe erzeugt die App eines und zeigt es an.      |
+| `PASSWORT_MITARBEIT` | Optional. Ohne Angabe erzeugt die App eines und zeigt es an.      |
+
+Beide Passwort-Variablen wirken nur beim allerersten Start, solange noch
+keines gesetzt ist. Danach ändert man sie in der App oder über die
+Kommandozeile.
 
 ---
 
@@ -181,7 +205,7 @@ journalctl -u ce-march-kasse -f
 
 Gesichert werden müssen nur zwei Dinge, beide im Datenordner:
 
-- `kasse.sqlite` – alle Buchungen, Benutzer, Kassen
+- `kasse.sqlite` – alle Buchungen, Kassen, Passwörter
 - `uploads/` – die Belegfotos
 
 ```bash
@@ -196,14 +220,15 @@ gestopptem Dienst oder über den `.backup`-Befehl von SQLite.
 
 ---
 
-## Benutzer von der Kommandozeile
+## Kommandozeile
 
 Falls man sich einmal aussperrt:
 
 ```bash
-npm run admin -- liste
-npm run admin -- neu "Vorname Name" person@example.ch admin
-npm run admin -- passwort person@example.ch
+npm run admin -- leitung             # neues Leitungspasswort erzeugen
+npm run admin -- leitung Geheim123   # Leitungspasswort selbst setzen
+npm run admin -- mitarbeit           # neues Mitarbeitspasswort
+npm run admin -- kassen              # Kassen und Saldi anzeigen
 ```
 
 ---
@@ -211,25 +236,27 @@ npm run admin -- passwort person@example.ch
 ## Technik
 
 - **Server**: Node.js, Express, SQLite (better-sqlite3, WAL)
-- **Oberfläche**: reines HTML/CSS/JavaScript, kein Build-Schritt, als Web-App
-  aufs Handy installierbar
+- **Oberfläche**: reines HTML/CSS/JavaScript, kein Build-Schritt, mittig
+  gesetzt, als Web-App aufs Handy installierbar, heller und dunkler Modus
 - **Fotos**: werden mit `sharp` gedreht, auf 2000 px verkleinert und als JPEG
   gespeichert, dazu ein kleines Vorschaubild. Fehlt `sharp`, wird das Original
   unverändert abgelegt.
-- **Excel**: `exceljs`, vier Blätter (Belege, Einnahmen, Zusammenzug, offene
-  Auslagen)
-- **Druck**: eigene Druckseite – zuerst die Belegliste, danach jeder Beleg auf
-  einer eigenen A4-Seite mit Nummer, Betrag und Foto. Im Browser auf
-  „Drucken“ oder „Als PDF speichern“.
+- **Excel**: `exceljs`, drei Blätter (Kassenbuch, Belege, offene Auslagen) –
+  immer für genau eine Kasse
+- **Druck**: eigene Druckseite pro Kasse – zuerst das Kassenbuch mit laufendem
+  Saldo, danach jeder Beleg auf einer eigenen A4-Seite mit Nummer, Betrag und
+  Foto. Im Browser auf „Drucken“ oder „Als PDF speichern“.
 
 ### Sicherheit
 
-- Passwörter mit bcrypt gehasht, Startpasswörter müssen beim ersten Anmelden
-  geändert werden
-- Sitzungen als httpOnly-Cookie, 30 Tage, serverseitig in der Datenbank
+- Passwörter mit bcrypt gehasht, nie im Klartext gespeichert
+- Sitzungen als httpOnly-Cookie, 30 Tage, serverseitig in der Datenbank.
+  Wird ein Passwort geändert, fliegen alle anderen Geräte mit dieser Rolle raus.
 - CSRF-Token für alle verändernden Anfragen
+- Anmeldeversuche werden begrenzt (10 Fehlversuche, dann 15 Minuten Sperre)
 - Belegfotos sind nicht öffentlich: jeder Abruf prüft die Berechtigung
-- Anmeldeversuche werden begrenzt (8 Fehlversuche, dann 15 Minuten Sperre)
+- Wer nur das Mitarbeitspasswort hat, sieht ausschliesslich die Belege, die
+  von seinem eigenen Gerät eingereicht wurden
 - Content-Security-Policy über `helmet`
 - Jede Änderung landet im Protokoll (Tabelle `protokoll`)
 
@@ -239,14 +266,13 @@ hier nicht verwendet werden; ein Downgrade von `exceljs` wäre riskanter.
 
 ### Datenmodell
 
-| Tabelle              | Inhalt                                                  |
-|----------------------|---------------------------------------------------------|
-| `benutzer`           | Personen, Rolle (`admin`/`benutzer`), IBAN              |
-| `kassen`             | Kassen mit Kürzel, Farbe, Startsaldo                    |
-| `kassen_mitglieder`  | Zuteilung Person → Kasse mit Rolle `melder`/`kassier`   |
-| `belege`             | Belege inkl. Nummer, Betrag in Rappen, Status           |
-| `beleg_dateien`      | Fotos und PDFs zu einem Beleg                           |
-| `einnahmen`          | Einzahlungen in eine Kasse                              |
-| `rueckerstattungen`  | Auszahlungen an Personen, verknüpft mit Belegen         |
-| `sitzungen`          | angemeldete Geräte                                       |
-| `protokoll`          | wer hat wann was geändert                               |
+| Tabelle              | Inhalt                                                     |
+|----------------------|-------------------------------------------------------------|
+| `einstellungen`      | die beiden Passwort-Hashes                                  |
+| `kassen`             | Kassen mit Farbe und Startsaldo                             |
+| `belege`             | Belege inkl. Nummer (pro Kasse und Jahr), Betrag in Rappen, Name der auslegenden Person, Status |
+| `beleg_dateien`      | Fotos und PDFs zu einem Beleg                               |
+| `einnahmen`          | Einzahlungen in eine Kasse                                  |
+| `rueckerstattungen`  | Auszahlungen an Personen, verknüpft mit Belegen             |
+| `sitzungen`          | angemeldete Geräte mit ihrer Rolle                          |
+| `protokoll`          | wer hat wann was geändert                                   |

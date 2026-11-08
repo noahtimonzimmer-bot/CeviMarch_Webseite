@@ -886,7 +886,17 @@ async function neuerBelegAnsicht(kasseVorgabe) {
     el('option', { value: 'rechnung', text: 'Rechnung an den Verein' })
   ]);
 
-  const nameZeile = el('label', { text: 'Ausgelegt von' }, [nameFeld, personenListe]);
+  const nameZeile = el('label', { text: 'Ausgelegt von' }, [
+    nameFeld,
+    personenListe,
+    el('span', {
+      class: 'hinweis',
+      style: 'display: block; margin-top: 4px;',
+      text: zustand.name
+        ? 'Dein Name ist gemerkt und wird beim nächsten Mal wieder eingesetzt.'
+        : 'Einmal eintippen – danach setzt die App deinen Namen von selbst ein.'
+    })
+  ]);
   zahlungsartFeld.addEventListener('change', () => {
     nameZeile.hidden = zahlungsartFeld.value !== 'privat';
     nameFeld.required = zahlungsartFeld.value === 'privat';
