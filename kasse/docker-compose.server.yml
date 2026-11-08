@@ -1,0 +1,13 @@
+# =====================================================================
+#  Ergaenzung fuer den Server
+# =====================================================================
+#  Legt die Daten in einen gewoehnlichen Ordner statt in ein Docker-Volume.
+#  Damit laesst sich die Sicherung einfach ueber den Dateibaum machen.
+#
+#  Aufruf:
+#    docker compose -f docker-compose.yml -f docker-compose.server.yml up -d
+# =====================================================================
+services:
+  kasse:
+    volumes:
+      - /var/cevimarch-daten:/daten

@@ -177,13 +177,22 @@ p{margin:0 0 1.15em}
 }
 .buch--aktiv .buch__buehne{position:sticky;top:var(--navh,64px)}
 
-/* Die Szene ist der Tisch, auf dem das Buch liegt. Der Fluchtpunkt sitzt
-   bewusst nicht auf dem Scharnier: so verkürzt sich der Deckel beim Drehen
-   sichtbar und gibt die Seite früher frei. */
+/* Die Szene ist der Waldboden. Der Fluchtpunkt sitzt bewusst nicht auf
+   dem Scharnier: so verkürzt sich der Deckel beim Drehen sichtbar und
+   gibt die Seite früher frei. */
 .buch__szene{
   position:absolute;inset:0;perspective:1600px;perspective-origin:34% 46%;
-  background:url("../img/holz.jpg") repeat center/720px 720px #4a3220;
+  background:url("../img/waldboden.jpg") repeat center/900px 900px #241c12;
   overflow:hidden
+}
+
+/* Der Baumstumpf, auf dem das Buch liegt */
+.buch__stumpf{
+  position:absolute;left:50%;top:50%;translate:-50% -50%;
+  width:min(112%,calc((100svh - var(--navh,64px)) * 1.48));
+  aspect-ratio:1/1;
+  background:url("../img/stumpf.png") no-repeat center/contain;
+  filter:drop-shadow(0 26px 40px rgba(0,0,0,.65))
 }
 /* Licht von schräg oben, dadurch wirkt die Platte nicht wie Tapete */
 .buch__szene::before{
@@ -195,7 +204,10 @@ p{margin:0 0 1.15em}
 
 /* Das Buch selbst: ein Gegenstand mit Rand ringsum */
 .buch__objekt{
-  position:absolute;left:50%;top:50%;translate:-50% -50%;
+  position:absolute;left:50%;top:50%;
+  /* Beim Aufklappen wandert das Buch nach rechts: sonst verschwände der
+     aufgeschlagene Deckel fast ganz aus dem Bild. */
+  translate:calc(-50% + var(--p) * 13%) -50%;
   /* Buchformat statt Bildschirmformat: so bleibt ringsum Tisch sichtbar.
      Die Höhe führt, die Breite folgt über das Seitenverhältnis - sonst
      deckelt die Höhenbegrenzung das Format wieder auf Breitformat. */
@@ -220,7 +232,8 @@ p{margin:0 0 1.15em}
 }
 /* Der Schatten liegt unter dem Buch und bleibt beim Aufklappen liegen */
 .buch__schatten{
-  position:absolute;left:50%;top:50%;translate:-50% -50%;
+  position:absolute;left:50%;top:50%;
+  translate:calc(-50% + var(--p) * 13%) -50%;
   height:min(84%,calc(84vw / 1.34));
   aspect-ratio:1.34;max-width:84vw;
   border-radius:6px;
@@ -270,12 +283,15 @@ p{margin:0 0 1.15em}
 .buch__deckel{
   position:absolute;inset:0;transform-style:preserve-3d;
   transform-origin:left center;
-  transform:rotateY(calc(var(--p) * -168deg))
+  transform:rotateY(calc(var(--p) * -172deg));
+  filter:drop-shadow(calc(var(--p) * -18px) 14px 26px rgba(0,0,0,.5))
 }
 .buch--laeuft .buch__deckel{will-change:transform}
 /* Ist das Buch offen, darf der Deckel keine Klicks mehr abfangen */
 .buch__deckel{pointer-events:auto}
-.buch--offen .buch__deckel{pointer-events:none;visibility:hidden}
+/* Offen bleibt der Deckel natürlich liegen - er klappt nach links auf
+   den Waldboden. Nur anklickbar ist er dann nicht mehr. */
+.buch--offen .buch__deckel{pointer-events:none}
 
 .buch__aussen,.buch__innenseite{position:absolute;inset:0;backface-visibility:hidden;
   border-radius:3px 7px 7px 3px}
@@ -398,7 +414,8 @@ p{margin:0 0 1.15em}
   z-index:2;display:flex;align-items:center;gap:10px;padding:12px 20px;
   border-radius:var(--pill);font-family:var(--font-mono);font-size:.7rem;
   font-weight:500;letter-spacing:.16em;text-transform:uppercase;
-  color:rgba(240,226,196,.78);transition:color .25s,opacity .3s;
+  color:rgba(240,226,196,.85);text-shadow:0 1px 3px rgba(0,0,0,.8);
+  transition:color .25s,opacity .3s;
   opacity:calc(1 - var(--p) * 2.4)
 }
 .buch__hinweis:hover{color:#fff}

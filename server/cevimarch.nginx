@@ -1,0 +1,57 @@
+# =====================================================================
+#  nginx - Website und Kassen-App
+# =====================================================================
+#  Nach /etc/nginx/sites-available/cevimarch kopieren und verlinken.
+#  Die HTTPS-Teile ergaenzt certbot selbst, siehe server/https.sh.
+# =====================================================================
+
+# ---- Website: cevimarch.ch ------------------------------------------
+server {
+    listen 80;
+    listen [::]:80;
+    server_name cevimarch.ch www.cevimarch.ch;
+
+    root /opt/cevimarch;
+    index index.html;
+
+    # Fehlerseite der Seite selbst
+    error_page 404 /404.html;
+
+    # Die erzeugten Seiten duerfen nicht lange im Cache liegen, die Bilder
+    # und Schriften schon - die aendern sich praktisch nie.
+    location ~* \.html$ {
+        add_header Cache-Control "no-cache, must-revalidate";
+    }
+    location ~* \.(jpg|jpeg|png|webp|svg|woff2|pdf|ico)$ {
+        add_header Cache-Control "public, max-age=2592000";
+        access_log off;
+    }
+
+    # Interna nicht ausliefern
+    location ~ ^/(\.git|tools|content|server|kasse|scrape)/ { return 404; }
+    location = /CNAME { return 404; }
+
+    gzip on;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+    gzip_min_length 1024;
+}
+
+# ---- Kassen-App: kasse.cevimarch.ch ---------------------------------
+server {
+    listen 80;
+    listen [::]:80;
+    server_name kasse.cevimarch.ch;
+
+    # Belege sind Handyfotos und entsprechend gross
+    client_max_body_size 25m;
+
+    location / {
+        proxy_pass         http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_read_timeout 120s;
+    }
+}
