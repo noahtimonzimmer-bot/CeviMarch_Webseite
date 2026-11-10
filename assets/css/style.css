@@ -130,7 +130,7 @@ p{margin:0 0 1.15em}
 }
 .nav__links a{
   display:flex;align-items:center;justify-content:center;
-  height:var(--reiter-h,78px);margin-block:-10px calc(10px - var(--reiter-h,78px) + 44px);
+  height:var(--reiter-h,70px);margin-block:-10px calc(10px - var(--reiter-h,70px) + 44px);
   box-sizing:border-box;
   color:#fdf6e6;background:var(--ink);
   border-radius:0 0 7px 7px;
@@ -141,7 +141,7 @@ p{margin:0 0 1.15em}
   box-shadow:0 6px 12px -4px rgba(0,0,0,.4);
   transition:height .3s var(--ease),filter .3s
 }
-.nav__links a:hover{color:#fdf6e6;--reiter-h:84px;filter:brightness(1.12)}
+.nav__links a:hover{color:#fdf6e6;--reiter-h:76px;filter:brightness(1.12)}
 .nav__links a:nth-child(2){background:linear-gradient(180deg,#e0254a,#b3122f)}
 .nav__links a:nth-child(3){background:linear-gradient(180deg,#2a62b8,#164384)}
 .nav__links a:nth-child(4){background:linear-gradient(180deg,#c9a961,#9a7d3c)}
@@ -152,7 +152,7 @@ p{margin:0 0 1.15em}
 .nav__links a.is-active:hover{
   /* Ausgezogen, nicht verschoben: oben bleibt der Banner an der
      Leistenkante, unten faehrt er weiter heraus. */
-  color:#fff;--reiter-h:94px;
+  color:#fff;--reiter-h:86px;
   box-shadow:0 9px 16px -5px rgba(0,0,0,.45)
 }
 
