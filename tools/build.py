@@ -124,15 +124,16 @@ def head(title, description, current, body, extra_head='', body_class=''):
       <span class="brand__zeichen" aria-hidden="true"></span>
       <span class="brand__txt">CEVI<em>March</em></span>
     </a>
+    <!-- Die Kapitel stehen als Banner neben dem Zeichen und ragen unten
+         aus der Leiste heraus -->
+    <nav class="nav__links" data-nav aria-label="Hauptnavigation">
+        {nav_links(current, NAV)}
+    </nav>
     <div class="nav__actions">
       <a class="nav__cta" href="kontakt.html#schnuppern">Schnuppern</a>
       <button class="burger" id="burger" aria-label="Menü" aria-expanded="false"><span></span><span></span></button>
     </div>
   </div>
-  <!-- Die Kapitel stecken hinter der Leiste und schauen unten heraus -->
-  <nav class="nav__links" data-nav aria-label="Hauptnavigation">
-        {nav_links(current, NAV)}
-  </nav>
   <div class="nav__progress" id="progress"></div>
 </header>
 

@@ -120,28 +120,28 @@ p{margin:0 0 1.15em}
 /* Die Kapitel oben sind dieselben Reiter wie die Lesezeichen im Buch:
    gleiche Farben, gleiche Form. Sie stecken hinter der Leiste und
    schauen unten heraus. Das ausgewaehlte faehrt weiter heraus. */
+/* Die Banner beginnen an der Oberkante der Leiste, gleich neben dem
+   Zeichen, und ragen unten heraus. Damit sie die Leiste nicht hoeher
+   machen, sind die Aussenabstaende negativ. */
 .nav__links{
-  position:absolute;z-index:1;left:0;right:0;top:0;
-  /* Gleiche Spalte wie der uebrige Inhalt: die Reihe beginnt an der
-     Kante, an der die Seite anfaengt. */
-  max-width:var(--maxw);margin-inline:auto;
-  padding:0 var(--pad);overflow:visible;
-  display:flex;align-items:flex-start;justify-content:flex-start;
+  display:flex;align-items:flex-start;
   gap:clamp(5px,.7vw,10px);
-  pointer-events:none
+  margin-left:clamp(10px,2vw,28px);min-width:0;overflow:visible
 }
 .nav__links a{
-  pointer-events:auto;
+  display:flex;align-items:center;justify-content:center;
+  height:var(--reiter-h,98px);margin-block:-10px calc(10px - var(--reiter-h,98px) + 44px);
+  box-sizing:border-box;
   color:#fdf6e6;background:var(--ink);
-  border-radius:0 0 6px 6px;
-  padding:68px 15px 20px;line-height:1;
+  border-radius:0 0 7px 7px;
+  padding:0 16px;line-height:1;
   font-family:var(--font-mono);font-size:.68rem;
   font-weight:600;letter-spacing:.09em;text-transform:uppercase;
   white-space:nowrap;
   box-shadow:0 6px 12px -4px rgba(0,0,0,.4);
-  transition:padding-bottom .3s var(--ease),filter .3s
+  transition:height .3s var(--ease),filter .3s
 }
-.nav__links a:hover{color:#fdf6e6;padding-bottom:27px;filter:brightness(1.12)}
+.nav__links a:hover{color:#fdf6e6;--reiter-h:106px;filter:brightness(1.12)}
 .nav__links a:nth-child(2){background:linear-gradient(180deg,#e0254a,#b3122f)}
 .nav__links a:nth-child(3){background:linear-gradient(180deg,#2a62b8,#164384)}
 .nav__links a:nth-child(4){background:linear-gradient(180deg,#c9a961,#9a7d3c)}
@@ -150,9 +150,9 @@ p{margin:0 0 1.15em}
 .nav__links a:nth-child(7){background:linear-gradient(180deg,#3a3630,#22201c)}
 .nav__links a.is-active,
 .nav__links a.is-active:hover{
-  /* Weiter herausgezogen, nicht verschoben: oben bleibt der Reiter in
-     der Leiste stecken, unten waechst er heraus. */
-  color:#fff;padding-bottom:36px;
+  /* Ausgezogen, nicht verschoben: oben bleibt der Banner an der
+     Leistenkante, unten faehrt er weiter heraus. */
+  color:#fff;--reiter-h:120px;
   box-shadow:0 9px 16px -5px rgba(0,0,0,.45)
 }
 
