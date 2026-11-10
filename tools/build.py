@@ -240,6 +240,19 @@ def foto(src, text, klasse='photo--tilt', alt=None):
             f'<figcaption>{e(text)}</figcaption></figure>')
 
 
+def lesezeichen():
+    """Die Kapitel als Lesezeichen, die seitlich aus dem Buch schauen.
+    Dieselben Ziele wie in der Kopfleiste, nur "Start" faellt weg - da
+    ist man ja schon."""
+    reiter = []
+    for i, n in enumerate(x for x in NAV if x['path'] != '/'):
+        reiter.append('        <a class="lz lz--%d" href="%s">%s</a>'
+                      % (i + 1, url(n['path']), e(n['label'])))
+    zl = chr(10)
+    return ('      <nav class="buch__lesezeichen" aria-label="Kapitel">' + zl
+            + zl.join(reiter) + zl + '      </nav>')
+
+
 def build_home():
     """Startseite: das geschlossene Tagebuch füllt den Bildschirm. Titel,
     Untertitel und die Schaltfläche stehen auf dem Deckel. Beim Scrollen
@@ -312,6 +325,8 @@ def build_home():
           </div>
           <div class="buch__innenseite" aria-hidden="true"></div>
         </div>
+
+{lesezeichen()}
         </div>
       </div>
 

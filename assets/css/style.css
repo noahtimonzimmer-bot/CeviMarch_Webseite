@@ -521,6 +521,35 @@ p{margin:0 0 1.15em}
   mix-blend-mode:multiply;opacity:.5
 }
 
+/* Lesezeichen -------------------------------------------------------
+   Die Kapitel schauen als Stoffreiter rechts aus dem Buch. Sie stecken
+   ein Stueck unter dem Schnitt und fahren bei Beruehrung heraus.
+   Farben aus dem Vereinszeichen (Rot, Blau) und aus dem Material der
+   Seite: Messing, Oliv, Rost und Tinte. */
+.buch__lesezeichen{
+  position:absolute;top:14%;left:100%;z-index:4;
+  display:flex;flex-direction:column;align-items:flex-start;
+  gap:clamp(6px,.9vh,11px);
+  /* Die Szene selbst nimmt keine Klicks an, die Reiter sollen es aber */
+  pointer-events:auto
+}
+.lz{
+  display:block;padding:9px 13px 9px 20px;margin-left:-14px;
+  border-radius:0 5px 5px 0;
+  font-family:var(--font-mono);font-size:clamp(.54rem,.72vw,.64rem);
+  font-weight:500;letter-spacing:.13em;text-transform:uppercase;
+  color:#fdf6e6;white-space:nowrap;
+  box-shadow:3px 4px 10px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.18);
+  transition:transform .28s var(--ease),filter .28s
+}
+.lz:hover,.lz:focus-visible{transform:translateX(9px);filter:brightness(1.12)}
+.lz--1{background:linear-gradient(180deg,#e0254a,#b3122f)}
+.lz--2{background:linear-gradient(180deg,#2a62b8,#164384)}
+.lz--3{background:linear-gradient(180deg,#c9a961,#9a7d3c)}
+.lz--4{background:linear-gradient(180deg,#6f7a41,#4e562c)}
+.lz--5{background:linear-gradient(180deg,#a85a2c,#7d3f1c)}
+.lz--6{background:linear-gradient(180deg,#3a3630,#22201c)}
+
 /* Hinweis unten --------------------------------------------------- */
 .buch__hinweis{
   position:absolute;left:50%;bottom:clamp(2px,.6vw,8px);transform:translateX(-50%);
@@ -539,7 +568,12 @@ p{margin:0 0 1.15em}
 
 @media(max-width:760px){
   .buch--aktiv{height:520svh}
-  .buch__objekt,.buch__schatten,.buch__seite2{height:86%;aspect-ratio:.82;max-width:90vw}
+  /* Schmaler, damit rechts Platz fuer die Lesezeichen bleibt */
+  .buch__objekt,.buch__schatten,.buch__seite2{height:86%;aspect-ratio:.82;max-width:69vw}
+  .buch__lesezeichen{top:9%;gap:5px}
+  /* Auf der schmalen Seite nur knapp einstecken, sonst decken die
+     Reiter den Text ab. */
+  .lz{padding:7px 8px 7px 11px;margin-left:-4px;font-size:.52rem;letter-spacing:.08em}
   .buch__szene{perspective:1000px}
   .buch__praegung h1{font-size:clamp(2rem,9vw,2.8rem)}
   /* Hochkant passen drei Karten nicht untereinander auf eine Seite.
