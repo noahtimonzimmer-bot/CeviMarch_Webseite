@@ -47,12 +47,16 @@ if ! id -u "$BENUTZER" >/dev/null 2>&1; then
   adduser --disabled-password --gecos "" "$BENUTZER"
 fi
 usermod -aG docker "$BENUTZER"
-# Den SSH-Schluessel von root uebernehmen, damit man sich anmelden kann
-if [ -f /root/.ssh/authorized_keys ]; then
-  install -d -m 700 -o "$BENUTZER" -g "$BENUTZER" "/home/$BENUTZER/.ssh"
-  install -m 600 -o "$BENUTZER" -g "$BENUTZER" \
-    /root/.ssh/authorized_keys "/home/$BENUTZER/.ssh/authorized_keys"
-fi
+# Den vorhandenen SSH-Schluessel uebernehmen, damit man sich als
+# cevi anmelden kann. Infomaniak legt ihn beim Benutzer ubuntu ab,
+# andere Anbieter bei root.
+for QUELLE in /home/ubuntu/.ssh/authorized_keys /root/.ssh/authorized_keys; do
+  if [ -f "$QUELLE" ]; then
+    install -d -m 700 -o "$BENUTZER" -g "$BENUTZER" "/home/$BENUTZER/.ssh"
+    install -m 600 -o "$BENUTZER" -g "$BENUTZER"       "$QUELLE" "/home/$BENUTZER/.ssh/authorized_keys"
+    break
+  fi
+done
 
 echo "==> Firewall"
 ufw allow OpenSSH
@@ -62,6 +66,13 @@ ufw --force enable
 echo "==> SSH: nur noch Schluessel, kein Passwort"
 sed -i 's/^#*PasswordAuthentication .*/PasswordAuthentication no/' /etc/ssh/sshd_config
 sed -i 's/^#*PermitRootLogin .*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
+# Viele Anbieter legen zusaetzliche Dateien ab, die das wieder aufheben.
+install -d -m 755 /etc/ssh/sshd_config.d
+cat > /etc/ssh/sshd_config.d/99-cevimarch.conf <<'EOF'
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin prohibit-password
+EOF
 systemctl reload ssh || systemctl reload sshd
 
 echo "==> Projekt holen"
