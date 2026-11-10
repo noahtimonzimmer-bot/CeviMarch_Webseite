@@ -572,6 +572,9 @@ p{margin:0 0 1.15em}
   gap:clamp(3px,.6vw,9px);
   pointer-events:auto
 }
+/* Ein leerer Platz am Schluss, so breit wie ein Reiter: rechts bleibt
+   das Buch frei, die Reiter sitzen nicht bis an die Kante. */
+.buch__lesezeichen::after{content:"";flex:1 1 0;min-width:0}
 .lz{
   /* Die Reiter teilen sich die ganze Breite des Buchs */
   flex:1 1 0;text-align:center;

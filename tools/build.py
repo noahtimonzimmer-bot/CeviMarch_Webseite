@@ -699,6 +699,7 @@ def main():
         for href in re.findall(r'(?:href|src)="([^"#:]+?)"', text):
             if href.startswith(('http', 'mailto', 'tel', 'data:', '//')):
                 continue
+            href = href.split('?')[0]   # Kennzeichen gegen den Zwischenspeicher
             if not os.path.exists(os.path.join(ROOT, href)):
                 fehlend.add('%s -> %s' % (name, href))
     if fehlend:
