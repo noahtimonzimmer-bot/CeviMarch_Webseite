@@ -253,24 +253,6 @@ def foto(src, text, klasse='photo--tilt', alt=None):
             f'<figcaption>{e(text)}</figcaption></figure>')
 
 
-def erinnerungen():
-    """Die Fotos, die rund um das Buch auf dem Holz liegen. Sie stecken
-    am Rand der Buehne, ein Stueck davon verschwindet unter dem Buch."""
-    bilder = []
-    for i in range(1, 11):
-        rel = 'assets/img/fotos/foto-%d.jpg' % i
-        if not os.path.exists(os.path.join(ROOT, rel)):
-            continue
-        masse = bildmasse(rel)
-        mass_attr = (' width="%d" height="%d"' % masse) if masse else ''
-        bilder.append('        <img class="erinnerung erinnerung--%d" '
-                      'src="%s" alt=""%s decoding="async">'
-                      % (i, rel, mass_attr))
-    zl = chr(10)
-    return ('      <div class="buch__fotos" aria-hidden="true">' + zl
-            + zl.join(bilder) + zl + '      </div>')
-
-
 def lesezeichen():
     """Die Kapitel als Lesezeichen, die seitlich aus dem Buch schauen.
     Dieselben Ziele wie in der Kopfleiste, nur "Start" faellt weg - da
@@ -298,8 +280,6 @@ def build_home():
     <div class="buch__buehne">
       <!-- Die Holzplatte, auf der das Buch liegt -->
       <div class="buch__holz" aria-hidden="true"></div>
-
-{erinnerungen()}
 
       <!-- Die Lesezeichen stecken zwischen Holz und Buch: sie liegen
            hinter der Seite, schauen oben heraus und sind darum nicht

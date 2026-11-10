@@ -129,9 +129,9 @@ p{margin:0 0 1.15em}
   margin-top:-12px;padding:18px 15px 10px;
   font-weight:600;letter-spacing:.09em;
   box-shadow:0 3px 8px rgba(0,0,0,.18);
-  transition:transform .25s var(--ease),filter .25s
+  transition:padding-bottom .25s var(--ease),filter .25s
 }
-.nav__links a:hover{color:#fdf6e6;background:var(--ink);transform:translateY(3px);filter:brightness(1.12)}
+.nav__links a:hover{color:#fdf6e6;background:var(--ink);padding-bottom:16px;filter:brightness(1.12)}
 .nav__links a:nth-child(2){background:linear-gradient(180deg,#e0254a,#b3122f)}
 .nav__links a:nth-child(3){background:linear-gradient(180deg,#2a62b8,#164384)}
 .nav__links a:nth-child(4){background:linear-gradient(180deg,#c9a961,#9a7d3c)}
@@ -140,7 +140,9 @@ p{margin:0 0 1.15em}
 .nav__links a:nth-child(7){background:linear-gradient(180deg,#3a3630,#22201c)}
 .nav__links a.is-active,
 .nav__links a.is-active:hover{
-  color:#fff;transform:translateY(7px);
+  /* Ausgezogen, nicht verschoben: der Reiter waechst nach unten, oben
+     bleibt er an der Kante - sonst klafft dort eine Luecke. */
+  color:#fff;padding-bottom:22px;
   box-shadow:0 5px 12px rgba(0,0,0,.25)
 }
 /* Die herausgezogenen Reiter duerfen unten aus der Leiste ragen */
@@ -229,7 +231,9 @@ p{margin:0 0 1.15em}
    und steht still: kein Kacheln, kein Mitscrollen. */
 .buch__holz{
   position:absolute;inset:0;z-index:0;
-  background:url("../img/holz-hintergrund.jpg") no-repeat center center/cover #6b5233;
+  background:image-set(url("../img/holz-hintergrund.webp") type("image/webp"),
+                       url("../img/holz-hintergrund.jpg") type("image/jpeg"))
+             no-repeat center center/cover #6b5233;
   /* Beim Zoomen fährt die Kamera vor. Das Holz liegt am weitesten weg
      und wächst darum langsamer als das Buch - erst dieser Unterschied
      lässt es aussehen, als führe man hinein, statt dass einem das Buch
@@ -262,39 +266,6 @@ p{margin:0 0 1.15em}
      statt der linken Buchhälfte, das Buch war also nicht mehr ganz. */
   opacity:clamp(0,calc((1 - var(--z)) * 9),1)
 }
-
-/* Erinnerungsfotos auf dem Holz -------------------------------------
-   Sie liegen im Kreis um das Buch herum, am Rand der Buehne, und
-   verschwinden mit einer Ecke darunter. Sie gehoeren zum Holz und
-   machen darum dieselbe, langsamere Kamerafahrt mit. */
-.buch__fotos{
-  position:absolute;inset:0;z-index:0;pointer-events:none;
-  transform:scale(calc(1 + var(--z) * (var(--zoomfaktor,3) - 1) * .62));
-  transform-origin:center center;
-  opacity:clamp(0,calc((1 - var(--z)) * 3),1)
-}
-.erinnerung{
-  position:absolute;display:block;
-  /* Hoehe gibt den Takt vor, damit die Reihe trotz verschiedener
-     Bildformate gleichmaessig liegt. */
-  height:clamp(76px,12vh,122px);width:auto;max-width:17vw;
-  border-radius:3px;
-  box-shadow:0 10px 20px -6px rgba(0,0,0,.6),0 2px 4px rgba(0,0,0,.4);
-  translate:-50% -50%
-}
-/* Oben und unten ist neben dem Buch kaum Platz, links und rechts
-   dagegen viel: darum zwei Reihen, jede Reihe reicht mit der inneren
-   Kante unter das Buch. */
-.erinnerung--1{left:11%;top:12%;rotate:-7deg}
-.erinnerung--2{left:9%;top:31%;rotate:5deg}
-.erinnerung--3{left:11.5%;top:50%;rotate:-4deg}
-.erinnerung--4{left:9%;top:69%;rotate:6deg}
-.erinnerung--5{left:11%;top:85%;rotate:-3deg}
-.erinnerung--6{left:89%;top:12%;rotate:5deg}
-.erinnerung--7{left:91%;top:31%;rotate:-6deg}
-.erinnerung--8{left:88.5%;top:50%;rotate:4deg}
-.erinnerung--9{left:91%;top:69%;rotate:-5deg}
-.erinnerung--10{left:89%;top:85%;rotate:3deg}
 
 /* Das Buch selbst: ein Gegenstand mit Rand ringsum */
 .buch__objekt{
@@ -661,16 +632,6 @@ p{margin:0 0 1.15em}
 @media(max-width:760px){
   .buch--aktiv{height:520svh}
   .buch__objekt,.buch__schatten,.buch__seite2{height:86%;aspect-ratio:.82;max-width:90vw}
-  /* Seitlich bleibt kein Platz: die Fotos liegen oben und unten,
-     die uebrigen wuerden nur unter dem Buch verschwinden. */
-  .erinnerung{height:clamp(54px,7.5vh,76px);max-width:40vw}
-  .erinnerung--1{left:16%;top:6%;rotate:-8deg}
-  .erinnerung--2{left:50%;top:4.5%;rotate:5deg}
-  .erinnerung--3{left:84%;top:6%;rotate:-6deg}
-  .erinnerung--4{left:16%;top:94%;rotate:7deg}
-  .erinnerung--5{left:50%;top:95.5%;rotate:-4deg}
-  .erinnerung--6{left:84%;top:94%;rotate:6deg}
-  .erinnerung--7,.erinnerung--8,.erinnerung--9,.erinnerung--10{display:none}
   .buch__reiter{height:86%;aspect-ratio:.82;max-width:90vw}
   .buch__lesezeichen{left:3px;right:3px;gap:2px;margin-bottom:-20px}
   .lz{padding:5px 3px 24px;font-size:.52rem;letter-spacing:.01em}
@@ -906,8 +867,8 @@ a.person:hover{transform:translateY(-4px)}
      der Leiste - sie stehen einfach da, das Ausgewaehlte etwas tiefer. */
   .nav__links{order:3;width:100%;margin-left:0;padding-top:2px;overflow-x:auto}
   .nav__links a{margin-top:0;padding:9px 13px;border-radius:6px}
-  .nav__links a.is-active,.nav__links a.is-active:hover{transform:translateY(4px)}
-  .nav__links a:hover{transform:translateY(2px)}
+  .nav__links a.is-active,.nav__links a.is-active:hover{padding-bottom:16px}
+  .nav__links a:hover{padding-bottom:12px}
   .nav__actions{margin-left:auto}
   .drawer{inset:114px 0 0}
 }
