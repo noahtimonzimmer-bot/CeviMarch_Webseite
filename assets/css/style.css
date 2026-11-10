@@ -177,23 +177,17 @@ p{margin:0 0 1.15em}
 }
 .buch--aktiv .buch__buehne{position:sticky;top:var(--navh,64px)}
 
-/* Die Szene ist der Waldboden. Der Fluchtpunkt sitzt bewusst nicht auf
-   dem Scharnier: so verkürzt sich der Deckel beim Drehen sichtbar und
-   gibt die Seite früher frei. */
+/* Die Szene ist eine Holzplatte (Hirnholz). Das Foto füllt die Bühne
+   immer ganz aus und steht still: kein Kacheln, kein Mitscrollen, und
+   die Bühne selbst ist beim Aufklappen sticky. Der Fluchtpunkt sitzt
+   bewusst nicht auf dem Scharnier: so verkürzt sich der Deckel beim
+   Drehen sichtbar und gibt die Seite früher frei. */
 .buch__szene{
   position:absolute;inset:0;perspective:1600px;perspective-origin:34% 46%;
-  background:url("../img/waldboden.jpg") repeat center/900px 900px #241c12;
+  background:url("../img/holz-hintergrund.jpg") no-repeat center center/cover #6b5233;
   overflow:hidden
 }
 
-/* Der Baumstumpf, auf dem das Buch liegt */
-.buch__stumpf{
-  position:absolute;left:50%;top:50%;translate:-50% -50%;
-  width:min(112%,calc((100svh - var(--navh,64px)) * 1.48));
-  aspect-ratio:1/1;
-  background:url("../img/stumpf.png") no-repeat center/contain;
-  filter:drop-shadow(0 26px 40px rgba(0,0,0,.65))
-}
 /* Licht von schräg oben, dadurch wirkt die Platte nicht wie Tapete */
 .buch__szene::before{
   content:"";position:absolute;inset:0;pointer-events:none;
@@ -427,7 +421,6 @@ p{margin:0 0 1.15em}
 @media(max-width:760px){
   .buch--aktiv{height:190svh}
   .buch__objekt,.buch__schatten{height:86%;aspect-ratio:.82;max-width:90vw}
-  .buch__szene{background-size:460px 460px}
   .buch__szene{perspective:1000px}
   .buch__praegung h1{font-size:clamp(2rem,9vw,2.8rem)}
   /* Hochkant passen drei Karten nicht untereinander auf eine Seite.

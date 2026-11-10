@@ -251,7 +251,6 @@ def build_home():
     body = f"""  <section class="buch" id="buch">
     <div class="buch__buehne">
       <div class="buch__szene">
-        <div class="buch__stumpf" aria-hidden="true"></div>
         <div class="buch__schatten" aria-hidden="true"></div>
         <div class="buch__objekt">
 
