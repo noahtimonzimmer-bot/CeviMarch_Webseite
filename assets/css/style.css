@@ -738,15 +738,20 @@ a.person:hover{transform:translateY(-4px)}
 .chip.is-active{background:var(--ink);color:var(--paper)}
 
 /* Fusszeile ------------------------------------------------------- */
-.foot{background:rgba(124,99,54,.055);border-radius:var(--r-xl) var(--r-xl) 0 0;margin-top:20px}
-.foot__grid{max-width:var(--maxw);margin-inline:auto;padding:clamp(44px,5.5vw,76px) var(--pad);
+/* Die Fusszeile ist kein abgesetzter Kasten, sondern der Schlussabsatz
+   der Seite: dasselbe Papier, darüber eine klare Linie über den ganzen
+   Satzspiegel - so wie die Fussnotenlinie in einem gedruckten Buch. */
+.foot{background:transparent;border-radius:0;margin-top:clamp(40px,6vw,88px)}
+.foot__grid{max-width:var(--maxw);margin-inline:auto;
+  padding:clamp(36px,4.4vw,58px) var(--pad) clamp(30px,4vw,52px);
+  border-top:1.5px solid var(--ink);
   display:grid;grid-template-columns:1.6fr 1fr 1fr 1.2fr;gap:36px}
 .foot__grid h4{margin-bottom:14px}
 .foot__grid a{display:block;color:var(--ink-2);font-size:.94rem;padding:5px 0;transition:color .2s}
 .foot__grid a:hover{color:var(--red)}
 .foot__claim{margin-top:18px;font-family:var(--font-hand);font-size:1.55rem;letter-spacing:0;
   line-height:1.35;color:var(--ink);max-width:24ch}
-.foot__bar{border-top:1.5px dashed var(--rule-strong);padding:20px var(--pad);
+.foot__bar{max-width:var(--maxw);margin-inline:auto;border-top:1px solid var(--rule);padding:18px var(--pad);
   display:flex;gap:14px;justify-content:center;flex-wrap:wrap;font-family:var(--font-mono);
   font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
 .foot__bar a{border-bottom:1px solid transparent;transition:.2s}
