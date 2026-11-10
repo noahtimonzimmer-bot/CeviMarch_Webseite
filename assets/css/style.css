@@ -126,11 +126,14 @@ p{margin:0 0 1.15em}
 .nav__links{
   display:flex;align-items:flex-start;
   gap:clamp(5px,.7vw,10px);
-  margin-left:clamp(10px,2vw,28px);min-width:0;overflow:visible
+  margin-left:clamp(10px,2vw,28px);min-width:0;overflow:visible;
+  /* Feste Hoehe: die Banner duerfen daraus herausragen, ohne dass die
+     Leiste mitwaechst. Sonst ruckelt beim Ausfahren die ganze Seite. */
+  height:44px
 }
 .nav__links a{
   display:flex;align-items:center;justify-content:center;
-  height:var(--reiter-h,48px);margin-block:-10px calc(10px - var(--reiter-h,48px) + 44px);
+  flex:0 0 auto;height:var(--reiter-h,48px);margin-top:-10px;
   box-sizing:border-box;
   color:#fdf6e6;background:var(--ink);
   border-radius:0 0 7px 7px;
