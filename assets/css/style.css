@@ -122,8 +122,11 @@ p{margin:0 0 1.15em}
    schauen unten heraus. Das ausgewaehlte faehrt weiter heraus. */
 .nav__links{
   position:absolute;z-index:1;left:0;right:0;top:0;
-  margin:0;padding:0 var(--pad);overflow:visible;
-  display:flex;align-items:flex-start;justify-content:center;
+  /* Gleiche Spalte wie der uebrige Inhalt: die Reihe beginnt an der
+     Kante, an der die Seite anfaengt. */
+  max-width:var(--maxw);margin-inline:auto;
+  padding:0 var(--pad);overflow:visible;
+  display:flex;align-items:flex-start;justify-content:flex-start;
   gap:clamp(5px,.7vw,10px);
   pointer-events:none
 }
@@ -131,14 +134,14 @@ p{margin:0 0 1.15em}
   pointer-events:auto;
   color:#fdf6e6;background:var(--ink);
   border-radius:0 0 6px 6px;
-  padding:68px 15px 10px;line-height:1;
+  padding:68px 15px 20px;line-height:1;
   font-family:var(--font-mono);font-size:.68rem;
   font-weight:600;letter-spacing:.09em;text-transform:uppercase;
   white-space:nowrap;
   box-shadow:0 6px 12px -4px rgba(0,0,0,.4);
   transition:padding-bottom .3s var(--ease),filter .3s
 }
-.nav__links a:hover{color:#fdf6e6;padding-bottom:17px;filter:brightness(1.12)}
+.nav__links a:hover{color:#fdf6e6;padding-bottom:27px;filter:brightness(1.12)}
 .nav__links a:nth-child(2){background:linear-gradient(180deg,#e0254a,#b3122f)}
 .nav__links a:nth-child(3){background:linear-gradient(180deg,#2a62b8,#164384)}
 .nav__links a:nth-child(4){background:linear-gradient(180deg,#c9a961,#9a7d3c)}
@@ -149,7 +152,7 @@ p{margin:0 0 1.15em}
 .nav__links a.is-active:hover{
   /* Weiter herausgezogen, nicht verschoben: oben bleibt der Reiter in
      der Leiste stecken, unten waechst er heraus. */
-  color:#fff;padding-bottom:26px;
+  color:#fff;padding-bottom:36px;
   box-shadow:0 9px 16px -5px rgba(0,0,0,.45)
 }
 
