@@ -442,8 +442,8 @@ p{margin:0 0 1.15em}
        dessen Form - dadurch nimmt es die Narbung des Einbands an */
 .buch__brand{
   position:relative;display:block;
-  width:clamp(54px,5.6vw,76px);aspect-ratio:1/1;
-  margin-bottom:clamp(18px,2.4vw,30px);
+  width:clamp(150px,16.8vw,228px);aspect-ratio:1/1;
+  margin-bottom:clamp(26px,3.2vw,42px);
   background:url("../img/logo-farbe.png") no-repeat center/contain;
   filter:saturate(.84) brightness(.93) contrast(1.04)
          drop-shadow(0 1.5px 0 rgba(255,232,182,.24))
