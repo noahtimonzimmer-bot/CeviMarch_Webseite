@@ -95,10 +95,19 @@ p{margin:0 0 1.15em}
   border-bottom:1px solid var(--rule)}
 .nav__inner{max-width:var(--maxw);margin-inline:auto;padding:10px var(--pad);
   display:flex;align-items:center;gap:22px;min-height:64px}
-.nav__progress{height:2px;border-radius:var(--pill);background:var(--red);width:0%;transition:width .1s linear}
+.nav__progress{height:2px;border-radius:var(--pill);background:var(--ink);width:0%;transition:width .1s linear}
 
 .brand{display:flex;align-items:center;gap:10px;flex:0 0 auto}
-.brand img{width:32px;height:32px;border-radius:var(--r-xs)}
+/* Das Zeichen im Kopf ist dasselbe wie auf dem Deckel: die freigestellte
+   Form dient als Maske, gefüllt wird sie dunkel mit heller Unterkante. */
+.brand__zeichen{
+  display:block;width:32px;height:32px;flex:0 0 auto;
+  background:linear-gradient(160deg,#2c1d11 0%,#46331e 54%,#1d1309 100%);
+  -webkit-mask:url("../img/logo-marke.png") no-repeat center/contain;
+          mask:url("../img/logo-marke.png") no-repeat center/contain;
+  filter:drop-shadow(0 1px 0 rgba(255,236,196,.5))
+}
+.foot .brand__zeichen{width:40px;height:40px}
 .brand__txt{font-family:var(--font-mono);font-size:1.02rem;font-weight:700;letter-spacing:-.05em}
 .brand__txt em{font-style:normal;font-weight:400;color:var(--ink-3)}
 
@@ -185,7 +194,13 @@ p{margin:0 0 1.15em}
    und steht still: kein Kacheln, kein Mitscrollen. */
 .buch__holz{
   position:absolute;inset:0;z-index:0;
-  background:url("../img/holz-hintergrund.jpg") no-repeat center center/cover #6b5233
+  background:url("../img/holz-hintergrund.jpg") no-repeat center center/cover #6b5233;
+  /* Beim Zoomen fährt die Kamera vor. Das Holz liegt am weitesten weg
+     und wächst darum langsamer als das Buch - erst dieser Unterschied
+     lässt es aussehen, als führe man hinein, statt dass einem das Buch
+     entgegenfliegt. */
+  transform:scale(calc(1 + var(--z) * (var(--zoomfaktor,3) - 1) * .62));
+  transform-origin:center center
 }
 /* Licht von schräg oben, dadurch wirkt die Platte nicht wie Tapete */
 .buch__holz::before{
@@ -202,9 +217,12 @@ p{margin:0 0 1.15em}
 .buch__szene{
   position:absolute;inset:0;z-index:2;perspective:1600px;perspective-origin:34% 46%;
   overflow:hidden;pointer-events:none;
-  /* Beim Zoomen gleiten Deckel und Blatt links aus dem Bild und
-     verblassen dabei, damit am Rand nichts davon hängen bleibt. */
-  opacity:calc(1 - var(--z))
+  /* Deckel und Blatt liegen auf Höhe des Buchs und wachsen entsprechend
+     schneller als das Holz. Sie verblassen erst spät, damit die Fahrt
+     sichtbar bleibt. */
+  transform:scale(calc(1 + var(--z) * (var(--zoomfaktor,3) - 1) * .92));
+  transform-origin:center center;
+  opacity:clamp(0,calc((1 - var(--z)) * 2.4),1)
 }
 
 /* Das Buch selbst: ein Gegenstand mit Rand ringsum */
@@ -331,8 +349,12 @@ p{margin:0 0 1.15em}
 }
 /* Der Satzspiegel richtet sich nach der Buchseite, nicht nach dem
    Bildschirm - sonst laufen die Karten über den Buchrand hinaus. */
+/* minmax(0,1fr) und min-width:0 sind nötig, sonst wächst die Rasterspalte
+   auf die Mindestbreite der Kartenreihe - und die Seite wird breiter als
+   das Buch, das sie abschneidet. */
+.buch__seite{grid-template-columns:minmax(0,1fr)}
 .buch__seiteninhalt{
-  width:100%;max-width:none;text-align:center;
+  width:100%;max-width:none;min-width:0;text-align:center;
   padding-inline:clamp(18px,3.4vw,54px);
   opacity:clamp(0,calc(var(--p) * 2.6 - 1.3),1)
 }
@@ -515,12 +537,13 @@ p{margin:0 0 1.15em}
   /* .grid steht weiter unten im Stylesheet, darum hier zwei Klassen,
      sonst gewinnt dessen display:grid. */
   .buch__seiteninhalt .buch__stufen{
-    display:flex;gap:14px;overflow-x:auto;scroll-snap-type:x mandatory;
-    margin-inline:calc(var(--pad) * -1);padding-inline:var(--pad);
+    display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;
+    /* Keine negativen Aussenabstände: die schoben die Karten über den
+       Buchrand hinaus, und der Rand schnitt sie ab. */
     scrollbar-width:none;touch-action:pan-x pan-y
   }
   .buch__seiteninhalt .buch__stufen::-webkit-scrollbar{display:none}
-  .buch__seiteninhalt .buch__stufen > *{flex:0 0 78%;scroll-snap-align:center}
+  .buch__seiteninhalt .buch__stufen > *{flex:0 0 82%;scroll-snap-align:center}
   .buch__seiteninhalt h2{font-size:clamp(1.5rem,6.4vw,2rem)}
 }
 

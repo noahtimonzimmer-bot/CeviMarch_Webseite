@@ -114,8 +114,17 @@
     var messen = function () {
       strecke = buch.offsetHeight - buehne.offsetHeight;
       // Grösse des geschlossenen Buchs - von hier aus wird gezoomt
-      buch.style.setProperty('--bw', mass.offsetWidth + 'px');
-      buch.style.setProperty('--bh', mass.offsetHeight + 'px');
+      var bw = mass.offsetWidth, bh = mass.offsetHeight;
+      buch.style.setProperty('--bw', bw + 'px');
+      buch.style.setProperty('--bh', bh + 'px');
+
+      // Wie stark die Kamera vorfahren muss, damit die Buchseite den
+      // Bildschirm ausfüllt. Mit diesem Faktor wachsen auch Holz und
+      // Buch - dadurch fährt man in das Buch hinein, statt dass es
+      // einem entgegenfliegt.
+      var frei = buehne.offsetHeight || 1;
+      var faktor = Math.max(buehne.offsetWidth / (bw || 1), frei / (bh || 1));
+      buch.style.setProperty('--zoomfaktor', faktor.toFixed(3));
     };
 
     var rechne = function () {

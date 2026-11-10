@@ -108,7 +108,7 @@ def head(title, description, current, body, extra_head='', body_class=''):
 <header class="nav" id="nav">
   <div class="nav__inner">
     <a class="brand" href="index.html">
-      <img src="assets/img/logo.jpg" alt="" width="40" height="40">
+      <span class="brand__zeichen" aria-hidden="true"></span>
       <span class="brand__txt">CEVI<em>March</em></span>
     </a>
     <nav class="nav__links" data-nav aria-label="Hauptnavigation">
@@ -136,7 +136,7 @@ def head(title, description, current, body, extra_head='', body_class=''):
   <div class="foot__grid">
     <div>
       <a class="brand" href="index.html">
-        <img src="assets/img/logo.jpg" alt="" width="44" height="44">
+        <span class="brand__zeichen" aria-hidden="true"></span>
         <span class="brand__txt">CEVI<em>March</em></span>
       </a>
       <p class="foot__claim">„Selber schaffen,<br>schafft Selbstvertrauen.“</p>
