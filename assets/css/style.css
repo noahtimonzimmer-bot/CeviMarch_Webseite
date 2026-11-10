@@ -219,7 +219,10 @@ p{margin:0 0 1.15em}
      obendrauf käme doppelt und das Buch triebe sichtbar auseinander.
      Die Kamerafahrt entsteht allein dadurch, dass das Holz dahinter
      langsamer wächst. */
-  opacity:clamp(0,calc((1 - var(--z)) * 2.4),1)
+  /* Erst ganz am Schluss ausblenden. Vorher verschwand der aufgeklappte
+     Deckel schon bei knapp halbem Zoom - links lag dann nacktes Holz
+     statt der linken Buchhälfte, das Buch war also nicht mehr ganz. */
+  opacity:clamp(0,calc((1 - var(--z)) * 9),1)
 }
 
 /* Das Buch selbst: ein Gegenstand mit Rand ringsum */
