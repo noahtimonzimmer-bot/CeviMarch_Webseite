@@ -526,23 +526,39 @@ p{margin:0 0 1.15em}
    ein Stueck unter dem Schnitt und fahren bei Beruehrung heraus.
    Farben aus dem Vereinszeichen (Rot, Blau) und aus dem Material der
    Seite: Messing, Oliv, Rost und Tinte. */
+/* Der Traeger hat genau die Groesse des Buchs, liegt aber zwischen Holz
+   und Seite - also hinter dem Buch und ausserhalb der 3D-Szene. Dadurch
+   stecken die Reiter wirklich zwischen den Seiten, und ihre Schrift
+   bleibt scharf (in der perspektivischen Szene wird alles gerastert). */
+.buch__reiter{
+  position:absolute;left:50%;top:50%;translate:-50% -50%;z-index:0;
+  height:min(84%,calc(84vw / 1.34));
+  aspect-ratio:1.34;max-width:84vw;
+  pointer-events:none;
+  opacity:clamp(0,calc((1 - var(--z)) * 6),1)
+}
+.buch--aktiv .buch__reiter{
+  aspect-ratio:auto;max-width:none;
+  width:calc(var(--bw,84vw) + (100% - var(--bw,84vw)) * var(--z));
+  height:calc(var(--bh,84%) + (100% - var(--bh,84%)) * var(--z))
+}
 .buch__lesezeichen{
-  position:absolute;top:14%;left:100%;z-index:4;
-  display:flex;flex-direction:column;align-items:flex-start;
-  gap:clamp(6px,.9vh,11px);
-  /* Die Szene selbst nimmt keine Klicks an, die Reiter sollen es aber */
+  position:absolute;bottom:100%;left:clamp(14px,5%,64px);right:clamp(14px,5%,64px);
+  margin-bottom:-26px;
+  display:flex;flex-direction:row;flex-wrap:nowrap;
+  gap:clamp(3px,.6vw,9px);
   pointer-events:auto
 }
 .lz{
-  display:block;padding:9px 13px 9px 20px;margin-left:-14px;
-  border-radius:0 5px 5px 0;
-  font-family:var(--font-mono);font-size:clamp(.54rem,.72vw,.64rem);
-  font-weight:500;letter-spacing:.13em;text-transform:uppercase;
-  color:#fdf6e6;white-space:nowrap;
-  box-shadow:3px 4px 10px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.18);
+  display:block;min-width:0;padding:8px 13px 30px;
+  border-radius:4px 4px 0 0;
+  font-family:var(--font-mono);font-size:clamp(.58rem,.74vw,.7rem);
+  font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+  color:#fdf6e6;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;
+  box-shadow:0 -2px 7px rgba(0,0,0,.35);
   transition:transform .28s var(--ease),filter .28s
 }
-.lz:hover,.lz:focus-visible{transform:translateX(9px);filter:brightness(1.12)}
+.lz:hover,.lz:focus-visible{transform:translateY(-8px);filter:brightness(1.12)}
 .lz--1{background:linear-gradient(180deg,#e0254a,#b3122f)}
 .lz--2{background:linear-gradient(180deg,#2a62b8,#164384)}
 .lz--3{background:linear-gradient(180deg,#c9a961,#9a7d3c)}
@@ -568,12 +584,10 @@ p{margin:0 0 1.15em}
 
 @media(max-width:760px){
   .buch--aktiv{height:520svh}
-  /* Schmaler, damit rechts Platz fuer die Lesezeichen bleibt */
-  .buch__objekt,.buch__schatten,.buch__seite2{height:86%;aspect-ratio:.82;max-width:69vw}
-  .buch__lesezeichen{top:9%;gap:5px}
-  /* Auf der schmalen Seite nur knapp einstecken, sonst decken die
-     Reiter den Text ab. */
-  .lz{padding:7px 8px 7px 11px;margin-left:-4px;font-size:.52rem;letter-spacing:.08em}
+  .buch__objekt,.buch__schatten,.buch__seite2{height:86%;aspect-ratio:.82;max-width:90vw}
+  .buch__reiter{height:86%;aspect-ratio:.82;max-width:90vw}
+  .buch__lesezeichen{left:4px;right:4px;gap:2px;margin-bottom:-20px}
+  .lz{padding:5px 5px 24px;font-size:.52rem;letter-spacing:.01em}
   .buch__szene{perspective:1000px}
   .buch__praegung h1{font-size:clamp(2rem,9vw,2.8rem)}
   /* Hochkant passen drei Karten nicht untereinander auf eine Seite.

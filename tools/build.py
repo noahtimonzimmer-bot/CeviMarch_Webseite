@@ -268,6 +268,13 @@ def build_home():
       <!-- Die Holzplatte, auf der das Buch liegt -->
       <div class="buch__holz" aria-hidden="true"></div>
 
+      <!-- Die Lesezeichen stecken zwischen Holz und Buch: sie liegen
+           hinter der Seite, schauen oben heraus und sind darum nicht
+           Teil der 3D-Szene - dort wuerde die Schrift unscharf. -->
+      <div class="buch__reiter">
+{lesezeichen()}
+      </div>
+
       <!-- Seite 2 liegt zuunterst. Auf sie wird am Ende gezoomt, bis sie
            den ganzen Bildschirm füllt. -->
       <div class="buch__seite2" id="abteilung">
@@ -326,7 +333,6 @@ def build_home():
           <div class="buch__innenseite" aria-hidden="true"></div>
         </div>
 
-{lesezeichen()}
         </div>
       </div>
 
