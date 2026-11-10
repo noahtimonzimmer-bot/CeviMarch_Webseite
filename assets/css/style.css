@@ -108,7 +108,7 @@ p{margin:0 0 1.15em}
 .brand__txt{font-family:var(--font-mono);font-size:1.02rem;font-weight:700;letter-spacing:-.05em}
 .brand__txt em{font-style:normal;font-weight:400;color:var(--ink-3)}
 
-.nav__links{display:flex;gap:2px;margin-left:auto;min-width:0;overflow-x:auto;
+.nav__links{display:flex;gap:clamp(6px,.8vw,12px);margin-left:auto;min-width:0;overflow-x:auto;
   scrollbar-width:none;-ms-overflow-style:none;padding:2px}
 .nav__links::-webkit-scrollbar{display:none}
 .nav__links a{
@@ -119,28 +119,43 @@ p{margin:0 0 1.15em}
 .nav__links a:hover{color:var(--ink);background:var(--paper-2)}
 .nav__links a.is-active{color:var(--paper);background:var(--ink)}
 
+/* Die Kapitel oben sind dieselben Reiter wie im Buch: gleiche Farben,
+   gleiche Form, sie haengen von der Oberkante der Leiste herunter. Das
+   ausgewaehlte steht ein Stueck weiter unten - so, als haette man es
+   herausgezogen. */
+.nav__links a{
+  color:#fdf6e6;background:var(--ink);
+  border-radius:0 0 6px 6px;
+  margin-top:-12px;padding:18px 15px 10px;
+  font-weight:600;letter-spacing:.09em;
+  box-shadow:0 3px 8px rgba(0,0,0,.18);
+  transition:transform .25s var(--ease),filter .25s
+}
+.nav__links a:hover{color:#fdf6e6;background:var(--ink);transform:translateY(3px);filter:brightness(1.12)}
+.nav__links a:nth-child(2){background:linear-gradient(180deg,#e0254a,#b3122f)}
+.nav__links a:nth-child(3){background:linear-gradient(180deg,#2a62b8,#164384)}
+.nav__links a:nth-child(4){background:linear-gradient(180deg,#c9a961,#9a7d3c)}
+.nav__links a:nth-child(5){background:linear-gradient(180deg,#6f7a41,#4e562c)}
+.nav__links a:nth-child(6){background:linear-gradient(180deg,#a85a2c,#7d3f1c)}
+.nav__links a:nth-child(7){background:linear-gradient(180deg,#3a3630,#22201c)}
+.nav__links a.is-active,
+.nav__links a.is-active:hover{
+  color:#fff;transform:translateY(7px);
+  box-shadow:0 5px 12px rgba(0,0,0,.25)
+}
+/* Die herausgezogenen Reiter duerfen unten aus der Leiste ragen */
+.nav__links{overflow:visible;padding:0}
+
 /* Startseite: solange das Buch zu ist, braucht es die Kapitel oben nicht
-   - sie stecken ja als Lesezeichen im Buch. Erst wenn man in die Seite
-   hineingezoomt hat, wandern sie nach oben in die Leiste, und zwar in
-   ihren eigenen Farben. Zeichen und "Schnuppern" bleiben immer da. */
-/* Versteckt wird nur, wenn das Buch wirklich laeuft (Klasse von site.js)
-   - ohne Skript bleiben die Kapitel normal erreichbar. */
+   - sie stecken ja als Lesezeichen im Buch. Erst beim Hineinzoomen
+   wandern sie nach oben. Zeichen und "Schnuppern" bleiben immer da.
+   Versteckt wird nur, wenn das Buch wirklich laeuft (Klasse von
+   site.js) - ohne Skript bleiben die Kapitel normal erreichbar. */
 .startseite.kapitel-im-buch .nav__links{
   opacity:0;translate:0 -10px;pointer-events:none;
   transition:opacity .35s var(--ease),translate .35s var(--ease)
 }
 .startseite.kapitel-im-buch.ist-gezoomt .nav__links{opacity:1;translate:0 0;pointer-events:auto}
-.startseite.kapitel-im-buch .nav__links a{color:#fdf6e6;border-radius:0 0 5px 5px;
-  margin-top:-12px;padding:17px 13px 9px;font-weight:600;letter-spacing:.08em}
-.startseite.kapitel-im-buch .nav__links a:hover{filter:brightness(1.12);background:none}
-.startseite.kapitel-im-buch .nav__links a.is-active{background:var(--ink);color:var(--paper);
-  border-radius:var(--pill);margin-top:0;padding:9px 14px}
-.startseite.kapitel-im-buch .nav__links a:nth-child(2){background:linear-gradient(180deg,#e0254a,#b3122f)}
-.startseite.kapitel-im-buch .nav__links a:nth-child(3){background:linear-gradient(180deg,#2a62b8,#164384)}
-.startseite.kapitel-im-buch .nav__links a:nth-child(4){background:linear-gradient(180deg,#c9a961,#9a7d3c)}
-.startseite.kapitel-im-buch .nav__links a:nth-child(5){background:linear-gradient(180deg,#6f7a41,#4e562c)}
-.startseite.kapitel-im-buch .nav__links a:nth-child(6){background:linear-gradient(180deg,#a85a2c,#7d3f1c)}
-.startseite.kapitel-im-buch .nav__links a:nth-child(7){background:linear-gradient(180deg,#3a3630,#22201c)}
 
 .nav__actions{display:flex;align-items:center;gap:10px;flex:0 0 auto;margin-left:10px}
 .nav__cta{
@@ -844,7 +859,12 @@ a.person:hover{transform:translateY(-4px)}
      eine eigene Zeile. Vorher wurde der letzte Punkt rechts abgeschnitten. */
   .burger{display:flex}
   .nav__inner{flex-wrap:wrap;gap:12px;min-height:0;padding-bottom:8px}
-  .nav__links{order:3;width:100%;margin-left:0;padding-top:2px}
+  /* In der eigenen Zeile haengen die Reiter nicht mehr von der Oberkante
+     der Leiste - sie stehen einfach da, das Ausgewaehlte etwas tiefer. */
+  .nav__links{order:3;width:100%;margin-left:0;padding-top:2px;overflow-x:auto}
+  .nav__links a{margin-top:0;padding:9px 13px;border-radius:6px}
+  .nav__links a.is-active,.nav__links a.is-active:hover{transform:translateY(4px)}
+  .nav__links a:hover{transform:translateY(2px)}
   .nav__actions{margin-left:auto}
   .drawer{inset:114px 0 0}
 }
