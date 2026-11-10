@@ -102,7 +102,9 @@ p{margin:0 0 1.15em}
 }
 .nav__inner{max-width:var(--maxw);margin-inline:auto;padding:10px var(--pad);
   display:flex;align-items:center;gap:22px;min-height:64px;
-  position:relative;z-index:3}
+  /* Ueber dem Fortschrittsbalken: der Strich laeuft hinter den Bannern
+     durch, nicht darueber. */
+  position:relative;z-index:4}
 .nav__progress{position:relative;z-index:3;
   height:2px;border-radius:var(--pill);background:var(--ink);width:0%;transition:width .1s linear}
 
