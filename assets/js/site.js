@@ -87,12 +87,16 @@
 
   if (buch && !wenigBewegung.matches) {
     buch.classList.add('buch--aktiv');
+    // Solange das Buch zu ist, stecken die Kapitel als Lesezeichen drin.
+    // Die Leiste oben zeigt sie erst nach dem Hineinzoomen.
+    document.body.classList.add('kapitel-im-buch');
 
     var buehne = buch.querySelector('.buch__buehne');
     var mass = buch.querySelector('.buch__schatten');
     var deckel = buch.querySelector('.buch__deckel');
     var blatt = buch.querySelector('.buch__blatt');
     var seite2 = buch.querySelector('.buch__seite2');
+    var kapitel = document.querySelector('.nav__links');
     var aufschlagen = $('#aufschlagen');
     var laeuft = false;
     var strecke = 0;
@@ -150,9 +154,14 @@
       buch.classList.toggle('buch--blaettert', q > 0.001 && !umgeblaettert);
       buch.classList.toggle('buch--umgeblaettert', umgeblaettert);
 
+      // Ab der Haelfte der Zoomfahrt wandern die Lesezeichen nach oben
+      // in die Leiste.
+      document.body.classList.toggle('ist-gezoomt', z > 0.5);
+
       verstecke(deckel, p > 0.5);
       verstecke(blatt, p < 0.5 || q > 0.5);
       verstecke(seite2, q < 0.5);
+      verstecke(kapitel, z <= 0.5);
     };
 
     var anstossen = function () {
@@ -179,10 +188,13 @@
     wenigBewegung.addEventListener('change', function (ev) {
       if (ev.matches) {
         buch.classList.remove('buch--aktiv', 'buch--laeuft', 'buch--blaettert');
+        document.body.classList.remove('kapitel-im-buch');
+        verstecke(kapitel, false);
         ['--p', '--q', '--z'].forEach(function (n) { buch.style.removeProperty(n); });
         [deckel, blatt, seite2].forEach(function (el) { verstecke(el, false); });
       } else {
         buch.classList.add('buch--aktiv');
+        document.body.classList.add('kapitel-im-buch');
         neuMessen();
       }
     });

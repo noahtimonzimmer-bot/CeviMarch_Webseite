@@ -30,6 +30,19 @@ def load(name):
 
 SITE = load('site.json')
 
+
+def fassung(pfad):
+    """Kurzes Kennzeichen aus dem Inhalt einer Datei. Haengt man es an
+    den Verweis, holt der Browser die Datei nach jeder Aenderung neu -
+    sonst behaelt er wochenlang die alte Fassung im Zwischenspeicher."""
+    import hashlib
+    voll = os.path.join(ROOT, pfad)
+    if not os.path.exists(voll):
+        return '1'
+    with open(voll, 'rb') as f:
+        return hashlib.sha1(f.read()).hexdigest()[:8]
+
+
 NAV = SITE['NAV']
 DRAWER_NAV = SITE['DRAWER_NAV']
 HERO = SITE['HERO']
@@ -100,7 +113,7 @@ def head(title, description, current, body, extra_head='', body_class=''):
 <meta property="og:image" content="{HERO['image']}">
 <meta property="og:type" content="website">
 <link rel="stylesheet" href="assets/fonts/fonts.css">
-<link rel="stylesheet" href="assets/css/style.css">
+<link rel="stylesheet" href="assets/css/style.css?v={fassung('assets/css/style.css')}">
 {extra_head}</head>
 <body{(' class="%s"' % body_class) if body_class else ''}>
 <a class="skip" href="#main">Zum Inhalt springen</a>
@@ -171,7 +184,7 @@ def head(title, description, current, body, extra_head='', body_class=''):
 </footer>
 
 
-<script src="assets/js/site.js"></script>
+<script src="assets/js/site.js?v={fassung('assets/js/site.js')}"></script>
 </body>
 </html>
 """
@@ -349,7 +362,7 @@ def build_home():
     return head('CEVI March — Selber schaffen, schafft Selbstvertrauen',
                 'Der CEVI March ist die Jungschar für Kinder und Jugendliche in der March. '
                 'Progis im Wald, Lager, Freundschaften. Jederzeit schnuppern.',
-                'index.html', body)
+                'index.html', body, body_class='startseite')
 
 
 def build_stufen_index():

@@ -119,6 +119,29 @@ p{margin:0 0 1.15em}
 .nav__links a:hover{color:var(--ink);background:var(--paper-2)}
 .nav__links a.is-active{color:var(--paper);background:var(--ink)}
 
+/* Startseite: solange das Buch zu ist, braucht es die Kapitel oben nicht
+   - sie stecken ja als Lesezeichen im Buch. Erst wenn man in die Seite
+   hineingezoomt hat, wandern sie nach oben in die Leiste, und zwar in
+   ihren eigenen Farben. Zeichen und "Schnuppern" bleiben immer da. */
+/* Versteckt wird nur, wenn das Buch wirklich laeuft (Klasse von site.js)
+   - ohne Skript bleiben die Kapitel normal erreichbar. */
+.startseite.kapitel-im-buch .nav__links{
+  opacity:0;translate:0 -10px;pointer-events:none;
+  transition:opacity .35s var(--ease),translate .35s var(--ease)
+}
+.startseite.kapitel-im-buch.ist-gezoomt .nav__links{opacity:1;translate:0 0;pointer-events:auto}
+.startseite.kapitel-im-buch .nav__links a{color:#fdf6e6;border-radius:0 0 5px 5px;
+  margin-top:-12px;padding:17px 13px 9px;font-weight:600;letter-spacing:.08em}
+.startseite.kapitel-im-buch .nav__links a:hover{filter:brightness(1.12);background:none}
+.startseite.kapitel-im-buch .nav__links a.is-active{background:var(--ink);color:var(--paper);
+  border-radius:var(--pill);margin-top:0;padding:9px 14px}
+.startseite.kapitel-im-buch .nav__links a:nth-child(2){background:linear-gradient(180deg,#e0254a,#b3122f)}
+.startseite.kapitel-im-buch .nav__links a:nth-child(3){background:linear-gradient(180deg,#2a62b8,#164384)}
+.startseite.kapitel-im-buch .nav__links a:nth-child(4){background:linear-gradient(180deg,#c9a961,#9a7d3c)}
+.startseite.kapitel-im-buch .nav__links a:nth-child(5){background:linear-gradient(180deg,#6f7a41,#4e562c)}
+.startseite.kapitel-im-buch .nav__links a:nth-child(6){background:linear-gradient(180deg,#a85a2c,#7d3f1c)}
+.startseite.kapitel-im-buch .nav__links a:nth-child(7){background:linear-gradient(180deg,#3a3630,#22201c)}
+
 .nav__actions{display:flex;align-items:center;gap:10px;flex:0 0 auto;margin-left:10px}
 .nav__cta{
   display:inline-flex;align-items:center;padding:11px 20px;border-radius:var(--pill);
@@ -543,14 +566,16 @@ p{margin:0 0 1.15em}
   height:calc(var(--bh,84%) + (100% - var(--bh,84%)) * var(--z))
 }
 .buch__lesezeichen{
-  position:absolute;bottom:100%;left:clamp(14px,5%,64px);right:clamp(14px,5%,64px);
+  position:absolute;bottom:100%;left:clamp(8px,1.6%,20px);right:clamp(8px,1.6%,20px);
   margin-bottom:-26px;
   display:flex;flex-direction:row;flex-wrap:nowrap;
   gap:clamp(3px,.6vw,9px);
   pointer-events:auto
 }
 .lz{
-  display:block;min-width:0;padding:8px 13px 30px;
+  /* Die Reiter teilen sich die ganze Breite des Buchs */
+  flex:1 1 0;text-align:center;
+  display:block;min-width:0;padding:8px 10px 30px;
   border-radius:4px 4px 0 0;
   font-family:var(--font-mono);font-size:clamp(.58rem,.74vw,.7rem);
   font-weight:600;letter-spacing:.08em;text-transform:uppercase;
@@ -586,8 +611,8 @@ p{margin:0 0 1.15em}
   .buch--aktiv{height:520svh}
   .buch__objekt,.buch__schatten,.buch__seite2{height:86%;aspect-ratio:.82;max-width:90vw}
   .buch__reiter{height:86%;aspect-ratio:.82;max-width:90vw}
-  .buch__lesezeichen{left:4px;right:4px;gap:2px;margin-bottom:-20px}
-  .lz{padding:5px 5px 24px;font-size:.52rem;letter-spacing:.01em}
+  .buch__lesezeichen{left:3px;right:3px;gap:2px;margin-bottom:-20px}
+  .lz{padding:5px 3px 24px;font-size:.52rem;letter-spacing:.01em}
   .buch__szene{perspective:1000px}
   .buch__praegung h1{font-size:clamp(2rem,9vw,2.8rem)}
   /* Hochkant passen drei Karten nicht untereinander auf eine Seite.
