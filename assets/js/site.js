@@ -70,74 +70,85 @@
   }
 
   // =========================================================================
-  //  Tagebuch auf der Startseite aufklappen
+  //  Tagebuch auf der Startseite: aufklappen, umblättern, hineinzoomen
   // =========================================================================
-  //  Das Buch liegt zuerst geschlossen über dem Bildschirm. Beim Scrollen
-  //  dreht sich der Deckel um die linke Kante auf. Die Bühne klebt dabei
-  //  am Fenster, es sieht also nicht nach Scrollen aus, sondern nach
-  //  Aufschlagen.
-  //
-  //  Hier wird nur eine Zahl gesetzt: --p, der Fortschritt von 0 bis 1.
-  //  Die gesamte Bewegung steht im CSS. Ohne dieses Skript bleibt --p
-  //  auf 1 und das Buch liegt offen da.
+  //  Die Bühne klebt am Fenster, während man scrollt. Der Scrollweg ist in
+  //  Abschnitte geteilt, jeder mit eigener Zahl von 0 bis 1:
+  //    --p  der Deckel klappt auf
+  //    --q  Seite 1 wird umgeblättert
+  //    --z  Zoom auf Seite 2, bis sie den Bildschirm füllt
+  //  Dazwischen gibt es kurze Pausen, damit jede Seite einen Moment
+  //  ruhig daliegt. Die ganze Bewegung steht im CSS.
   var buch = $('#buch');
   var wenigBewegung = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+  // Anteile am gesamten Scrollweg: [Beginn, Ende] jeder Phase
+  var PHASEN = { p: [0, 0.34], q: [0.40, 0.64], z: [0.70, 0.96] };
 
   if (buch && !wenigBewegung.matches) {
     buch.classList.add('buch--aktiv');
 
     var buehne = buch.querySelector('.buch__buehne');
-    var knopf = buch.querySelector('.buch__knopf');
+    var mass = buch.querySelector('.buch__schatten');
+    var deckel = buch.querySelector('.buch__deckel');
+    var blatt = buch.querySelector('.buch__blatt');
+    var seite2 = buch.querySelector('.buch__seite2');
     var aufschlagen = $('#aufschlagen');
     var laeuft = false;
-    var warOffen = null;
     var strecke = 0;
 
-    // Sanft anlaufen und ausklingen. Eine stärkere Kurve lässt den Deckel
-    // in der Mitte zu schnell durchschlagen - das Aufklappen soll dem
-    // Finger folgen, nicht davonlaufen.
+    // Sanft anlaufen und ausklingen
     var kurve = function (t) { return t * t * (3 - 2 * t); };
+    var phase = function (roh, ab) {
+      var t = (roh - ab[0]) / (ab[1] - ab[0]);
+      return kurve(t < 0 ? 0 : t > 1 ? 1 : t);
+    };
 
-    // Die Masse ändern sich nur beim Umbauen des Fensters, nicht beim
-    // Scrollen. Einmal merken spart pro Bild zwei Layout-Durchläufe.
+    // Unsichtbar machen, was gerade verdeckt ist: so landet die
+    // Tabulatortaste nie auf einem Link, den man nicht sieht.
+    var verstecke = function (el, ja) {
+      if (!el) return;
+      if (ja) el.setAttribute('inert', ''); else el.removeAttribute('inert');
+    };
+
     var messen = function () {
       strecke = buch.offsetHeight - buehne.offsetHeight;
+      // Grösse des geschlossenen Buchs - von hier aus wird gezoomt
+      buch.style.setProperty('--bw', mass.offsetWidth + 'px');
+      buch.style.setProperty('--bh', mass.offsetHeight + 'px');
     };
 
     var rechne = function () {
       laeuft = false;
-      if (strecke <= 0) { buch.style.setProperty('--p', '1'); return; }
-
-      var oben = buch.getBoundingClientRect().top;
-      var klebt = parseFloat(getComputedStyle(buehne).top) || 0;
-      var roh = (klebt - oben) / strecke;
-      roh = roh < 0 ? 0 : roh > 1 ? 1 : roh;
-
-      var p = kurve(roh);
-      buch.style.setProperty('--p', p.toFixed(4));
-
-      // Ist der Deckel ganz weg, fliegen Klassen und will-change raus.
-      // Sonst behält der Browser für den Rest der Seite eine eigene
-      // Ebene im Speicher, die niemand mehr braucht.
-      var offen = p > 0.985;
-      var inBewegung = p > 0.001 && !offen;
-      buch.classList.toggle('buch--laeuft', inBewegung);
-      buch.classList.toggle('buch--offen', offen);
-
-      // Solange der Deckel zu ist, liegt die erste Seite unsichtbar
-      // darunter - und umgekehrt. Was man nicht sieht, darf auch nicht
-      // mit der Tabulatortaste erreichbar sein.
-      if (knopf && offen !== warOffen) {
-        warOffen = offen;
-        if (offen) knopf.setAttribute('tabindex', '-1');
-        else knopf.removeAttribute('tabindex');
+      var roh = 1;
+      if (strecke > 0) {
+        var oben = buch.getBoundingClientRect().top;
+        var klebt = parseFloat(getComputedStyle(buehne).top) || 0;
+        roh = (klebt - oben) / strecke;
+        roh = roh < 0 ? 0 : roh > 1 ? 1 : roh;
       }
+      var p = phase(roh, PHASEN.p);
+      var q = phase(roh, PHASEN.q);
+      var z = phase(roh, PHASEN.z);
+      buch.style.setProperty('--p', p.toFixed(4));
+      buch.style.setProperty('--q', q.toFixed(4));
+      buch.style.setProperty('--z', z.toFixed(4));
+
+      var offen = p > 0.985;
+      var umgeblaettert = q > 0.985;
+      buch.classList.toggle('buch--laeuft', p > 0.001 && !offen);
+      buch.classList.toggle('buch--offen', offen);
+      buch.classList.toggle('buch--blaettert', q > 0.001 && !umgeblaettert);
+      buch.classList.toggle('buch--umgeblaettert', umgeblaettert);
+
+      verstecke(deckel, p > 0.5);
+      verstecke(blatt, p < 0.5 || q > 0.5);
+      verstecke(seite2, q < 0.5);
     };
 
     var anstossen = function () {
       if (!laeuft) { laeuft = true; requestAnimationFrame(rechne); }
     };
-
     var neuMessen = function () { messen(); anstossen(); };
 
     messen();
@@ -146,21 +157,21 @@
     window.addEventListener('resize', neuMessen);
     if (window.ResizeObserver) new ResizeObserver(neuMessen).observe(buehne);
 
-    // "Aufschlagen" rollt bis ans Ende der Klebestrecke. Weil das Öffnen
-    // am Scrollstand hängt, klappt der Deckel dabei von selbst auf.
+    // "Aufschlagen" rollt bis dorthin, wo der Deckel ganz offen ist
     if (aufschlagen) {
       aufschlagen.addEventListener('click', function () {
-        var ziel = buch.getBoundingClientRect().top + window.scrollY + strecke;
+        var ziel = buch.getBoundingClientRect().top + window.scrollY + strecke * PHASEN.p[1];
         window.scrollTo({ top: ziel, behavior: 'smooth' });
       });
     }
 
-    // Stellt jemand unterwegs auf "Bewegung reduzieren" um, bleibt das
-    // Buch offen stehen statt mitten im Aufklappen zu hängen.
+    // Stellt jemand unterwegs auf "Bewegung reduzieren" um, liegt das
+    // Buch offen da und Seite 2 folgt darunter.
     wenigBewegung.addEventListener('change', function (ev) {
       if (ev.matches) {
-        buch.classList.remove('buch--aktiv', 'buch--laeuft');
-        buch.style.removeProperty('--p');
+        buch.classList.remove('buch--aktiv', 'buch--laeuft', 'buch--blaettert');
+        ['--p', '--q', '--z'].forEach(function (n) { buch.style.removeProperty(n); });
+        [deckel, blatt, seite2].forEach(function (el) { verstecke(el, false); });
       } else {
         buch.classList.add('buch--aktiv');
         neuMessen();

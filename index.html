@@ -61,17 +61,42 @@
 <main id="main">
   <section class="buch" id="buch">
     <div class="buch__buehne">
+      <!-- Die Holzplatte, auf der das Buch liegt -->
+      <div class="buch__holz" aria-hidden="true"></div>
+
+      <!-- Seite 2 liegt zuunterst. Auf sie wird am Ende gezoomt, bis sie
+           den ganzen Bildschirm füllt. -->
+      <div class="buch__seite2" id="abteilung">
+        <div class="buch__seite2-inhalt">
+          <span class="eyebrow">Die Abteilung</span>
+          <h2>Alle zwei Wochen raus in den Wald.</h2>
+          <p class="lead">Lustige Geschichten, abenteuerliche
+          Schnitzeljagden, feine Schoggibananen – an einem Jungscharnachmittag gibt es
+          für alle etwas.</p>
+          <p class="muted">Treffpunkt ist der Baumgartenschopf in Siebnen, samstags von
+          14–17 Uhr. Dazu kommen jedes Jahr ein Auffahrtslager, ein Sommerlager und
+          immer wieder Spezialanlässe.</p>
+          <div class="hero__cta">
+            <a class="arrow" href="jungschar.html">Zur Jungschar</a>
+            <a class="arrow" href="agenda.html">Nächste Daten</a>
+          </div>
+        </div>
+        <span class="buch__seitenzahl" aria-hidden="true">2</span>
+      </div>
+
       <div class="buch__szene">
         <div class="buch__schatten" aria-hidden="true"></div>
         <div class="buch__objekt">
 
-        <!-- Unter dem Deckel liegt schon die erste Seite -->
-        <div class="buch__seite" id="stufen">
-          <div class="wrap buch__seiteninhalt">
-            <span class="eyebrow">Drei Stufen</span>
-            <h2>Für jedes Alter das passende Programm.</h2>
-            <p class="lead buch__lead">Der CEVI March trifft sich ungefähr alle zwei Wochen am Samstagnachmittag, um gemeinsam draussen zu sein. Schnuppern ist jederzeit möglich.</p>
-            <div class="grid grid--3 buch__stufen">
+        <!-- Seite 1 ist ein Blatt: vorne die Stufen, hinten leeres Papier.
+             Es wird nach dem Deckel umgeblättert. -->
+        <div class="buch__blatt">
+          <div class="buch__seite" id="stufen">
+            <div class="wrap buch__seiteninhalt">
+              <span class="eyebrow">Drei Stufen</span>
+              <h2>Für jedes Alter das passende Programm.</h2>
+              <p class="lead buch__lead">Der CEVI March trifft sich ungefähr alle zwei Wochen am Samstagnachmittag, um gemeinsam draussen zu sein. Schnuppern ist jederzeit möglich.</p>
+              <div class="grid grid--3 buch__stufen">
       <a class="stufe" href="stufen.html#alpha">
         <span class="stufe__media"><img src="assets/media/img_1907.jpg" alt="" loading="lazy"></span>
         <span class="stufe__age">7–13 Jahre · Jungs</span>
@@ -91,9 +116,14 @@
         <p>„Früh übt sich, was ein Meister werden will.“ Monatlich am Samstagnachmittag.</p>
         <span class="stufe__more">Zur Stufe</span>
       </a>
+              </div>
             </div>
+            <span class="buch__seitenzahl" aria-hidden="true">1</span>
           </div>
+          <div class="buch__rueckseite" aria-hidden="true"></div>
         </div>
+
+        <div class="buch__falz" aria-hidden="true"></div>
 
         <!-- Der Deckel -->
         <div class="buch__deckel">
@@ -109,8 +139,6 @@
           </div>
           <div class="buch__innenseite" aria-hidden="true"></div>
         </div>
-
-        <div class="buch__falz" aria-hidden="true"></div>
         </div>
       </div>
 
@@ -121,26 +149,7 @@
     </div>
   </section>
 
-  <section class="section section--tight">
-    <div class="wrap">
-      <div data-reveal>
-        <div>
-          <span class="eyebrow">Die Abteilung</span>
-          <h2>Alle zwei Wochen raus in den Wald.</h2>
-          <p class="lead" style="margin-top:20px">Lustige Geschichten, abenteuerliche
-          Schnitzeljagden, feine Schoggibananen – an einem Jungscharnachmittag gibt es
-          für alle etwas.</p>
-          <p class="muted">Treffpunkt ist der Baumgartenschopf in Siebnen, samstags von
-          14–17 Uhr. Dazu kommen jedes Jahr ein Auffahrtslager, ein Sommerlager und
-          immer wieder Spezialanlässe.</p>
-          <div class="hero__cta" style="margin-top:26px">
-            <a class="arrow" href="jungschar.html">Zur Jungschar</a>
-            <a class="arrow" href="agenda.html">Nächste Daten</a>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
+  <div class="blattwechsel" aria-hidden="true"><span>3</span></div>
 
   <section class="cta">
     <div class="cta__inner" data-reveal>

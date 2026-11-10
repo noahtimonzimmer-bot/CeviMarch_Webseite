@@ -165,43 +165,53 @@ p{margin:0 0 1.15em}
 .arrow:hover::after{transform:translateX(4px)}
 
 /* Startseite: das Tagebuch ----------------------------------------- */
-/*  --p ist der Fortschritt des Aufklappens, 0 = zu, 1 = offen.
-    site.js schreibt den Wert beim Scrollen, die Bewegung steht hier.
-    Ohne JavaScript bleibt --p auf 1: der Deckel ist dann weg und die
-    erste Seite steht sofort da.  */
-.buch{--p:1;position:relative}
-.buch--aktiv{--p:0;height:210svh}
+/*  Drei Phasen, jede mit eigener Zahl von 0 bis 1:
+      --p  der Deckel klappt auf
+      --q  Seite 1 (Stufen) wird umgeblättert
+      --z  die Kamera zoomt auf Seite 2, bis sie den Bildschirm füllt
+    site.js schreibt die Werte beim Scrollen, die Bewegung steht hier.
+    Ohne JavaScript ist der Deckel weg, Seite 1 liegt offen da und
+    Seite 2 folgt ganz normal darunter.  */
+.buch{--p:1;--q:0;--z:0;position:relative}
+/* Viel Scrollweg: so folgt das Aufklappen gemächlich dem Finger */
+.buch--aktiv{--p:0;height:560svh}
 
 .buch__buehne{
   position:relative;height:calc(100svh - var(--navh,64px));overflow:hidden
 }
 .buch--aktiv .buch__buehne{position:sticky;top:var(--navh,64px)}
 
-/* Die Szene ist eine Holzplatte (Hirnholz). Das Foto füllt die Bühne
-   immer ganz aus und steht still: kein Kacheln, kein Mitscrollen, und
-   die Bühne selbst ist beim Aufklappen sticky. Der Fluchtpunkt sitzt
-   bewusst nicht auf dem Scharnier: so verkürzt sich der Deckel beim
-   Drehen sichtbar und gibt die Seite früher frei. */
-.buch__szene{
-  position:absolute;inset:0;perspective:1600px;perspective-origin:34% 46%;
-  background:url("../img/holz-hintergrund.jpg") no-repeat center center/cover #6b5233;
-  overflow:hidden
+/* Die Holzplatte (Hirnholz-Foto). Sie füllt die Bühne immer ganz aus
+   und steht still: kein Kacheln, kein Mitscrollen. */
+.buch__holz{
+  position:absolute;inset:0;z-index:0;
+  background:url("../img/holz-hintergrund.jpg") no-repeat center center/cover #6b5233
 }
-
 /* Licht von schräg oben, dadurch wirkt die Platte nicht wie Tapete */
-.buch__szene::before{
-  content:"";position:absolute;inset:0;pointer-events:none;
+.buch__holz::before{
+  content:"";position:absolute;inset:0;
   background:
     radial-gradient(70% 55% at 28% 0%,rgba(255,228,180,.16),transparent 62%),
     radial-gradient(120% 110% at 50% 46%,transparent 38%,rgba(0,0,0,.55) 100%)
 }
 
+/* Die Szene trägt Deckel und Blatt. Sie liegt über Seite 2, lässt
+   Klicks aber durch - nur Deckel und Blatt fangen selbst welche ab.
+   Der Fluchtpunkt sitzt bewusst nicht auf dem Scharnier: so verkürzt
+   sich der Deckel beim Drehen sichtbar. */
+.buch__szene{
+  position:absolute;inset:0;z-index:2;perspective:1600px;perspective-origin:34% 46%;
+  overflow:hidden;pointer-events:none;
+  /* Beim Zoomen gleiten Deckel und Blatt links aus dem Bild und
+     verblassen dabei, damit am Rand nichts davon hängen bleibt. */
+  opacity:calc(1 - var(--z))
+}
+
 /* Das Buch selbst: ein Gegenstand mit Rand ringsum */
 .buch__objekt{
   position:absolute;left:50%;top:50%;
-  /* Beim Aufklappen wandert das Buch nach rechts: sonst verschwände der
-     aufgeschlagene Deckel fast ganz aus dem Bild. */
-  translate:calc(-50% + var(--p) * 13%) -50%;
+  /* Das Buch bleibt beim Aufklappen in der Mitte liegen. */
+  translate:-50% -50%;
   /* Buchformat statt Bildschirmformat: so bleibt ringsum Tisch sichtbar.
      Die Höhe führt, die Breite folgt über das Seitenverhältnis - sonst
      deckelt die Höhenbegrenzung das Format wieder auf Breitformat. */
@@ -224,15 +234,92 @@ p{margin:0 0 1.15em}
     #efe4cb 0 2px,#cbbb97 2px 3px,#e3d6b8 3px 5px);
   box-shadow:0 2px 6px rgba(0,0,0,.45)
 }
-/* Der Schatten liegt unter dem Buch und bleibt beim Aufklappen liegen */
+/* Unsichtbares Mass: hat immer die Grösse des geschlossenen Buchs.
+   site.js liest daraus --bw/--bh, von dort aus wird gezoomt. */
 .buch__schatten{
-  position:absolute;left:50%;top:50%;
-  translate:calc(-50% + var(--p) * 13%) -50%;
+  position:absolute;left:50%;top:50%;translate:-50% -50%;
   height:min(84%,calc(84vw / 1.34));
   aspect-ratio:1.34;max-width:84vw;
-  border-radius:6px;
-  box-shadow:0 34px 70px -22px rgba(0,0,0,.78),
-             0 10px 26px -10px rgba(0,0,0,.6)
+  visibility:hidden;pointer-events:none
+}
+
+/* Beim Zoomen wächst das Buch vom Buchformat auf die ganze Bühne. */
+.buch--aktiv .buch__objekt,
+.buch--aktiv .buch__seite2{
+  aspect-ratio:auto;max-width:none;
+  width:calc(var(--bw,84vw) + (100% - var(--bw,84vw)) * var(--z));
+  height:calc(var(--bh,84%) + (100% - var(--bh,84%)) * var(--z))
+}
+
+/* Das Blatt: Seite 1 vorne, leeres Papier hinten. Es dreht sich nach
+   dem Deckel um den Bund und legt sich auf den offenen Deckel. */
+.buch__blatt{
+  position:absolute;inset:0;transform-style:preserve-3d;
+  transform-origin:left center;
+  transform:rotateY(calc(var(--q) * -166deg))
+}
+.buch--blaettert .buch__blatt{will-change:transform}
+.buch__blatt,.buch__deckel{pointer-events:auto}
+.buch--umgeblaettert .buch__blatt{pointer-events:none}
+.buch__seite,.buch__rueckseite{backface-visibility:hidden}
+.buch__rueckseite{
+  position:absolute;inset:0;transform:rotateY(180deg);border-radius:6px 3px 3px 6px;
+  background:
+    linear-gradient(270deg,rgba(74,56,24,.30) 0%,transparent 14%),
+    url("../img/papier.jpg") repeat 0 0/520px 520px var(--paper);
+  background-blend-mode:normal,multiply
+}
+
+/* Seite 2: liegt zuunterst. Ist sie ganz gezoomt, schliesst sie nahtlos
+   an das Papier der übrigen Seite an. */
+.buch__seite2{
+  position:absolute;left:50%;top:50%;translate:-50% -50%;z-index:1;
+  height:min(84%,calc(84vw / 1.34));aspect-ratio:1.34;max-width:84vw;
+  overflow:hidden;border-radius:calc((1 - var(--z)) * 6px);
+  background:url("../img/papier.jpg") repeat 0 0/520px 520px var(--paper);
+  background-blend-mode:multiply;
+  display:grid;place-items:safe center;text-align:center;
+  box-shadow:0 34px 70px -22px rgba(0,0,0,calc(.78 * (1 - var(--z)))),
+             0 10px 26px -10px rgba(0,0,0,calc(.6 * (1 - var(--z))))
+}
+/* Feste Breite, damit der Text beim Zoomen nicht ständig neu umbricht */
+.buch__seite2-inhalt{
+  width:min(40rem,100%);padding:clamp(22px,4vw,56px) clamp(18px,3.4vw,54px)
+}
+.buch__seite2 h2{font-size:clamp(1.4rem,2.6vw,2.2rem);max-width:20ch;margin:10px auto 0}
+.buch__seite2 .lead{margin:clamp(14px,1.8vw,22px) auto 12px}
+.buch__seite2 .hero__cta{justify-content:center;margin-top:clamp(16px,2vw,26px)}
+
+/* Seitenzahl unten */
+.buch__seitenzahl{
+  position:absolute;bottom:clamp(10px,1.6vw,20px);right:clamp(14px,2vw,26px);
+  font-family:var(--font-mono);font-size:.72rem;letter-spacing:.14em;color:var(--ink-3)
+}
+.buch__seite2 .buch__seitenzahl{left:50%;right:auto;translate:-50% 0}
+
+/* Ohne Animation (kein JavaScript, "Bewegung reduzieren"): Seite 2
+   steht einfach als nächste Seite unter dem offenen Buch. */
+.buch:not(.buch--aktiv) .buch__buehne{
+  height:auto;overflow:visible;padding-top:calc(100svh - var(--navh,64px))
+}
+.buch:not(.buch--aktiv) .buch__holz,
+.buch:not(.buch--aktiv) .buch__szene{bottom:auto;height:calc(100svh - var(--navh,64px))}
+.buch:not(.buch--aktiv) .buch__seite2{
+  position:relative;left:auto;top:auto;translate:none;
+  width:auto;height:auto;aspect-ratio:auto;max-width:none;
+  border-radius:0;box-shadow:none;background:none;padding-bottom:40px
+}
+
+/* Blattwechsel zwischen den weiteren Buchseiten */
+.blattwechsel{
+  max-width:var(--maxw);margin:clamp(20px,3vw,40px) auto clamp(30px,4vw,56px);
+  padding-inline:var(--pad);display:flex;align-items:center;gap:16px;
+  font-family:var(--font-mono);font-size:.72rem;letter-spacing:.14em;
+  color:var(--ink-3)
+}
+.blattwechsel::before,.blattwechsel::after{
+  content:"";flex:1;height:1px;background:var(--rule-strong,rgba(0,0,0,.18));
+  box-shadow:0 3px 6px -2px rgba(74,56,24,.25)
 }
 
 /* Die erste Seite ------------------------------------------------- */
@@ -270,7 +357,7 @@ p{margin:0 0 1.15em}
 .buch__falz{
   position:absolute;inset:0;pointer-events:none;border-radius:3px 6px 6px 3px;
   background:linear-gradient(90deg,rgba(74,56,24,.40) 0%,rgba(74,56,24,.16) 8%,transparent 24%);
-  opacity:calc(1 - var(--p) * .55)
+  opacity:calc((1 - var(--p) * .55) * (1 - var(--z)))
 }
 
 /* Der Deckel ------------------------------------------------------- */
@@ -405,7 +492,7 @@ p{margin:0 0 1.15em}
 /* Hinweis unten --------------------------------------------------- */
 .buch__hinweis{
   position:absolute;left:50%;bottom:clamp(2px,.6vw,8px);transform:translateX(-50%);
-  z-index:2;display:flex;align-items:center;gap:10px;padding:12px 20px;
+  z-index:3;display:flex;align-items:center;gap:10px;padding:12px 20px;
   border-radius:var(--pill);font-family:var(--font-mono);font-size:.7rem;
   font-weight:500;letter-spacing:.16em;text-transform:uppercase;
   color:rgba(240,226,196,.85);text-shadow:0 1px 3px rgba(0,0,0,.8);
@@ -419,8 +506,8 @@ p{margin:0 0 1.15em}
 
 
 @media(max-width:760px){
-  .buch--aktiv{height:190svh}
-  .buch__objekt,.buch__schatten{height:86%;aspect-ratio:.82;max-width:90vw}
+  .buch--aktiv{height:520svh}
+  .buch__objekt,.buch__schatten,.buch__seite2{height:86%;aspect-ratio:.82;max-width:90vw}
   .buch__szene{perspective:1000px}
   .buch__praegung h1{font-size:clamp(2rem,9vw,2.8rem)}
   /* Hochkant passen drei Karten nicht untereinander auf eine Seite.

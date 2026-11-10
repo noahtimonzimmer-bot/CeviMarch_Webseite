@@ -243,28 +243,60 @@ def foto(src, text, klasse='photo--tilt', alt=None):
 def build_home():
     """Startseite: das geschlossene Tagebuch füllt den Bildschirm. Titel,
     Untertitel und die Schaltfläche stehen auf dem Deckel. Beim Scrollen
-    klappt er auf und darunter liegt schon die erste Seite.
+    klappt er auf, dann wird Seite 1 (Stufen) umgeblättert und zuletzt auf
+    Seite 2 gezoomt, bis sie den Bildschirm füllt. Der Rest der Seite liegt
+    darunter als weitere Buchseiten.
 
     Ohne JavaScript und bei "Bewegung reduzieren" ist der Deckel weg und
     die erste Seite steht sofort da."""
 
     body = f"""  <section class="buch" id="buch">
     <div class="buch__buehne">
+      <!-- Die Holzplatte, auf der das Buch liegt -->
+      <div class="buch__holz" aria-hidden="true"></div>
+
+      <!-- Seite 2 liegt zuunterst. Auf sie wird am Ende gezoomt, bis sie
+           den ganzen Bildschirm füllt. -->
+      <div class="buch__seite2" id="abteilung">
+        <div class="buch__seite2-inhalt">
+          <span class="eyebrow">Die Abteilung</span>
+          <h2>Alle zwei Wochen raus in den Wald.</h2>
+          <p class="lead">Lustige Geschichten, abenteuerliche
+          Schnitzeljagden, feine Schoggibananen – an einem Jungscharnachmittag gibt es
+          für alle etwas.</p>
+          <p class="muted">Treffpunkt ist der Baumgartenschopf in Siebnen, samstags von
+          14–17 Uhr. Dazu kommen jedes Jahr ein Auffahrtslager, ein Sommerlager und
+          immer wieder Spezialanlässe.</p>
+          <div class="hero__cta">
+            <a class="arrow" href="jungschar.html">Zur Jungschar</a>
+            <a class="arrow" href="agenda.html">Nächste Daten</a>
+          </div>
+        </div>
+        <span class="buch__seitenzahl" aria-hidden="true">2</span>
+      </div>
+
       <div class="buch__szene">
         <div class="buch__schatten" aria-hidden="true"></div>
         <div class="buch__objekt">
 
-        <!-- Unter dem Deckel liegt schon die erste Seite -->
-        <div class="buch__seite" id="stufen">
-          <div class="wrap buch__seiteninhalt">
-            <span class="eyebrow">Drei Stufen</span>
-            <h2>Für jedes Alter das passende Programm.</h2>
-            <p class="lead buch__lead">{e(HERO['sub'])}</p>
-            <div class="grid grid--3 buch__stufen">
+        <!-- Seite 1 ist ein Blatt: vorne die Stufen, hinten leeres Papier.
+             Es wird nach dem Deckel umgeblättert. -->
+        <div class="buch__blatt">
+          <div class="buch__seite" id="stufen">
+            <div class="wrap buch__seiteninhalt">
+              <span class="eyebrow">Drei Stufen</span>
+              <h2>Für jedes Alter das passende Programm.</h2>
+              <p class="lead buch__lead">{e(HERO['sub'])}</p>
+              <div class="grid grid--3 buch__stufen">
 {''.join(stufe_card(s) for s in STUFEN)}
+              </div>
             </div>
+            <span class="buch__seitenzahl" aria-hidden="true">1</span>
           </div>
+          <div class="buch__rueckseite" aria-hidden="true"></div>
         </div>
+
+        <div class="buch__falz" aria-hidden="true"></div>
 
         <!-- Der Deckel -->
         <div class="buch__deckel">
@@ -280,8 +312,6 @@ def build_home():
           </div>
           <div class="buch__innenseite" aria-hidden="true"></div>
         </div>
-
-        <div class="buch__falz" aria-hidden="true"></div>
         </div>
       </div>
 
@@ -292,26 +322,7 @@ def build_home():
     </div>
   </section>
 
-  <section class="section section--tight">
-    <div class="wrap">
-      <div data-reveal>
-        <div>
-          <span class="eyebrow">Die Abteilung</span>
-          <h2>Alle zwei Wochen raus in den Wald.</h2>
-          <p class="lead" style="margin-top:20px">Lustige Geschichten, abenteuerliche
-          Schnitzeljagden, feine Schoggibananen – an einem Jungscharnachmittag gibt es
-          für alle etwas.</p>
-          <p class="muted">Treffpunkt ist der Baumgartenschopf in Siebnen, samstags von
-          14–17 Uhr. Dazu kommen jedes Jahr ein Auffahrtslager, ein Sommerlager und
-          immer wieder Spezialanlässe.</p>
-          <div class="hero__cta" style="margin-top:26px">
-            <a class="arrow" href="jungschar.html">Zur Jungschar</a>
-            <a class="arrow" href="agenda.html">Nächste Daten</a>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
+  <div class="blattwechsel" aria-hidden="true"><span>3</span></div>
 
 {CTA}"""
     return head('CEVI March — Selber schaffen, schafft Selbstvertrauen',
