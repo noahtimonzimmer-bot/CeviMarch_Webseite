@@ -65,6 +65,8 @@ server {
     # Punktdateien sperren, aber die Pruefung von Let's Encrypt zulassen
     location ~ /\.(?!well-known)                             { return 404; }
     location = /CNAME                                       { return 404; }
+    # Entwicklungsunterlagen gehoeren nicht ins Netz
+    location ~* \.(md|py|sh|yml|yaml|json|lock|nginx)$       { return 404; }
 
     gzip on;
     gzip_types text/css application/javascript application/json image/svg+xml;
