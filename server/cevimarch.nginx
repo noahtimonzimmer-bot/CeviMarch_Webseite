@@ -3,9 +3,11 @@
 # =====================================================================
 #  Nach /etc/nginx/sites-available/cevimarch kopieren und verlinken.
 #  Die HTTPS-Teile ergaenzt certbot selbst, siehe server/https.sh.
+#
+#  Die Kasse laeuft unter cevimarch.ch/kasse/ - es braucht also keinen
+#  eigenen DNS-Eintrag und kein eigenes Zertifikat.
 # =====================================================================
 
-# ---- Website: cevimarch.ch ------------------------------------------
 server {
     listen 80;
     listen [::]:80;
@@ -14,9 +16,38 @@ server {
     root /opt/cevimarch;
     index index.html;
 
+    # Version von nginx nicht verraten
+    server_tokens off;
+
     # Fehlerseite der Seite selbst
     error_page 404 /404.html;
 
+    # ---- Schutzangaben fuer den Browser ------------------------------
+    # Die Seite laedt nur eigene Dateien; einzige Ausnahme ist die Karte
+    # auf der Kontaktseite, und die erst nach ausdruecklichem Klick.
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; frame-src https://www.google.com; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "geolocation=(), camera=(), microphone=(), payment=(), usb=()" always;
+    add_header Cross-Origin-Opener-Policy "same-origin" always;
+
+    # ---- Kassen-App unter /kasse/ ------------------------------------
+    location ^~ /kasse/ {
+        # Belege sind Handyfotos und entsprechend gross
+        client_max_body_size 25m;
+
+        proxy_pass         http://127.0.0.1:3000/;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_set_header   X-Forwarded-Prefix /kasse;
+        proxy_read_timeout 120s;
+    }
+    location = /kasse { return 301 /kasse/; }
+
+    # ---- Zwischenspeicher --------------------------------------------
     # Die erzeugten Seiten duerfen nicht lange im Cache liegen, die Bilder
     # und Schriften schon - die aendern sich praktisch nie.
     location ~* \.html$ {
@@ -27,31 +58,22 @@ server {
         access_log off;
     }
 
-    # Interna nicht ausliefern
+    # ---- Interna nicht ausliefern ------------------------------------
     location ~ ^/(\.git|tools|content|server|kasse|scrape)/ { return 404; }
-    location = /CNAME { return 404; }
+    # Punktdateien sperren, aber die Pruefung von Let's Encrypt zulassen
+    location ~ /\.(?!well-known)                             { return 404; }
+    location = /CNAME                                       { return 404; }
 
     gzip on;
     gzip_types text/css application/javascript application/json image/svg+xml;
     gzip_min_length 1024;
 }
 
-# ---- Kassen-App: kasse.cevimarch.ch ---------------------------------
+# ---- Alles, was unter anderem Namen hereinkommt, abweisen ------------
 server {
-    listen 80;
-    listen [::]:80;
-    server_name kasse.cevimarch.ch;
-
-    # Belege sind Handyfotos und entsprechend gross
-    client_max_body_size 25m;
-
-    location / {
-        proxy_pass         http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header   Host              $host;
-        proxy_set_header   X-Real-IP         $remote_addr;
-        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
-        proxy_set_header   X-Forwarded-Proto $scheme;
-        proxy_read_timeout 120s;
-    }
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+    server_tokens off;
+    return 444;
 }
