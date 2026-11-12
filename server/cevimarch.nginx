@@ -11,7 +11,9 @@
 server {
     listen 80;
     listen [::]:80;
-    server_name cevimarch.ch www.cevimarch.ch;
+    # Die IP steht mit dabei, solange die DNS noch nicht umgestellt ist -
+    # so laesst sich die Seite vorher anschauen.
+    server_name cevimarch.ch www.cevimarch.ch 179.237.123.224;
 
     root /opt/cevimarch;
     index index.html;
