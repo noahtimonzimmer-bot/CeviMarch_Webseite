@@ -836,6 +836,19 @@ a.person:hover{transform:translateY(-4px);
 .person a:hover{border-color:var(--red)}
 .iban{font-family:var(--font-mono);font-size:.92rem}
 
+/* Hinweis auf Instagram ------------------------------------------- */
+.insta{
+  display:inline-flex;align-items:center;gap:11px;margin-top:22px;
+  padding:11px 18px 11px 14px;border-radius:var(--pill);
+  border:1px solid var(--rule-strong);background:#fdfaf3;
+  font-family:var(--font-mono);font-size:.72rem;font-weight:600;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--ink);
+  box-shadow:0 12px 24px -18px rgba(21,22,26,.65);
+  transition:transform .25s var(--ease),border-color .25s,color .25s
+}
+.insta:hover{transform:translateY(-2px);border-color:var(--red);color:var(--red)}
+.insta__zeichen{width:21px;height:21px;flex:0 0 auto}
+
 /* Schlussaufruf --------------------------------------------------- */
 .cta{padding:0 var(--pad) clamp(40px,6vw,80px)}
 .cta__inner{max-width:var(--maxw);margin-inline:auto;background:var(--ink);color:var(--paper);
