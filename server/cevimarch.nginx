@@ -23,13 +23,9 @@ server {
     error_page 404 /404.html;
 
     # ---- Schutzangaben fuer den Browser ------------------------------
-    # Die Seite laedt nur eigene Dateien; einzige Ausnahme ist die Karte
-    # auf der Kontaktseite, und die erst nach ausdruecklichem Klick.
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; frame-src https://www.google.com; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-    add_header Permissions-Policy "geolocation=(), camera=(), microphone=(), payment=(), usb=()" always;
-    add_header Cross-Origin-Opener-Policy "same-origin" always;
+    # Stehen in server/schutz.conf, damit sie in jedem location-Block
+    # gleich lauten.
+    include /etc/nginx/snippets/cevimarch-schutz.conf;
 
     # ---- Kassen-App unter /kasse/ ------------------------------------
     location ^~ /kasse/ {
@@ -50,11 +46,17 @@ server {
     # ---- Zwischenspeicher --------------------------------------------
     # Die erzeugten Seiten duerfen nicht lange im Cache liegen, die Bilder
     # und Schriften schon - die aendern sich praktisch nie.
+    #
+    # Achtung: sobald in einem location-Block ein add_header steht, fallen
+    # alle von oben geerbten Angaben weg. Darum stehen die Schutzangaben
+    # hier noch einmal.
     location ~* \.html$ {
         add_header Cache-Control "no-cache, must-revalidate";
+        include /etc/nginx/snippets/cevimarch-schutz.conf;
     }
     location ~* \.(jpg|jpeg|png|webp|svg|woff2|pdf|ico)$ {
         add_header Cache-Control "public, max-age=2592000";
+        include /etc/nginx/snippets/cevimarch-schutz.conf;
         access_log off;
     }
 

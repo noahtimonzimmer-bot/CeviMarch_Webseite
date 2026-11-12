@@ -11,6 +11,8 @@ MAIL=${MAIL:-info@cevimarch.ch}
 ZIEL=/opt/cevimarch
 
 echo "==> nginx-Konfiguration einsetzen"
+install -d /etc/nginx/snippets
+cp "$ZIEL/server/schutz.conf" /etc/nginx/snippets/cevimarch-schutz.conf
 cp "$ZIEL/server/cevimarch.nginx" /etc/nginx/sites-available/cevimarch
 ln -sf /etc/nginx/sites-available/cevimarch /etc/nginx/sites-enabled/cevimarch
 rm -f /etc/nginx/sites-enabled/default
@@ -28,9 +30,8 @@ certbot --nginx --non-interactive --agree-tos --redirect \
 echo "==> HSTS einschalten"
 # Erst jetzt, nachdem HTTPS wirklich steht - vorher wuerde man sich
 # aussperren, falls etwas schiefgeht.
-if ! grep -q "Strict-Transport-Security" /etc/nginx/sites-available/cevimarch; then
-  sed -i '0,/add_header X-Content-Type-Options/s//add_header Strict-Transport-Security "max-age=15552000" always;
-    add_header X-Content-Type-Options/'     /etc/nginx/sites-available/cevimarch
+if ! grep -q "Strict-Transport-Security" /etc/nginx/snippets/cevimarch-schutz.conf; then
+  echo 'add_header Strict-Transport-Security "max-age=15552000" always;'     >> /etc/nginx/snippets/cevimarch-schutz.conf
   nginx -t && systemctl reload nginx
 fi
 
