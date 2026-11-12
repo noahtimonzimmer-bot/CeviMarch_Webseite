@@ -342,6 +342,17 @@ def build_home():
               <span class="buch__linie" aria-hidden="true"></span>
               <span class="buch__jahr">CEVI March · seit 2010</span>
               <a class="buch__knopf" href="kontakt.html#schnuppern">Schnuppern kommen</a>
+              <a class="buch__insta" href="https://www.instagram.com/cevimarch/"
+                 target="_blank" rel="noopener">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <rect x="2.6" y="2.6" width="18.8" height="18.8" rx="5.4"
+                        fill="none" stroke="currentColor" stroke-width="1.9"/>
+                  <circle cx="12" cy="12" r="4.6"
+                          fill="none" stroke="currentColor" stroke-width="1.9"/>
+                  <circle cx="17.4" cy="6.6" r="1.25" fill="currentColor"/>
+                </svg>
+                <span>@cevimarch</span>
+              </a>
             </div>
             <span class="buch__glanz" aria-hidden="true"></span>
           </div>
@@ -415,17 +426,6 @@ def build_page(key, p):
         <div>
           <div class="prose" data-reveal>{p['body']}</div>
           {notiz}
-          <a class="insta" href="https://www.instagram.com/cevimarch/"
-             target="_blank" rel="noopener" data-reveal>
-            <svg class="insta__zeichen" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <rect x="2.6" y="2.6" width="18.8" height="18.8" rx="5.4"
-                    fill="none" stroke="currentColor" stroke-width="1.9"/>
-              <circle cx="12" cy="12" r="4.6"
-                      fill="none" stroke="currentColor" stroke-width="1.9"/>
-              <circle cx="17.4" cy="6.6" r="1.25" fill="currentColor"/>
-            </svg>
-            <span>Wir auf Instagram: @cevimarch</span>
-          </a>
         </div>
         {foto(p['image'], p.get('bildtext', p['title']), 'photo--tilt photo--sticky', alt='')}
       </div>
@@ -601,17 +601,6 @@ def schnupper_abschnitt():
         <div>
           <div class="prose" data-reveal>{p['body']}</div>
           {notiz}
-          <a class="insta" href="https://www.instagram.com/cevimarch/"
-             target="_blank" rel="noopener" data-reveal>
-            <svg class="insta__zeichen" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <rect x="2.6" y="2.6" width="18.8" height="18.8" rx="5.4"
-                    fill="none" stroke="currentColor" stroke-width="1.9"/>
-              <circle cx="12" cy="12" r="4.6"
-                      fill="none" stroke="currentColor" stroke-width="1.9"/>
-              <circle cx="17.4" cy="6.6" r="1.25" fill="currentColor"/>
-            </svg>
-            <span>Wir auf Instagram: @cevimarch</span>
-          </a>
         </div>
         {foto(p['image'], p.get('bildtext', p['title']), alt='')}
       </div>

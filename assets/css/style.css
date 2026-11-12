@@ -555,6 +555,23 @@ p{margin:0 0 1.15em}
   color:#f4e2b4;border-color:rgba(226,195,134,.85);background:rgba(206,172,110,.12)
 }
 
+/* Instagram unter dem Knopf: dieselbe eingepraegte Sprache, nur kleiner.
+   Das Zeichen ist eine eigene Zeichnung - es wird nichts bei Meta
+   nachgeladen. */
+.buch__insta{
+  display:inline-flex;align-items:center;gap:9px;
+  margin-top:clamp(12px,1.4vw,18px);padding:8px 16px;border-radius:var(--pill);
+  border:1px solid rgba(206,172,110,.3);
+  font-family:var(--font-mono);font-size:.64rem;font-weight:500;
+  letter-spacing:.12em;text-transform:uppercase;color:rgba(220,191,132,.78);
+  text-shadow:0 1px 0 rgba(0,0,0,.6);
+  transition:color .25s,border-color .25s,background .25s
+}
+.buch__insta svg{width:17px;height:17px;flex:0 0 auto}
+.buch__insta:hover{
+  color:#f4e2b4;border-color:rgba(226,195,134,.7);background:rgba(206,172,110,.1)
+}
+
 /* Lichtkante, die beim Aufklappen über das Leder wandert */
 .buch__glanz{
   position:absolute;inset:0;pointer-events:none;
@@ -835,19 +852,6 @@ a.person:hover{transform:translateY(-4px);
 .person a{border-bottom:1.5px solid var(--rule-strong);padding-bottom:1px}
 .person a:hover{border-color:var(--red)}
 .iban{font-family:var(--font-mono);font-size:.92rem}
-
-/* Hinweis auf Instagram ------------------------------------------- */
-.insta{
-  display:inline-flex;align-items:center;gap:11px;margin-top:22px;
-  padding:11px 18px 11px 14px;border-radius:var(--pill);
-  border:1px solid var(--rule-strong);background:#fdfaf3;
-  font-family:var(--font-mono);font-size:.72rem;font-weight:600;
-  letter-spacing:.08em;text-transform:uppercase;color:var(--ink);
-  box-shadow:0 12px 24px -18px rgba(21,22,26,.65);
-  transition:transform .25s var(--ease),border-color .25s,color .25s
-}
-.insta:hover{transform:translateY(-2px);border-color:var(--red);color:var(--red)}
-.insta__zeichen{width:21px;height:21px;flex:0 0 auto}
 
 /* Schlussaufruf --------------------------------------------------- */
 .cta{padding:0 var(--pad) clamp(40px,6vw,80px)}
