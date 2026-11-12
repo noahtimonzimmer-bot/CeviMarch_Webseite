@@ -820,9 +820,15 @@ p{margin:0 0 1.15em}
 .doc:hover .doc__m{color:var(--ink)}
 
 /* Kontakt --------------------------------------------------------- */
-.person{display:block;padding:26px 28px;border-radius:var(--r-lg);background:var(--paper-2);
-  transition:transform .3s var(--ease)}
-a.person:hover{transform:translateY(-4px)}
+/* Wie Karteikarten, die auf der Buchseite liegen: heller als das
+   Papier, mit feiner Kante und Schatten - auf dem beigen Grund waren
+   sie vorher kaum zu sehen. */
+.person{display:block;padding:26px 28px;border-radius:var(--r-lg);
+  background:#fdfaf3;border:1px solid var(--rule-strong);
+  box-shadow:0 12px 24px -18px rgba(21,22,26,.65);
+  transition:transform .3s var(--ease),box-shadow .3s var(--ease)}
+a.person:hover{transform:translateY(-4px);
+  box-shadow:0 18px 32px -18px rgba(21,22,26,.7)}
 .person b{display:block;font-family:var(--font-mono);font-size:1.1rem;font-weight:700;letter-spacing:-.04em}
 .person span{display:block;font-family:var(--font-mono);font-size:.66rem;font-weight:500;
   letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);margin-top:7px}
@@ -931,7 +937,8 @@ a.person:hover{transform:translateY(-4px)}
 .person--kipp1{transform:rotate(.5deg)}
 .person--kipp2{transform:rotate(-.3deg)}
 .person{transition:transform .3s var(--ease)}
-a.person:hover,.person--kipp0:hover,.person--kipp1:hover,.person--kipp2:hover{transform:rotate(0) translateY(-3px)}
+a.person:hover,.person--kipp0:hover,.person--kipp1:hover,.person--kipp2:hover{transform:rotate(0) translateY(-3px);
+  box-shadow:0 18px 32px -18px rgba(21,22,26,.7)}
 
 /* Beilagen: Büroklammer statt Kachel -------------------------------- */
 .doc{background:#fff;box-shadow:0 10px 26px -20px rgba(21,22,26,.5)}
