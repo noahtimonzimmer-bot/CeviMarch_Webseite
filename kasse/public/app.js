@@ -1280,17 +1280,7 @@ async function kontenAnsicht() {
             }),
             el('button', {
               class: 'knopf kompakt', text: 'Neues Passwort',
-              onclick: async () => {
-                if (!(await bestaetigen(
-                  'Passwort zurücksetzen',
-                  `${konto.name} bekommt ein neues Startpasswort und muss sich neu anmelden. Weiter?`,
-                  'Zurücksetzen'
-                ))) return;
-                try {
-                  const antwort = await api(`/benutzer/${konto.id}/passwort`, { methode: 'POST' });
-                  startpasswortZeigen(konto.name, antwort.startpasswort);
-                } catch (fehler) { melden(fehler.message, true); }
-              }
+              onclick: () => passwortSetzen(konto)
             })
           ])
         ])
@@ -1343,7 +1333,20 @@ function melderPasswortFormular() {
 }
 
 /** Zeigt ein frisch erzeugtes Startpasswort gross an - es ist nur einmal sichtbar. */
-function startpasswortZeigen(name, passwort) {
+function startpasswortZeigen(name, passwort, selbstGewaehlt = false) {
+  // Ein selbst getipptes Passwort kennt die Abteilungsleitung ohnehin - dann
+  // ist das hier nur die Bestaetigung.
+  if (selbstGewaehlt) {
+    return dialogZeigen('Passwort gesetzt für ' + name, el('div', {}, [
+      el('p', { text: 'Das Passwort gilt ab sofort. Gib es persönlich weiter.' }),
+      el('p', { class: 'hinweis', text: 'Ändern kann es die Person jederzeit unter "Mein Konto".' })
+    ]), [
+      el('button', {
+        class: 'knopf primaer', text: 'Verstanden',
+        onclick: () => { dialogSchliessen(); zeichnen(); }
+      })
+    ]);
+  }
   dialogZeigen('Startpasswort für ' + name, el('div', {}, [
     el('p', { text: 'Gib dieses Passwort persönlich weiter. Es wird nur jetzt angezeigt.' }),
     el('p', {
@@ -1355,6 +1358,47 @@ function startpasswortZeigen(name, passwort) {
     el('button', {
       class: 'knopf primaer', text: 'Verstanden',
       onclick: () => { dialogSchliessen(); zeichnen(); }
+    })
+  ]);
+}
+
+/** Passwort einer Person neu setzen - selbst getippt oder erzeugt. */
+function passwortSetzen(konto) {
+  const feld = el('input', {
+    name: 'passwort', type: 'text', minLength: 8,
+    placeholder: 'leer lassen für ein erzeugtes Passwort', autocomplete: 'off'
+  });
+  const formular = el('form', {}, [
+    el('p', { text: `${konto.name} muss sich danach neu anmelden.` }),
+    el('label', { text: 'Neues Passwort (mindestens 8 Zeichen)' }, [feld]),
+    el('p', {
+      class: 'hinweis',
+      text: 'Tippst du selbst eines, gilt es dauerhaft. Lässt du das Feld leer, '
+        + 'erzeugt die App ein Startpasswort, das beim ersten Anmelden geändert werden muss.'
+    })
+  ]);
+
+  dialogZeigen('Passwort für ' + konto.name, formular, [
+    el('button', { class: 'knopf', text: 'Abbrechen', onclick: dialogSchliessen }),
+    el('button', {
+      class: 'knopf kompakt', text: 'Vorschlag holen',
+      onclick: async () => {
+        try {
+          const antwort = await api('/passwort-vorschlag');
+          feld.value = antwort.passwort;
+        } catch (fehler) { melden(fehler.message, true); }
+      }
+    }),
+    el('button', {
+      class: 'knopf primaer', text: 'Passwort setzen',
+      onclick: async () => {
+        try {
+          const antwort = await api(`/benutzer/${konto.id}/passwort`, {
+            methode: 'POST', daten: { passwort: feld.value.trim() }
+          });
+          startpasswortZeigen(konto.name, antwort.startpasswort, antwort.selbst_gewaehlt);
+        } catch (fehler) { melden(fehler.message, true); }
+      }
     })
   ]);
 }
@@ -1413,6 +1457,21 @@ function kontoBearbeiten(konto, kassen) {
     el('label', { text: 'IBAN (für die Rechnung an den Verein)' }, [
       el('input', { name: 'iban', value: konto?.iban || '', placeholder: 'CH00 0000 0000 0000 0000 0' })
     ]),
+    // Beim Anlegen darf die Abteilungsleitung das Passwort selbst tippen.
+    konto
+      ? null
+      : el('label', { text: 'Passwort (mindestens 8 Zeichen)' }, [
+          el('input', {
+            name: 'passwort', type: 'text', minLength: 8, autocomplete: 'off',
+            placeholder: 'leer lassen für ein erzeugtes Passwort'
+          }),
+          el('span', {
+            class: 'hinweis',
+            style: 'display: block; margin-top: 4px;',
+            text: 'Tippst du selbst eines, gilt es dauerhaft. Leer lassen: die App erzeugt '
+              + 'ein Startpasswort, das beim ersten Anmelden geändert werden muss.'
+          })
+        ]),
     el('h3', { text: 'Diese Kassen freigeben', style: 'margin: 16px 0 8px' }),
     el('div', {}, kaesten.length ? kaesten : [el('p', { class: 'hinweis', text: 'Noch keine Kasse vorhanden.' })]),
     el('p', {
@@ -1444,7 +1503,7 @@ function kontoBearbeiten(konto, kassen) {
               methode: 'POST', daten: { ...daten, kassen: gewaehlt }
             });
             dialogSchliessen();
-            startpasswortZeigen(neu.name, neu.startpasswort);
+            startpasswortZeigen(neu.name, neu.startpasswort, neu.selbst_gewaehlt);
           }
         } catch (fehler) { melden(fehler.message, true); }
       }

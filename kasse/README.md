@@ -39,13 +39,19 @@ alle Leiter. Darunter führt ein Knopf zur Anmeldung mit E-Mail.
 ### Konten anlegen
 
 Die Abteilungsleitung legt unter **Personen** eine Person an: Name,
-E-Mail, Rolle, IBAN und die Kassen, die sie betreuen darf. Die App zeigt
-daraufhin **einmal** ein Startpasswort wie `Stern-Feuer-2277`. Das gibst
-du persönlich weiter – die App verschickt keine E-Mails. Beim ersten
-Anmelden muss die Person ein eigenes Passwort setzen.
+E-Mail, Rolle, IBAN und die Kassen, die sie betreuen darf. Beim Passwort
+hat sie die Wahl:
 
-Vergessenes Passwort: unter *Personen* auf **Neues Passwort**, dann wird
-ein neues Startpasswort erzeugt und die Person überall abgemeldet.
+* **selbst tippen** – das Passwort gilt dauerhaft, die Person kann es
+  später unter *Mein Konto* ändern;
+* **Feld leer lassen** – die App zeigt **einmal** ein Startpasswort wie
+  `Stern-Feuer-2277`, das beim ersten Anmelden geändert werden muss.
+
+Weitergegeben wird es persönlich – die App verschickt keine E-Mails.
+Konto-Passwörter brauchen mindestens 8 Zeichen.
+
+Vergessenes Passwort: unter *Personen* auf **Neues Passwort**. Dort gilt
+dieselbe Wahl, und die Person wird überall abgemeldet.
 
 ### Ohne Bargeld abrechnen
 

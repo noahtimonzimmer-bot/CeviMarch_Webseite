@@ -3,7 +3,8 @@
 import express from 'express';
 import { db, protokollieren } from '../db.js';
 import {
-  nurAdmin, mitKonto, passwortHashen, passwortVorschlagen, kontoSitzungenBeenden
+  nurAdmin, mitKonto, passwortHashen, passwortVorschlagen, kontoSitzungenBeenden,
+  passwortRegelnVerletzt
 } from '../auth.js';
 
 const router = express.Router();
@@ -57,19 +58,26 @@ router.post('/', nurAdmin, (req, res) => {
     return res.status(409).json({ fehler: 'Diese E-Mail hat schon ein Konto.' });
   }
 
-  // Das Startpasswort wird einmal angezeigt und muss beim ersten
-  // Anmelden geaendert werden. Verschickt wird nichts - die
-  // Abteilungsleitung gibt es persoenlich weiter.
-  const startpasswort = passwortVorschlagen();
+  // Das Passwort gibt die Abteilungsleitung persoenlich weiter - verschickt
+  // wird nichts. Entweder tippt sie es selbst, dann gilt es dauerhaft, oder
+  // die App erzeugt eines; dieses wird einmal angezeigt und muss beim ersten
+  // Anmelden geaendert werden.
+  const gewuenscht = String(req.body?.passwort || '').trim();
+  if (gewuenscht) {
+    const problem = passwortRegelnVerletzt(gewuenscht);
+    if (problem) return res.status(400).json({ fehler: problem });
+  }
+  const startpasswort = gewuenscht || passwortVorschlagen();
   const info = db
     .prepare(
       `INSERT INTO benutzer (name, email, passwort_hash, rolle, iban, telefon, passwort_neu)
-       VALUES (?, ?, ?, ?, ?, ?, 1)`
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       name.slice(0, 120), email, passwortHashen(startpasswort), rolle,
       req.body?.iban ? String(req.body.iban).replace(/\s/g, '').toUpperCase().slice(0, 34) : null,
-      req.body?.telefon ? String(req.body.telefon).trim().slice(0, 40) : null
+      req.body?.telefon ? String(req.body.telefon).trim().slice(0, 40) : null,
+      gewuenscht ? 0 : 1
     );
 
   const id = Number(info.lastInsertRowid);
@@ -82,7 +90,7 @@ router.post('/', nurAdmin, (req, res) => {
   }
 
   protokollieren(req.rolle, 'konto_angelegt', 'benutzer', id, { email, rolle });
-  res.status(201).json({ ...kontoLesen(id), startpasswort });
+  res.status(201).json({ ...kontoLesen(id), startpasswort, selbst_gewaehlt: Boolean(gewuenscht) });
 });
 
 router.patch('/:id', nurAdmin, (req, res) => {
@@ -117,16 +125,24 @@ router.patch('/:id', nurAdmin, (req, res) => {
   res.json(kontoLesen(konto.id));
 });
 
-/** Neues Startpasswort erzeugen, wenn jemand seines vergessen hat. */
+/**
+ * Neues Passwort setzen, wenn jemand seines vergessen hat. Ohne Angabe
+ * erzeugt die App eines, das beim naechsten Anmelden geaendert werden muss.
+ */
 router.post('/:id/passwort', nurAdmin, (req, res) => {
   const konto = kontoLesen(req.params.id);
   if (!konto) return res.status(404).json({ fehler: 'Konto nicht gefunden.' });
-  const startpasswort = passwortVorschlagen();
-  db.prepare('UPDATE benutzer SET passwort_hash = ?, passwort_neu = 1 WHERE id = ?')
-    .run(passwortHashen(startpasswort), konto.id);
+  const gewuenscht = String(req.body?.passwort || '').trim();
+  if (gewuenscht) {
+    const problem = passwortRegelnVerletzt(gewuenscht);
+    if (problem) return res.status(400).json({ fehler: problem });
+  }
+  const startpasswort = gewuenscht || passwortVorschlagen();
+  db.prepare('UPDATE benutzer SET passwort_hash = ?, passwort_neu = ? WHERE id = ?')
+    .run(passwortHashen(startpasswort), gewuenscht ? 0 : 1, konto.id);
   kontoSitzungenBeenden(konto.id);
   protokollieren(req.rolle, 'konto_passwort_zurueckgesetzt', 'benutzer', konto.id, null);
-  res.json({ startpasswort });
+  res.json({ startpasswort, selbst_gewaehlt: Boolean(gewuenscht) });
 });
 
 // -------------------------------------------------- Kassen freigeben
