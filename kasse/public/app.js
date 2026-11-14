@@ -87,6 +87,16 @@ function melden(text, schlecht = false) {
 
 // ----------------------------------------------------------------- Server
 
+// Die App laeuft auf dem Server unter cevimarch.ch/kasse/, lokal direkt unter
+// "/". Darum wird der Pfad nicht fest verdrahtet, sondern aus der Adresse der
+// Seite selbst abgeleitet - alle Aufrufe haengen daran.
+const WURZEL = new URL('.', document.baseURI).pathname.replace(/\/+$/, '');
+
+/** Vollstaendige Adresse eines Endpunkts, z.B. "/kasse/api/belege/7". */
+function pfadZu(pfad) {
+  return `${WURZEL}/api${pfad}`;
+}
+
 async function api(pfad, { methode = 'GET', daten, formular, roh = false } = {}) {
   const kopf = { 'X-Requested-With': 'ce-march-kasse', 'X-Geraet': zustand.geraet };
   if (zustand.csrf) kopf['X-CSRF-Token'] = zustand.csrf;
