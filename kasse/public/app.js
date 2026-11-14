@@ -1,4 +1,4 @@
-// Ce March Kasse - Oberflaeche
+// Cevi March Kasse - Oberflaeche
 //
 // Kein Baukasten, kein Build-Schritt: reines Javascript im Browser.
 // Aufbau: zustand -> api() -> Ansichten -> zeichnen() ueber die Adresszeile.
@@ -1045,7 +1045,7 @@ async function startAnsicht() {
   return [
     el('div', { class: 'seiten-kopf' }, [
       el('div', {}, [
-        el('h1', { text: zustand.name ? `Hoi ${zustand.name}` : 'Ce March Kasse' }),
+        el('h1', { text: zustand.name ? `Hoi ${zustand.name}` : 'Cevi March Kasse' }),
         el('p', { text: 'Beleg fotografieren, Betrag eintippen, fertig. Die Nummer vergibt die App.' })
       ])
     ]),

@@ -29,7 +29,7 @@ tools/holz.py         erzeugt die Holztextur des Tisches
 tools/ungenutzt.py    listet Dateien, die keine Seite mehr braucht
 ```
 
-`kasse/` enthält die eigenständige Web-App **Ce March Kasse** (Belege,
+`kasse/` enthält die eigenständige Web-App **Cevi March Kasse** (Belege,
 Kassenbuch, Abrechnung). Sie gehört nicht zur statischen Website und läuft auf
 einem eigenen Server – Anleitung in [kasse/README.md](kasse/README.md).
 

@@ -38,7 +38,7 @@ export function ersteEinrichtung() {
   if (!zeilen.length) return;
   console.log('');
   console.log('========================================================');
-  console.log(' Ce March Kasse - Zugaenge');
+  console.log(' Cevi March Kasse - Zugaenge');
   for (const zeile of zeilen) console.log(zeile);
   console.log('   Beides laesst sich in der App aendern.');
   console.log('========================================================');

@@ -43,7 +43,7 @@ router.get('/:kasseId/excel', async (req, res) => {
   const schulden = schuldenDerKasse(kasse.id);
 
   const mappe = new ExcelJS.Workbook();
-  mappe.creator = 'Ce March Kasse';
+  mappe.creator = 'Cevi March Kasse';
   mappe.created = new Date();
 
   const kopfStil = (zeile) => {
@@ -521,7 +521,7 @@ ${rechnung.status === 'bezahlt'
 ${rechnung.notiz ? `<p class="meta">${escape(rechnung.notiz)}</p>` : ''}
 
 <div class="fuss">
-  Erstellt mit Ce March Kasse am ${new Date().toLocaleDateString('de-CH')}.
+  Erstellt mit Cevi March Kasse am ${new Date().toLocaleDateString('de-CH')}.
   Diese Rechnung ersetzt die Barauszahlung: der Verein überweist den Betrag direkt
   an den Kassenchef, der die Leiter bereits entschädigt hat.
 </div>

@@ -1,4 +1,4 @@
-# Ce March Kasse
+# Cevi March Kasse
 
 Web-App für die Belege und das Kassenbuch des Cevi March. Alle Leiterinnen und
 Leiter fotografieren ihren Beleg direkt mit dem Handy und schicken ihn mit
@@ -219,7 +219,7 @@ cp .env.example .env     # anpassen
 
 ```ini
 [Unit]
-Description=Ce March Kasse
+Description=Cevi March Kasse
 After=network.target
 
 [Service]

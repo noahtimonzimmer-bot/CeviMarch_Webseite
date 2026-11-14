@@ -2,7 +2,7 @@
   "name": "ce-march-kasse",
   "version": "1.0.0",
   "private": true,
-  "description": "Ce March Kasse - Belege und Kassenbuch fuer den Cevi March",
+  "description": "Cevi March Kasse - Belege und Kassenbuch fuer den Cevi March",
   "type": "module",
   "engines": {
     "node": ">=20"

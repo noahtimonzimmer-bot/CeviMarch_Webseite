@@ -1,4 +1,4 @@
--- Datenbankschema "Ce March Kasse"
+-- Datenbankschema "Cevi March Kasse"
 -- Alle Geldbetraege werden als ganze Rappen (INTEGER) gespeichert,
 -- damit es keine Rundungsfehler gibt.
 --

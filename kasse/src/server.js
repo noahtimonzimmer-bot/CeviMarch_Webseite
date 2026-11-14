@@ -1,4 +1,4 @@
-// Ce March Kasse - Webserver
+// Cevi March Kasse - Webserver
 import 'dotenv/config';
 import express from 'express';
 import helmet from 'helmet';
@@ -103,6 +103,6 @@ setInterval(alteSitzungenAufraeumen, 60 * 60 * 1000).unref();
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || '0.0.0.0';
 app.listen(PORT, HOST, () => {
-  console.log(`Ce March Kasse laeuft auf http://${HOST}:${PORT}`);
+  console.log(`Cevi March Kasse laeuft auf http://${HOST}:${PORT}`);
   console.log(`Datenordner: ${DATEN_ORDNER}`);
 });
