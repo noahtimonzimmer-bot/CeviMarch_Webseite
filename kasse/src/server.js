@@ -38,7 +38,13 @@ app.use(
         frameSrc: ["'self'", 'blob:'],
         connectSrc: ["'self'"],
         formAction: ["'self'"],
-        baseUri: ["'self'"]
+        baseUri: ["'self'"],
+        // Solange die App ohne Zertifikat laeuft, darf der Browser die
+        // eigenen Dateien nicht auf https umbiegen - sonst laedt die
+        // Oberflaeche gar nicht erst. Sobald HTTPS steht (COOKIE_SECURE),
+        // gilt die Regel wieder.
+        upgradeInsecureRequests:
+          process.env.COOKIE_SECURE === 'true' ? [] : null
       }
     },
     crossOriginResourcePolicy: { policy: 'same-origin' },
