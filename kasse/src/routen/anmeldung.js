@@ -5,7 +5,7 @@ import {
   mitEmailAnmelden, mitPasswortAnmelden, sitzungAnlegen, sitzungLoeschen,
   kontoSitzungenBeenden, melderSitzungenBeenden, melderPasswortSetzen,
   cookieSetzen, cookieLoeschen, csrfPruefen, angemeldet, mitKonto, nurAdmin,
-  passwortHashen, passwortRegelnVerletzt, passwortVorschlagen,
+  passwortHashen, passwortRegelnVerletzt, passwortVorschlagen, MINDESTLAENGE_MELDER,
   zuVieleVersuche, versuchZaehlen, versucheZuruecksetzen,
   verwalteteKassen, SITZUNGS_COOKIE
 } from '../auth.js';
@@ -136,7 +136,7 @@ router.get('/passwort-vorschlag', mitKonto, (_req, res) => {
 
 router.post('/melder-passwort', csrfPruefen, nurAdmin, (req, res) => {
   const neues = req.body?.passwort;
-  const problem = passwortRegelnVerletzt(neues);
+  const problem = passwortRegelnVerletzt(neues, MINDESTLAENGE_MELDER);
   if (problem) return res.status(400).json({ fehler: problem });
   melderPasswortSetzen(neues);
   melderSitzungenBeenden();

@@ -313,6 +313,10 @@ npm run admin -- kassen                        # Kassen und Saldi anzeigen
 
 ### Sicherheit
 
+- Konto-Passwörter brauchen mindestens 8 Zeichen. Das gemeinsame Passwort
+  zum Belege erfassen darf ab 4 Zeichen kurz sein – es wird im Lager mündlich
+  weitergegeben und kommt nur an das Beleg-Formular, nicht an Kassenstände
+  oder fremde Belege.
 - Passwörter mit bcrypt gehasht, nie im Klartext gespeichert. Startpasswörter
   werden genau einmal angezeigt und müssen beim ersten Anmelden geändert werden.
 - Sitzungen als httpOnly-Cookie, 30 Tage, serverseitig in der Datenbank.

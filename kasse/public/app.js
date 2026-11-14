@@ -1309,7 +1309,7 @@ async function kontenAnsicht() {
 }
 
 function melderPasswortFormular() {
-  const feld = el('input', { name: 'passwort', type: 'text', required: true, minLength: 8 });
+  const feld = el('input', { name: 'passwort', type: 'text', required: true, minLength: 4 });
   return el('form', {
     onsubmit: async (ereignis) => {
       ereignis.preventDefault();

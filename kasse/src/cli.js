@@ -9,7 +9,7 @@ import 'dotenv/config';
 import { db, schemaAnlegen } from './db.js';
 import {
   passwortHashen, passwortVorschlagen, passwortRegelnVerletzt,
-  melderPasswortSetzen, melderSitzungenBeenden, kontoSitzungenBeenden
+  melderPasswortSetzen, melderSitzungenBeenden, kontoSitzungenBeenden, MINDESTLAENGE_MELDER
 } from './auth.js';
 import { alleKassen, kasseZahlen } from './kassenbuch.js';
 import { formatieren } from './geld.js';
@@ -72,7 +72,7 @@ function kontoAnlegen(rolle, [name, email]) {
 function melder() {
   const gewuenscht = rest[0];
   const neues = gewuenscht || passwortVorschlagen();
-  const problem = passwortRegelnVerletzt(neues);
+  const problem = passwortRegelnVerletzt(neues, MINDESTLAENGE_MELDER);
   if (problem) return console.log(problem);
   melderPasswortSetzen(neues);
   melderSitzungenBeenden();

@@ -38,9 +38,19 @@ function passwortVergleichen(klartext, hash) {
   }
 }
 
-export function passwortRegelnVerletzt(passwort) {
-  if (typeof passwort !== 'string' || passwort.length < 8) {
-    return 'Das Passwort braucht mindestens 8 Zeichen.';
+/**
+ * Pruefregeln fuer Passwoerter. Konten brauchen acht Zeichen; das
+ * gemeinsame Passwort zum Belege erfassen darf kuerzer sein, weil es jedes
+ * Lager am Telefon durchgegeben wird und damit nur Belege einreichen kann -
+ * keine Kassenstaende, keine fremden Belege. Gegen Durchprobieren schuetzt
+ * die Bremse nach zehn Fehlversuchen.
+ */
+export const MINDESTLAENGE_KONTO = 8;
+export const MINDESTLAENGE_MELDER = 4;
+
+export function passwortRegelnVerletzt(passwort, mindestens = MINDESTLAENGE_KONTO) {
+  if (typeof passwort !== 'string' || passwort.length < mindestens) {
+    return `Das Passwort braucht mindestens ${mindestens} Zeichen.`;
   }
   if (passwort.length > 200) return 'Das Passwort ist zu lang.';
   return null;
