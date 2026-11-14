@@ -4,12 +4,40 @@
 // Aufbau: zustand -> api() -> Ansichten -> zeichnen() ueber die Adresszeile.
 
 const zustand = {
-  rolle: null,          // 'admin' | 'benutzer'
+  rolle: null,          // 'admin' | 'kassier' | 'chef' | 'melder'
+  konto: null,          // bei allen Rollen mit Konto: das eigene Konto
   csrf: null,
   kassen: [],
+  kassenIds: [],        // Kassen, die diese Anmeldung verwalten darf
   geraet: null,         // zufaellige Kennung dieses Browsers
   name: ''              // Name der Person, die hier Belege einreicht
 };
+
+const ROLLEN_NAMEN = {
+  admin: 'Abteilungsleitung',
+  kassier: 'Vereinskassier',
+  chef: 'Kassenchef'
+};
+
+/** Hat die angemeldete Person ein eigenes Konto? */
+function mitKonto() {
+  return Boolean(ROLLEN_NAMEN[zustand.rolle]);
+}
+
+/** Nur die Abteilungsleitung richtet Kassen und Konten ein. */
+function istLeitung() {
+  return zustand.rolle === 'admin';
+}
+
+/** Wer ans Vereinskonto kommt: zahlt die Leiter aus, begleicht Rechnungen. */
+function istKassier() {
+  return zustand.rolle === 'admin' || zustand.rolle === 'kassier';
+}
+
+/** Wer in einer Kasse buchen darf: Belege pruefen, Einnahmen erfassen. */
+function darfBuchen() {
+  return zustand.rolle === 'admin' || zustand.rolle === 'chef';
+}
 
 // ------------------------------------------------------------- Kleinkram
 
@@ -87,16 +115,9 @@ function melden(text, schlecht = false) {
 
 // ----------------------------------------------------------------- Server
 
-// Die App laeuft auf dem Server unter cevimarch.ch/kasse/, lokal direkt unter
-// "/". Darum wird der Pfad nicht fest verdrahtet, sondern aus der Adresse der
-// Seite selbst abgeleitet - alle Aufrufe haengen daran.
-const WURZEL = new URL('.', document.baseURI).pathname.replace(/\/+$/, '');
-
-/** Vollstaendige Adresse eines Endpunkts, z.B. "/kasse/api/belege/7". */
-function pfadZu(pfad) {
-  return `${WURZEL}/api${pfad}`;
-}
-
+// Die App laeuft auf dem Server unter cevimarch.ch/kasse/. Damit die
+// Aufrufe auf "/api/..." trotzdem ankommen, leitet nginx diesen Pfad
+// ebenfalls an die App weiter (siehe server/cevimarch.nginx).
 async function api(pfad, { methode = 'GET', daten, formular, roh = false } = {}) {
   const kopf = { 'X-Requested-With': 'ce-march-kasse', 'X-Geraet': zustand.geraet };
   if (zustand.csrf) kopf['X-CSRF-Token'] = zustand.csrf;
@@ -175,18 +196,60 @@ function appZeigen() {
   document.getElementById('app').hidden = false;
 }
 
+function anmeldungUebernehmen(antwort) {
+  zustand.rolle = antwort.rolle;
+  zustand.csrf = antwort.csrf;
+  zustand.konto = antwort.konto || null;
+  zustand.kassenIds = antwort.kassen_ids || [];
+}
+
+/** Zwischen dem gemeinsamen Passwort und der Anmeldung mit Konto wechseln. */
+document.getElementById('anmelde-wechsel').addEventListener('click', () => {
+  const mitPasswort = document.getElementById('anmelde-formular');
+  const mitEmail = document.getElementById('konto-formular');
+  const wechsel = document.getElementById('anmelde-wechsel');
+  const hinweis = document.getElementById('anmelde-hinweis');
+  const jetztKonto = mitPasswort.hidden;
+
+  mitPasswort.hidden = !jetztKonto;
+  mitEmail.hidden = jetztKonto;
+  wechsel.textContent = jetztKonto
+    ? 'Ich bin Kassenchef oder Abteilungsleitung'
+    : 'Ich will nur einen Beleg erfassen';
+  hinweis.textContent = jetztKonto
+    ? 'Das Passwort zum Belege erfassen bekommst du von der Abteilungsleitung.'
+    : 'Dein Konto legt die Abteilungsleitung an. Beim ersten Anmelden setzt du dein eigenes Passwort.';
+  (jetztKonto ? mitPasswort : mitEmail).querySelector('input').focus();
+});
+
 document.getElementById('anmelde-formular').addEventListener('submit', async (ereignis) => {
   ereignis.preventDefault();
   const fehlerfeld = document.getElementById('anmelde-fehler');
   fehlerfeld.hidden = true;
   const formular = new FormData(ereignis.target);
   try {
-    const antwort = await api('/anmelden', {
+    anmeldungUebernehmen(await api('/anmelden', {
       methode: 'POST',
       daten: { passwort: formular.get('passwort') }
-    });
-    zustand.rolle = antwort.rolle;
-    zustand.csrf = antwort.csrf;
+    }));
+    ereignis.target.reset();
+    await starten();
+  } catch (fehler) {
+    fehlerfeld.textContent = fehler.message;
+    fehlerfeld.hidden = false;
+  }
+});
+
+document.getElementById('konto-formular').addEventListener('submit', async (ereignis) => {
+  ereignis.preventDefault();
+  const fehlerfeld = document.getElementById('konto-fehler');
+  fehlerfeld.hidden = true;
+  const formular = new FormData(ereignis.target);
+  try {
+    anmeldungUebernehmen(await api('/anmelden-konto', {
+      methode: 'POST',
+      daten: { email: formular.get('email'), passwort: formular.get('passwort') }
+    }));
     ereignis.target.reset();
     await starten();
   } catch (fehler) {
@@ -199,6 +262,7 @@ document.getElementById('abmelden').addEventListener('click', async () => {
   try { await api('/abmelden', { methode: 'POST' }); } catch { /* egal */ }
   zustand.rolle = null;
   zustand.csrf = null;
+  zustand.konto = null;
   anmeldungZeigen();
 });
 
@@ -208,8 +272,12 @@ function navigationZeichnen() {
   const nav = document.getElementById('navigation');
   const ziel = location.hash || '#/';
   const eintraege = zustand.rolle === 'admin'
-    ? [['#/', 'Kassen'], ['#/neu', 'Beleg erfassen'], ['#/einstellungen', 'Einstellungen']]
-    : [['#/', 'Start'], ['#/neu', 'Beleg erfassen'], ['#/meine', 'Meine Belege']];
+    ? [['#/', 'Kassen'], ['#/neu', 'Beleg erfassen'], ['#/konten', 'Personen'], ['#/konto', 'Mein Konto']]
+    : zustand.rolle === 'kassier'
+      ? [['#/', 'Alle Kassen'], ['#/neu', 'Beleg erfassen'], ['#/konto', 'Mein Konto']]
+      : zustand.rolle === 'chef'
+        ? [['#/', 'Meine Kassen'], ['#/neu', 'Beleg erfassen'], ['#/konto', 'Mein Konto']]
+        : [['#/', 'Start'], ['#/neu', 'Beleg erfassen'], ['#/meine', 'Meine Belege']];
 
   nav.replaceChildren(
     ...eintraege.map(([adresse, beschriftung]) =>
@@ -221,8 +289,12 @@ function navigationZeichnen() {
     )
   );
 
-  document.getElementById('rollen-text').textContent =
-    zustand.rolle === 'admin' ? 'Angemeldet als Abteilungsleitung' : 'Angemeldet zum Belege erfassen';
+  const rollenName = ROLLEN_NAMEN[zustand.rolle] || '';
+  const eigenerName = zustand.konto?.name || '';
+  document.getElementById('rollen-text').textContent = mitKonto()
+    // Heisst jemand gleich wie seine Rolle, nicht zweimal dasselbe schreiben.
+    ? (eigenerName && eigenerName !== rollenName ? `${rollenName} · ${eigenerName}` : rollenName)
+    : 'Angemeldet zum Belege erfassen';
 }
 
 // ------------------------------------------------------- Ansicht: Kassen
@@ -238,10 +310,16 @@ async function kassenAnsicht() {
   return [
     el('div', { class: 'seiten-kopf' }, [
       el('div', {}, [
-        el('h1', { text: 'Kassen' }),
-        el('p', { text: 'Jede Kasse führt ihr eigenes Buch mit eigenen Belegnummern.' })
+        el('h1', { text: zustand.rolle === 'chef' ? 'Meine Kassen' : 'Kassen' }),
+        el('p', {
+          text: zustand.rolle === 'chef'
+            ? 'Die Kassen, die dir die Abteilungsleitung freigegeben hat.'
+            : 'Jede Kasse führt ihr eigenes Buch mit eigenen Belegnummern.'
+        })
       ]),
-      el('button', { class: 'knopf primaer', text: 'Neue Kasse', onclick: () => kasseBearbeiten(null) })
+      istLeitung()
+        ? el('button', { class: 'knopf primaer', text: 'Neue Kasse', onclick: () => kasseBearbeiten(null) })
+        : null
     ]),
 
     el('div', { class: 'zahlen' }, [
@@ -253,8 +331,14 @@ async function kassenAnsicht() {
     kassen.length
       ? el('div', { class: 'kassen-gitter' }, kassen.map(kassenKachel))
       : el('div', { class: 'karte leer' }, [
-          el('p', { text: 'Noch keine Kasse angelegt.' }),
-          el('button', { class: 'knopf primaer', text: 'Erste Kasse anlegen', onclick: () => kasseBearbeiten(null) })
+          el('p', {
+            text: istLeitung()
+              ? 'Noch keine Kasse angelegt.'
+              : 'Dir ist noch keine Kasse freigegeben. Melde dich bei der Abteilungsleitung.'
+          }),
+          istLeitung()
+            ? el('button', { class: 'knopf primaer', text: 'Erste Kasse anlegen', onclick: () => kasseBearbeiten(null) })
+            : null
         ])
   ];
 }
@@ -383,20 +467,24 @@ async function kasseAnsicht(id, jahrWunsch) {
     ])
   ];
 
-  // --- Zu prüfen
-  if (offene.length) teile.push(pruefKarte(offene, id));
+  // --- Zu prüfen. Das ist die Arbeit des Kassenchefs; der Vereinskassier
+  // sieht die offenen Belege nur in der Liste weiter unten.
+  if (offene.length && darfBuchen()) teile.push(pruefKarte(offene, id));
 
   // --- Das Kassenbuch
   teile.push(buchKarte(buch, kasse, jahr, id));
 
   // --- Wem schuldet die Kasse noch Geld
-  teile.push(schuldenKarte(schulden, id, personen));
+  teile.push(schuldenKarte(schulden, id));
+
+  // --- Rechnungen an den Verein
+  teile.push(rechnungenKarte(daten.rechnungen || [], id));
 
   // --- Alle Belege mit Foto
   teile.push(belegeKarte(daten.belege, id));
 
   // --- Einnahme erfassen und Kasse ändern
-  teile.push(einnahmeKarte(buch, id, kasse));
+  if (darfBuchen()) teile.push(einnahmeKarte(buch, id, kasse));
 
   return teile;
 }
@@ -539,12 +627,22 @@ function buchKarte(buch, kasse, jahr, kasseId) {
   ]);
 }
 
-function schuldenKarte(schulden, kasseId, personen) {
+function schuldenKarte(schulden, kasseId) {
   return el('div', { class: 'karte' }, [
     el('div', { class: 'karte-kopf' }, [
       el('h2', { text: 'Diese Kasse schuldet noch' }),
       el('strong', { text: `CHF ${chf(schulden.gesamt_rappen)}` })
     ]),
+
+    // --- Leiter, die etwas ausgelegt haben
+    el('p', {
+      class: 'hinweis',
+      text: istKassier()
+        ? 'Du führst das Vereinskonto – du zahlst diese Auslagen zurück.'
+        : 'Zurückbezahlt wird vom Vereinskassier, der das Vereinskonto führt.'
+    }),
+
+    el('h3', { text: 'An Leiterinnen und Leiter', style: 'margin-bottom: 6px' }),
     schulden.personen.length
       ? el('div', {}, schulden.personen.map((person) =>
           el('div', { class: 'schuld-zeile' }, [
@@ -557,15 +655,144 @@ function schuldenKarte(schulden, kasseId, personen) {
             ]),
             el('div', { class: 'knopf-reihe' }, [
               el('span', { class: 'summe', text: `CHF ${chf(person.summe)}` }),
-              el('button', {
-                class: 'knopf kompakt', text: 'Ausbezahlt',
-                onclick: () => rueckerstattungBuchen(kasseId, person)
-              })
+              istKassier() || zustand.rolle === 'chef'
+                ? el('button', {
+                    class: 'knopf kompakt',
+                    text: istKassier() ? 'Vom Vereinskonto bezahlt' : 'Ich habe vorgestreckt',
+                    onclick: () => rueckerstattungBuchen(kasseId, person)
+                  })
+                : null
             ])
           ])
         ))
-      : el('div', { class: 'leer', text: 'Niemandem mehr Geld schuldig – alles ausbezahlt.' }),
-    personen.length ? null : null
+      : el('div', { class: 'leer', text: 'Allen Leitern alles zurückbezahlt.' }),
+
+    // --- Kassenchefs, die aus der eigenen Tasche vorgestreckt haben
+    el('h3', { text: 'An Kassenchefs (vorgestreckt)', style: 'margin: 18px 0 6px' }),
+    schulden.chefs.length
+      ? el('div', {}, schulden.chefs.map((chef) => chefZeile(chef, kasseId)))
+      : el('div', { class: 'leer', text: 'Niemand hat etwas vorgestreckt.' })
+  ]);
+}
+
+/** Eine Zeile pro Kassenchef, der Geld vorgestreckt hat. */
+function chefZeile(chef, kasseId) {
+  const selber = zustand.konto && zustand.konto.id === chef.benutzer_id;
+  const darfRechnen = selber || istLeitung();
+  const stand = chef.ohne_rechnung_rappen === 0
+    ? 'Rechnung gestellt, noch nicht bezahlt'
+    : chef.ohne_rechnung_rappen === chef.summe
+      ? 'noch keine Rechnung gestellt'
+      : `noch nicht verrechnet: CHF ${chf(chef.ohne_rechnung_rappen)}`;
+
+  return el('div', { class: 'schuld-zeile' }, [
+    el('div', {}, [
+      el('div', { class: 'name', text: chef.name + (selber ? ' (du)' : '') }),
+      el('div', {
+        class: 'zeilen-notiz',
+        text: `${chef.anzahl} ${chef.anzahl === 1 ? 'Auszahlung' : 'Auszahlungen'} · ${stand}`
+      })
+    ]),
+    el('div', { class: 'knopf-reihe' }, [
+      el('span', { class: 'summe', text: `CHF ${chf(chef.summe)}` }),
+      darfRechnen && chef.ohne_rechnung_rappen
+        ? el('button', {
+            class: 'knopf blau kompakt', text: 'Rechnung stellen',
+            onclick: () => rechnungStellen(kasseId, chef)
+          })
+        : null
+    ])
+  ]);
+}
+
+/** Rechnung an den Verein ueber alles, was noch nicht verrechnet ist. */
+function rechnungStellen(kasseId, chef) {
+  const eigenesKonto = zustand.konto && zustand.konto.id === chef.benutzer_id;
+  if (!chef.iban && eigenesKonto && !zustand.konto.iban) {
+    return dialogZeigen('IBAN fehlt', el('div', {}, [
+      el('p', { text: 'Für die Rechnung braucht es deine IBAN – der Verein überweist dir das Geld darauf.' }),
+      el('p', {}, [
+        el('a', {
+          href: '#/konto', text: 'Jetzt unter "Mein Konto" eintragen', onclick: dialogSchliessen
+        })
+      ])
+    ]));
+  }
+
+  const formular = el('form', {}, [
+    el('p', { text: `Rechnung über CHF ${chf(chef.ohne_rechnung_rappen)} an den Verein, zahlbar an ${chef.name}.` }),
+    el('label', { text: 'Datum der Rechnung' }, [
+      el('input', { name: 'datum', type: 'date', value: heute(), required: true })
+    ]),
+    el('label', { text: 'Notiz (freiwillig)' }, [el('input', { name: 'notiz' })]),
+    el('p', {
+      class: 'hinweis',
+      text: 'Danach lässt sie sich ausdrucken oder als PDF speichern und dem Vereinskassier geben.'
+    })
+  ]);
+
+  dialogZeigen('Rechnung an den Verein', formular, [
+    el('button', { class: 'knopf', text: 'Abbrechen', onclick: dialogSchliessen }),
+    el('button', {
+      class: 'knopf primaer', text: 'Rechnung erstellen',
+      onclick: async () => {
+        const daten = Object.fromEntries(new FormData(formular));
+        try {
+          const rechnung = await api(`/kassen/${kasseId}/rechnungen`, {
+            methode: 'POST', daten: { ...daten, benutzer_id: chef.benutzer_id }
+          });
+          dialogSchliessen();
+          melden('Rechnung erstellt.');
+          window.open(`/api/export/rechnung/${rechnung.id}`, '_blank', 'noopener');
+          zeichnen();
+        } catch (fehler) { melden(fehler.message, true); }
+      }
+    })
+  ]);
+}
+
+/** Die gestellten Rechnungen dieser Kasse. */
+function rechnungenKarte(rechnungen, kasseId) {
+  if (!rechnungen.length) return null;
+  return el('div', { class: 'karte' }, [
+    el('div', { class: 'karte-kopf' }, [el('h2', { text: 'Rechnungen an den Verein' })]),
+    el('div', {}, rechnungen.map((rechnung) =>
+      el('div', { class: 'schuld-zeile' }, [
+        el('div', {}, [
+          el('div', {
+            class: 'name',
+            text: `Nr. ${rechnung.jahr}-${String(rechnung.nummer).padStart(3, '0')} · ${rechnung.benutzer_name}`
+          }),
+          el('div', {
+            class: 'zeilen-notiz',
+            text: datum(rechnung.datum) + (rechnung.status === 'bezahlt'
+              ? ` · bezahlt am ${datum(rechnung.bezahlt_am)}`
+              : ' · noch offen')
+          })
+        ]),
+        el('div', { class: 'knopf-reihe' }, [
+          el('span', { class: 'summe', text: `CHF ${chf(rechnung.betrag_rappen)}` }),
+          el('a', {
+            class: 'knopf kompakt', text: 'Ansehen',
+            href: `/api/export/rechnung/${rechnung.id}`, target: '_blank', rel: 'noopener'
+          }),
+          istKassier() && rechnung.status === 'offen'
+            ? el('button', {
+                class: 'knopf blau kompakt', text: 'Bezahlt',
+                onclick: async () => {
+                  try {
+                    await api(`/kassen/${kasseId}/rechnungen/${rechnung.id}/bezahlt`, {
+                      methode: 'POST', daten: { bezahlt: true, datum: heute() }
+                    });
+                    melden('Rechnung als bezahlt gebucht.');
+                    zeichnen();
+                  } catch (fehler) { melden(fehler.message, true); }
+                }
+              })
+            : null
+        ])
+      ])
+    ))
   ]);
 }
 
@@ -585,6 +812,7 @@ function rueckerstattungBuchen(kasseId, person) {
         ])
       ])
     ]),
+    quelleFeld(),
     el('label', { text: 'Notiz (freiwillig)' }, [el('input', { name: 'notiz' })])
   ]);
 
@@ -605,6 +833,30 @@ function rueckerstattungBuchen(kasseId, person) {
         } catch (fehler) { melden(fehler.message, true); }
       }
     })
+  ]);
+}
+
+/**
+ * Woher kam das Geld? Der Vereinskassier zahlt vom Vereinskonto, ein
+ * Kassenchef kann nur festhalten, dass er selbst vorgestreckt hat.
+ */
+function quelleFeld() {
+  if (!istKassier()) {
+    return el('div', {}, [
+      el('input', { type: 'hidden', name: 'quelle', value: 'eigene_tasche' }),
+      el('p', {
+        class: 'hinweis',
+        text: 'Du hältst damit fest, dass du den Betrag aus der eigenen Tasche '
+          + 'vorgestreckt hast. Er erscheint danach unter deinem Namen bei dieser '
+          + 'Kasse, und du kannst daraus eine Rechnung an den Verein stellen.'
+      })
+    ]);
+  }
+  return el('label', { text: 'Woher kam das Geld?' }, [
+    el('select', { name: 'quelle' }, [
+      el('option', { value: 'kasse', text: 'Vom Vereinskonto – damit ist es erledigt' }),
+      el('option', { value: 'eigene_tasche', text: 'Aus meiner eigenen Tasche – der Verein schuldet es mir' })
+    ])
   ]);
 }
 
@@ -697,7 +949,7 @@ async function belegDialog(id, kasseId) {
   ]);
 
   const knoepfe = [];
-  if (zustand.rolle === 'admin') {
+  if (darfBuchen() && zustand.kassenIds.includes(beleg.kasse_id)) {
     if (beleg.status !== 'geprueft') {
       knoepfe.push(el('button', {
         class: 'knopf primaer', text: 'Prüfen und buchen',
@@ -717,7 +969,7 @@ async function belegDialog(id, kasseId) {
       }));
     }
   }
-  if (zustand.rolle === 'admin' || beleg.status === 'offen') {
+  if (darfBuchen() || beleg.status === 'offen') {
     knoepfe.push(el('button', {
       class: 'knopf gefahr', text: 'Löschen',
       onclick: async () => {
@@ -773,10 +1025,12 @@ function einnahmeKarte(buch, kasseId, kasse) {
   return el('div', { class: 'karte' }, [
     el('div', { class: 'karte-kopf' }, [
       el('h2', { text: 'Geld, das in die Kasse kommt' }),
-      el('button', {
-        class: 'knopf kompakt', text: 'Kasse ändern',
-        onclick: () => kasseBearbeiten(kasse)
-      })
+      istLeitung()
+        ? el('button', {
+            class: 'knopf kompakt', text: 'Kasse ändern',
+            onclick: () => kasseBearbeiten(kasse)
+          })
+        : null
     ]),
     formular
   ]);
@@ -785,7 +1039,7 @@ function einnahmeKarte(buch, kasseId, kasse) {
 // ------------------------------------------------------ Ansicht: Startseite
 
 async function startAnsicht() {
-  if (zustand.rolle === 'admin') return kassenAnsicht();
+  if (mitKonto()) return kassenAnsicht();
 
   const meine = await api('/belege/meine').catch(() => []);
   return [
@@ -926,7 +1180,7 @@ async function neuerBelegAnsicht(kasseVorgabe) {
         zustand.name = String(felder.get('person') || '').trim();
         speicherSchreiben('cmk_name', zustand.name);
         melden(`Gespeichert als Beleg Nr. ${beleg.nummer} in ${beleg.kasse_name}.`);
-        location.hash = zustand.rolle === 'admin' ? `#/kasse/${beleg.kasse_id}` : '#/';
+        location.hash = mitKonto() ? `#/kasse/${beleg.kasse_id}` : '#/';
         zeichnen();
       } catch (fehler) {
         melden(fehler.message, true);
@@ -976,72 +1230,309 @@ async function neuerBelegAnsicht(kasseVorgabe) {
   ];
 }
 
-// ------------------------------------------------- Ansicht: Einstellungen
+// ------------------------------------------------ Ansicht: Personen (Konten)
 
-async function einstellungenAnsicht() {
-  function passwortKarte(rolle, titel, erklaerung) {
-    const feld = el('input', { name: 'passwort', type: 'text', required: true, minLength: 6 });
-    return el('div', { class: 'karte' }, [
-      el('div', { class: 'karte-kopf' }, [el('h2', { text: titel })]),
-      el('p', { class: 'hinweis', text: erklaerung }),
-      el('form', {
-        onsubmit: async (ereignis) => {
-          ereignis.preventDefault();
-          if (!(await bestaetigen(
-            'Passwort ändern',
-            'Alle Geräte, die dieses Passwort benutzen, müssen sich danach neu anmelden. Weiter?',
-            'Ändern'
-          ))) return;
-          try {
-            await api('/passwoerter', { methode: 'POST', daten: { rolle, passwort: feld.value } });
-            melden('Passwort geändert.');
-            feld.value = '';
-          } catch (fehler) { melden(fehler.message, true); }
-        }
-      }, [
-        el('label', { text: 'Neues Passwort' }, [feld]),
-        el('div', { class: 'knopf-reihe' }, [
-          el('button', { class: 'knopf primaer', type: 'submit', text: 'Passwort setzen' }),
-          el('button', {
-            class: 'knopf', type: 'button', text: 'Vorschlag holen',
-            onclick: async () => {
-              try {
-                const antwort = await api('/passwort-vorschlag');
-                feld.value = antwort.passwort;
-                feld.focus();
-              } catch (fehler) { melden(fehler.message, true); }
-            }
-          })
-        ])
-      ])
-    ]);
-  }
-
-  const nameFeld = el('input', { value: zustand.name, placeholder: 'Vorname Name' });
+async function kontenAnsicht() {
+  const [konten, kassen] = await Promise.all([api('/benutzer'), api('/kassen')]);
 
   return [
     el('div', { class: 'seiten-kopf' }, [
       el('div', {}, [
-        el('h1', { text: 'Einstellungen' }),
-        el('p', { text: 'Zwei Passwörter: eines für die Abteilungsleitung, eines zum Belege erfassen.' })
-      ])
-    ]),
-    passwortKarte('admin', 'Passwort Abteilungsleitung',
-      'Damit sieht man alle Kassen, prüft Belege, bucht Einnahmen und Rückerstattungen. Beide Abteilungsleitungen nehmen dasselbe Passwort.'),
-    passwortKarte('benutzer', 'Passwort zum Belege erfassen',
-      'Damit kann man nur Belege einreichen und die eigenen Belege dieses Geräts ansehen – keine Kassenstände, keine fremden Belege.'),
-    el('div', { class: 'karte' }, [
-      el('div', { class: 'karte-kopf' }, [el('h2', { text: 'Dein Name auf diesem Gerät' })]),
-      el('p', { class: 'hinweis', text: 'Dieser Name wird beim Erfassen automatisch im Feld "Ausgelegt von" vorgeschlagen.' }),
-      el('label', { text: 'Name' }, [nameFeld]),
+        el('h1', { text: 'Personen mit Konto' }),
+        el('p', { text: 'Abteilungsleitung, Vereinskassier und Kassenchefs. Alle übrigen brauchen kein Konto – sie erfassen Belege mit dem gemeinsamen Passwort.' })
+      ]),
       el('button', {
-        class: 'knopf primaer', text: 'Namen merken',
-        onclick: () => {
-          zustand.name = nameFeld.value.trim();
-          speicherSchreiben('cmk_name', zustand.name);
-          melden('Name gemerkt.');
+        class: 'knopf primaer', text: 'Person anlegen',
+        onclick: () => kontoBearbeiten(null, kassen)
+      })
+    ]),
+
+    el('div', { class: 'karte' }, [
+      el('div', {}, konten.map((konto) =>
+        el('div', { class: 'schuld-zeile' }, [
+          el('div', {}, [
+            el('div', {
+              class: 'name',
+              text: konto.name + (konto.aktiv ? '' : ' (gesperrt)')
+            }),
+            el('div', {
+              class: 'zeilen-notiz',
+              text: [
+                konto.rolle === 'admin'
+                  ? 'Abteilungsleitung – darf alles'
+                  : konto.rolle === 'kassier'
+                    ? 'Vereinskassier – zahlt aus'
+                    : 'Kassenchef',
+                konto.email,
+                konto.rolle !== 'chef'
+                  ? 'alle Kassen'
+                  : konto.kassen.length
+                    ? konto.kassen.map((k) => k.name).join(', ')
+                    : 'noch keine Kasse freigegeben',
+                konto.passwort_neu ? 'hat das Startpasswort noch nicht geändert' : null
+              ].filter(Boolean).join(' · ')
+            })
+          ]),
+          el('div', { class: 'knopf-reihe' }, [
+            el('button', {
+              class: 'knopf kompakt', text: 'Ändern',
+              onclick: () => kontoBearbeiten(konto, kassen)
+            }),
+            el('button', {
+              class: 'knopf kompakt', text: 'Neues Passwort',
+              onclick: async () => {
+                if (!(await bestaetigen(
+                  'Passwort zurücksetzen',
+                  `${konto.name} bekommt ein neues Startpasswort und muss sich neu anmelden. Weiter?`,
+                  'Zurücksetzen'
+                ))) return;
+                try {
+                  const antwort = await api(`/benutzer/${konto.id}/passwort`, { methode: 'POST' });
+                  startpasswortZeigen(konto.name, antwort.startpasswort);
+                } catch (fehler) { melden(fehler.message, true); }
+              }
+            })
+          ])
+        ])
+      ))
+    ]),
+
+    el('div', { class: 'karte' }, [
+      el('div', { class: 'karte-kopf' }, [el('h2', { text: 'Passwort zum Belege erfassen' })]),
+      el('p', {
+        class: 'hinweis',
+        text: 'Dieses eine Passwort gilt für alle Leiterinnen und Leiter. Damit reichen sie bei jeder Kasse Belege ein und sehen nur ihre eigenen – keine Kassenstände, keine fremden Belege.'
+      }),
+      melderPasswortFormular()
+    ])
+  ];
+}
+
+function melderPasswortFormular() {
+  const feld = el('input', { name: 'passwort', type: 'text', required: true, minLength: 8 });
+  return el('form', {
+    onsubmit: async (ereignis) => {
+      ereignis.preventDefault();
+      if (!(await bestaetigen(
+        'Passwort ändern',
+        'Alle Leiter müssen sich danach mit dem neuen Passwort neu anmelden. Weiter?',
+        'Ändern'
+      ))) return;
+      try {
+        await api('/melder-passwort', { methode: 'POST', daten: { passwort: feld.value } });
+        melden('Passwort geändert. Gib es den Leitern weiter.');
+        feld.value = '';
+      } catch (fehler) { melden(fehler.message, true); }
+    }
+  }, [
+    el('label', { text: 'Neues Passwort' }, [feld]),
+    el('div', { class: 'knopf-reihe' }, [
+      el('button', { class: 'knopf primaer', type: 'submit', text: 'Passwort setzen' }),
+      el('button', {
+        class: 'knopf', type: 'button', text: 'Vorschlag holen',
+        onclick: async () => {
+          try {
+            const antwort = await api('/passwort-vorschlag');
+            feld.value = antwort.passwort;
+            feld.focus();
+          } catch (fehler) { melden(fehler.message, true); }
         }
       })
+    ])
+  ]);
+}
+
+/** Zeigt ein frisch erzeugtes Startpasswort gross an - es ist nur einmal sichtbar. */
+function startpasswortZeigen(name, passwort) {
+  dialogZeigen('Startpasswort für ' + name, el('div', {}, [
+    el('p', { text: 'Gib dieses Passwort persönlich weiter. Es wird nur jetzt angezeigt.' }),
+    el('p', {
+      style: 'font-size: 1.5rem; font-weight: 800; letter-spacing: .02em; margin: 14px 0;',
+      text: passwort
+    }),
+    el('p', { class: 'hinweis', text: 'Beim ersten Anmelden muss ein eigenes Passwort gesetzt werden.' })
+  ]), [
+    el('button', {
+      class: 'knopf primaer', text: 'Verstanden',
+      onclick: () => { dialogSchliessen(); zeichnen(); }
+    })
+  ]);
+}
+
+/** Person anlegen oder aendern, samt Freigabe der Kassen. */
+function kontoBearbeiten(konto, kassen) {
+  const kaesten = kassen.map((kasse) =>
+    el('label', {
+      style: 'display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-weight: 600; color: inherit;'
+    }, [
+      el('input', {
+        type: 'checkbox', value: String(kasse.id),
+        style: 'width: 18px; height: 18px; margin: 0;',
+        checked: Boolean(konto?.kassen?.some((k) => k.id === kasse.id))
+      }),
+      kasse.name
+    ])
+  );
+
+  const formular = el('form', {}, [
+    el('label', { text: 'Name' }, [
+      el('input', { name: 'name', required: true, value: konto?.name || '' })
+    ]),
+    el('label', { text: 'E-Mail' }, [
+      el('input', {
+        name: 'email', type: 'email', required: !konto,
+        value: konto?.email || '', disabled: Boolean(konto)
+      })
+    ]),
+    el('div', { class: 'feld-paar' }, [
+      el('label', { text: 'Rolle' }, [
+        el('select', { name: 'rolle' }, [
+          el('option', {
+            value: 'chef', text: 'Kassenchef – führt eine Kasse',
+            selected: !konto || konto.rolle === 'chef'
+          }),
+          el('option', {
+            value: 'kassier', text: 'Vereinskassier – zahlt vom Vereinskonto aus',
+            selected: konto?.rolle === 'kassier'
+          }),
+          el('option', {
+            value: 'admin', text: 'Abteilungsleitung – darf alles',
+            selected: konto?.rolle === 'admin'
+          })
+        ])
+      ]),
+      konto
+        ? el('label', { text: 'Zustand' }, [
+            el('select', { name: 'aktiv' }, [
+              el('option', { value: '1', text: 'aktiv', selected: Boolean(konto.aktiv) }),
+              el('option', { value: '0', text: 'gesperrt', selected: !konto.aktiv })
+            ])
+          ])
+        : null
+    ]),
+    el('label', { text: 'IBAN (für die Rechnung an den Verein)' }, [
+      el('input', { name: 'iban', value: konto?.iban || '', placeholder: 'CH00 0000 0000 0000 0000 0' })
+    ]),
+    el('h3', { text: 'Diese Kassen freigeben', style: 'margin: 16px 0 8px' }),
+    el('div', {}, kaesten.length ? kaesten : [el('p', { class: 'hinweis', text: 'Noch keine Kasse vorhanden.' })]),
+    el('p', {
+      class: 'hinweis',
+      text: 'Abteilungsleitung und Vereinskassier sehen ohnehin alle Kassen. '
+        + 'Die Freigabe zählt für Kassenchefs.'
+    })
+  ]);
+
+  dialogZeigen(konto ? 'Person ändern' : 'Person anlegen', formular, [
+    el('button', { class: 'knopf', text: 'Abbrechen', onclick: dialogSchliessen }),
+    el('button', {
+      class: 'knopf primaer', text: 'Speichern',
+      onclick: async () => {
+        const daten = Object.fromEntries(new FormData(formular));
+        const gewaehlt = [...formular.querySelectorAll('input[type="checkbox"]')]
+          .filter((k) => k.checked)
+          .map((k) => Number(k.value));
+        if (daten.aktiv !== undefined) daten.aktiv = daten.aktiv === '1';
+        try {
+          if (konto) {
+            await api(`/benutzer/${konto.id}`, { methode: 'PATCH', daten });
+            await api(`/benutzer/${konto.id}/kassen`, { methode: 'PUT', daten: { kassen: gewaehlt } });
+            dialogSchliessen();
+            melden('Gespeichert.');
+            zeichnen();
+          } else {
+            const neu = await api('/benutzer', {
+              methode: 'POST', daten: { ...daten, kassen: gewaehlt }
+            });
+            dialogSchliessen();
+            startpasswortZeigen(neu.name, neu.startpasswort);
+          }
+        } catch (fehler) { melden(fehler.message, true); }
+      }
+    })
+  ]);
+}
+
+// ------------------------------------------------------ Ansicht: Mein Konto
+
+async function meinKontoAnsicht() {
+  const konto = zustand.konto;
+  if (!konto) return el('div', { class: 'karte leer', text: 'Dafür braucht es ein eigenes Konto.' });
+
+  const angaben = el('form', {
+    onsubmit: async (ereignis) => {
+      ereignis.preventDefault();
+      try {
+        const antwort = await api('/ich', {
+          methode: 'PATCH', daten: Object.fromEntries(new FormData(ereignis.target))
+        });
+        zustand.konto = antwort.konto;
+        melden('Gespeichert.');
+      } catch (fehler) { melden(fehler.message, true); }
+    }
+  }, [
+    el('label', { text: 'Name' }, [el('input', { name: 'name', value: konto.name, required: true })]),
+    el('label', { text: 'IBAN' }, [
+      el('input', {
+        name: 'iban', value: konto.iban || '', placeholder: 'CH00 0000 0000 0000 0000 0'
+      }),
+      el('span', {
+        class: 'hinweis', style: 'display: block; margin-top: 4px;',
+        text: 'Darauf überweist der Verein, was du für deine Kasse vorgestreckt hast.'
+      })
+    ]),
+    el('label', { text: 'Telefon (freiwillig)' }, [
+      el('input', { name: 'telefon', value: konto.telefon || '' })
+    ]),
+    el('button', { class: 'knopf primaer', type: 'submit', text: 'Speichern' })
+  ]);
+
+  const passwort = el('form', {
+    onsubmit: async (ereignis) => {
+      ereignis.preventDefault();
+      const daten = Object.fromEntries(new FormData(ereignis.target));
+      try {
+        await api('/ich/passwort', { methode: 'POST', daten });
+        ereignis.target.reset();
+        zustand.konto.passwort_neu = false;
+        melden('Passwort geändert.');
+        zeichnen();
+      } catch (fehler) { melden(fehler.message, true); }
+    }
+  }, [
+    el('label', { text: 'Bisheriges Passwort' }, [
+      el('input', { name: 'altes_passwort', type: 'password', required: true, autocomplete: 'current-password' })
+    ]),
+    el('label', { text: 'Neues Passwort (mindestens 8 Zeichen)' }, [
+      el('input', { name: 'neues_passwort', type: 'password', required: true, minLength: 8, autocomplete: 'new-password' })
+    ]),
+    el('button', { class: 'knopf primaer', type: 'submit', text: 'Passwort ändern' })
+  ]);
+
+  return [
+    el('div', { class: 'seiten-kopf' }, [
+      el('div', {}, [
+        el('h1', { text: 'Mein Konto' }),
+        el('p', {
+          text: `${konto.email} · ${ROLLEN_NAMEN[zustand.rolle] || ''}`
+        })
+      ])
+    ]),
+    konto.passwort_neu
+      ? el('div', { class: 'karte', style: 'border-left: 4px solid var(--rot)' }, [
+          el('h2', { text: 'Bitte zuerst ein eigenes Passwort setzen' }),
+          el('p', {
+            class: 'hinweis',
+            text: 'Du bist noch mit dem Startpasswort angemeldet, das die Abteilungsleitung vergeben hat.'
+          })
+        ])
+      : null,
+    el('div', { class: 'karte' }, [
+      el('div', { class: 'karte-kopf' }, [el('h2', { text: 'Angaben' })]),
+      angaben
+    ]),
+    el('div', { class: 'karte' }, [
+      el('div', { class: 'karte-kopf' }, [el('h2', { text: 'Passwort ändern' })]),
+      passwort
     ])
   ];
 }
@@ -1061,12 +1552,14 @@ async function zeichnen() {
 
   try {
     let inhalt;
-    if (seite === 'kasse' && zustand.rolle === 'admin') {
+    if (seite === 'kasse' && mitKonto()) {
       inhalt = await kasseAnsicht(teile[1], teile[2]);
     } else if (seite === 'neu') {
       inhalt = await neuerBelegAnsicht(teile[1]);
-    } else if (seite === 'einstellungen' && zustand.rolle === 'admin') {
-      inhalt = await einstellungenAnsicht();
+    } else if (seite === 'konten' && zustand.rolle === 'admin') {
+      inhalt = await kontenAnsicht();
+    } else if (seite === 'konto' && mitKonto()) {
+      inhalt = await meinKontoAnsicht();
     } else if (seite === 'meine') {
       inhalt = await meineBelegeAnsicht();
     } else {
@@ -1095,9 +1588,7 @@ async function starten() {
   zustand.geraet = geraetKennung();
   zustand.name = speicherLesen('cmk_name');
   try {
-    const antwort = await api('/ich');
-    zustand.rolle = antwort.rolle;
-    zustand.csrf = antwort.csrf;
+    anmeldungUebernehmen(await api('/ich'));
     await starten();
   } catch {
     anmeldungZeigen();

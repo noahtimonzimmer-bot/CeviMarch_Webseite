@@ -1,9 +1,20 @@
-// Anmeldung mit zwei Passwoertern, Sitzungen und CSRF-Schutz.
+// Anmeldung, Sitzungen, CSRF-Schutz und Berechtigungen.
 //
-// Es gibt keine persoenlichen Konten. Wer das Leitungspasswort kennt, sieht
-// und verwaltet alles; wer das Mitarbeitspasswort kennt, kann nur Belege
-// einreichen. So koennen sich mehrere Abteilungsleitungen dasselbe Passwort
-// teilen, ohne dass jemand ein Konto braucht.
+// Es gibt zwei Wege in die App:
+//
+//   1. Mit Konto (E-Mail + eigenes Passwort)
+//        rolle 'admin'   - Abteilungsleitung: alles
+//        rolle 'kassier' - Vereinskassier: sieht alle Kassen, zahlt die
+//                          Leiter vom Vereinskonto zurueck und bezahlt die
+//                          Rechnungen. Prueft aber keine Belege und fuehrt
+//                          kein Kassenbuch. Fuer die Jahreskontrolle darf er
+//                          jede Kasse ansehen, drucken und exportieren.
+//        rolle 'chef'    - Kassenchef: fuehrt die ihm zugeteilten Kassen
+//                          und prueft dort die Belege
+//
+//   2. Mit dem gemeinsamen Passwort
+//        rolle 'melder' - darf nur Belege einreichen, bei jeder Kasse,
+//        und sieht nur die Belege des eigenen Geraets.
 import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { db, protokollieren } from './db.js';
@@ -11,8 +22,7 @@ import { db, protokollieren } from './db.js';
 const SITZUNG_TAGE = 30;
 const COOKIE_NAME = 'cmk_sid';
 
-export const SCHLUESSEL_ADMIN = 'passwort_leitung';
-export const SCHLUESSEL_BENUTZER = 'passwort_mitarbeit';
+export const SCHLUESSEL_MELDER = 'passwort_mitarbeit';
 
 // ---------------------------------------------------------------- Passwoerter
 
@@ -29,8 +39,8 @@ function passwortVergleichen(klartext, hash) {
 }
 
 export function passwortRegelnVerletzt(passwort) {
-  if (typeof passwort !== 'string' || passwort.length < 6) {
-    return 'Das Passwort braucht mindestens 6 Zeichen.';
+  if (typeof passwort !== 'string' || passwort.length < 8) {
+    return 'Das Passwort braucht mindestens 8 Zeichen.';
   }
   if (passwort.length > 200) return 'Das Passwort ist zu lang.';
   return null;
@@ -59,19 +69,21 @@ export function einstellungSetzen(schluessel, wert) {
   ).run(schluessel, wert);
 }
 
-export function passwortSetzen(rolle, klartext) {
-  einstellungSetzen(rolle === 'admin' ? SCHLUESSEL_ADMIN : SCHLUESSEL_BENUTZER, passwortHashen(klartext));
+/** Setzt das gemeinsame Passwort fuer alle, die nur Belege einreichen. */
+export function melderPasswortSetzen(klartext) {
+  einstellungSetzen(SCHLUESSEL_MELDER, passwortHashen(klartext));
 }
 
 // ----------------------------------------------------------------- Sitzungen
 
-export function sitzungAnlegen(rolle) {
+export function sitzungAnlegen(rolle, benutzerId = null) {
   const sid = crypto.randomBytes(32).toString('base64url');
   const csrf = crypto.randomBytes(24).toString('base64url');
   const ablauf = Date.now() + SITZUNG_TAGE * 24 * 60 * 60 * 1000;
-  db.prepare('INSERT INTO sitzungen (sid, rolle, csrf, ablauf) VALUES (?, ?, ?, ?)')
-    .run(sid, rolle, csrf, ablauf);
-  return { sid, rolle, csrf, ablauf };
+  db.prepare(
+    'INSERT INTO sitzungen (sid, rolle, benutzer_id, csrf, ablauf) VALUES (?, ?, ?, ?, ?)'
+  ).run(sid, rolle, benutzerId, csrf, ablauf);
+  return { sid, rolle, benutzer_id: benutzerId, csrf, ablauf };
 }
 
 export function sitzungLesen(sid) {
@@ -89,9 +101,14 @@ export function sitzungLoeschen(sid) {
   if (sid) db.prepare('DELETE FROM sitzungen WHERE sid = ?').run(sid);
 }
 
-/** Nach einem Passwortwechsel fliegen alle Geraete mit dieser Rolle raus. */
-export function sitzungenBeenden(rolle, ausser = null) {
-  db.prepare('DELETE FROM sitzungen WHERE rolle = ? AND sid <> ?').run(rolle, ausser || '');
+/** Nach einem Passwortwechsel fliegen die anderen Geraete raus. */
+export function melderSitzungenBeenden() {
+  db.prepare("DELETE FROM sitzungen WHERE rolle = 'melder'").run();
+}
+
+export function kontoSitzungenBeenden(benutzerId, ausser = null) {
+  db.prepare('DELETE FROM sitzungen WHERE benutzer_id = ? AND sid <> ?')
+    .run(benutzerId, ausser || '');
 }
 
 export function alteSitzungenAufraeumen() {
@@ -116,13 +133,26 @@ export const SITZUNGS_COOKIE = COOKIE_NAME;
 
 // --------------------------------------------------------------- Middleware
 
-/** Haengt req.sitzung und req.rolle an, wenn angemeldet. */
+/** Haengt req.sitzung, req.rolle und bei Konten req.benutzer an. */
 export function sitzungLaden(req, _res, next) {
   const sitzung = sitzungLesen(req.cookies?.[COOKIE_NAME]);
-  if (sitzung) {
-    req.sitzung = sitzung;
+  if (!sitzung) return next();
+
+  if (sitzung.benutzer_id) {
+    const benutzer = db
+      .prepare('SELECT id, name, email, rolle, iban, telefon, aktiv, passwort_neu FROM benutzer WHERE id = ?')
+      .get(sitzung.benutzer_id);
+    // Gesperrte Konten kommen nicht mehr rein.
+    if (!benutzer || !benutzer.aktiv) {
+      sitzungLoeschen(sitzung.sid);
+      return next();
+    }
+    req.benutzer = benutzer;
+    req.rolle = benutzer.rolle;
+  } else {
     req.rolle = sitzung.rolle;
   }
+  req.sitzung = sitzung;
   next();
 }
 
@@ -131,10 +161,29 @@ export function angemeldet(req, res, next) {
   next();
 }
 
-export function nurLeitung(req, res, next) {
+/** Nur die Abteilungsleitung. */
+export function nurAdmin(req, res, next) {
   if (!req.rolle) return res.status(401).json({ fehler: 'Nicht angemeldet.' });
   if (req.rolle !== 'admin') {
-    return res.status(403).json({ fehler: 'Nur die Abteilungsleitung kann das.' });
+    return res.status(403).json({ fehler: 'Das darf nur die Abteilungsleitung.' });
+  }
+  next();
+}
+
+/** Abteilungsleitung oder Vereinskassier - wer ans Vereinskonto kommt. */
+export function nurKassier(req, res, next) {
+  if (!req.rolle) return res.status(401).json({ fehler: 'Nicht angemeldet.' });
+  if (req.rolle !== 'admin' && req.rolle !== 'kassier') {
+    return res.status(403).json({ fehler: 'Das macht der Vereinskassier.' });
+  }
+  next();
+}
+
+/** Wer ein eigenes Konto hat - Leitung, Kassier oder Kassenchef. */
+export function mitKonto(req, res, next) {
+  if (!req.rolle) return res.status(401).json({ fehler: 'Nicht angemeldet.' });
+  if (!req.benutzer) {
+    return res.status(403).json({ fehler: 'Dafuer braucht es ein eigenes Konto.' });
   }
   next();
 }
@@ -150,42 +199,110 @@ export function csrfPruefen(req, res, next) {
   next();
 }
 
+// ------------------------------------------------------------ Berechtigungen
+
+/** IDs der Kassen, die diese Anmeldung verwalten darf. */
+export function verwalteteKassen(req) {
+  if (req.rolle === 'admin' || req.rolle === 'kassier') {
+    return db.prepare('SELECT id FROM kassen').all().map((k) => k.id);
+  }
+  if (req.rolle === 'chef' && req.benutzer) {
+    return db
+      .prepare('SELECT kasse_id AS id FROM kassen_chefs WHERE benutzer_id = ?')
+      .all(req.benutzer.id)
+      .map((k) => k.id);
+  }
+  return [];
+}
+
+/**
+ * Darf diese Anmeldung die Kasse ansehen - Kassenbuch, Belege, Druck und
+ * Export? Der Vereinskassier sieht alle Kassen, ein Kassenchef nur seine.
+ */
+export function darfKasse(req, kasseId) {
+  const id = Number(kasseId);
+  if (!Number.isInteger(id)) return false;
+  if (req.rolle === 'admin' || req.rolle === 'kassier') return true;
+  if (req.rolle !== 'chef' || !req.benutzer) return false;
+  return Boolean(
+    db
+      .prepare('SELECT 1 FROM kassen_chefs WHERE kasse_id = ? AND benutzer_id = ?')
+      .get(id, req.benutzer.id)
+  );
+}
+
+/**
+ * Darf diese Anmeldung in der Kasse buchen - Belege pruefen, Einnahmen
+ * erfassen, Eintraege loeschen? Das ist die Arbeit des Kassenchefs. Der
+ * Vereinskassier schaut nur zu und zahlt aus.
+ */
+export function darfBuchen(req, kasseId) {
+  if (req.rolle === 'kassier') return false;
+  return darfKasse(req, kasseId);
+}
+
+/**
+ * Darf diese Anmeldung eine Auszahlung buchen? Vom Vereinskonto zahlt der
+ * Vereinskassier (und die Abteilungsleitung). Ein Kassenchef darf nur
+ * festhalten, was er selbst aus der eigenen Tasche vorgestreckt hat.
+ */
+export function darfAuszahlen(req, kasseId, quelle) {
+  if (!darfKasse(req, kasseId)) return false;
+  if (req.rolle === 'admin') return true;
+  if (req.rolle === 'kassier') return quelle !== 'eigene_tasche';
+  return req.rolle === 'chef' && quelle === 'eigene_tasche';
+}
+
 // ------------------------------------------------------- Anmeldeversuche
 
-// Ohne Benutzernamen kann nur global gebremst werden. Das reicht: die App
-// steht hinter einer eigenen Adresse und hat wenige Benutzer.
-let versuche = { anzahl: 0, bis: 0 };
+// Gebremst wird je Kennung (E-Mail, oder '*' fuer das gemeinsame Passwort).
+const versuche = new Map();
 
-export function zuVieleVersuche() {
-  if (versuche.bis < Date.now()) {
-    versuche = { anzahl: 0, bis: 0 };
+function schluesselFuer(kennung) {
+  return String(kennung || '*').toLowerCase();
+}
+
+export function zuVieleVersuche(kennung) {
+  const eintrag = versuche.get(schluesselFuer(kennung));
+  if (!eintrag) return false;
+  if (eintrag.bis < Date.now()) {
+    versuche.delete(schluesselFuer(kennung));
     return false;
   }
-  return versuche.anzahl >= 10;
+  return eintrag.anzahl >= 10;
 }
 
-export function versuchZaehlen() {
-  versuche.anzahl += 1;
-  versuche.bis = Date.now() + 15 * 60 * 1000;
+export function versuchZaehlen(kennung) {
+  const schluessel = schluesselFuer(kennung);
+  const eintrag = versuche.get(schluessel) || { anzahl: 0, bis: 0 };
+  eintrag.anzahl += 1;
+  eintrag.bis = Date.now() + 15 * 60 * 1000;
+  versuche.set(schluessel, eintrag);
 }
 
-export function versucheZuruecksetzen() {
-  versuche = { anzahl: 0, bis: 0 };
+export function versucheZuruecksetzen(kennung) {
+  versuche.delete(schluesselFuer(kennung));
 }
 
 // -------------------------------------------------------------- Anmelden
 
-/** Prueft das Passwort gegen beide Rollen. Gibt 'admin', 'benutzer' oder null. */
-export function anmelden(passwort) {
+/** Anmeldung mit Konto. Gibt die Benutzerzeile oder null. */
+export function mitEmailAnmelden(email, passwort) {
   if (typeof passwort !== 'string' || !passwort) return null;
-  const adminHash = einstellungLesen(SCHLUESSEL_ADMIN);
-  const benutzerHash = einstellungLesen(SCHLUESSEL_BENUTZER);
+  const benutzer = db
+    .prepare('SELECT * FROM benutzer WHERE email = ? COLLATE NOCASE')
+    .get(String(email || '').trim());
+  if (!benutzer || !benutzer.aktiv) return null;
+  if (!passwortVergleichen(passwort, benutzer.passwort_hash)) return null;
+  protokollieren(benutzer.rolle, 'anmeldung', 'benutzer', benutzer.id, { email: benutzer.email });
+  return benutzer;
+}
 
-  // Beide Vergleiche laufen immer, damit die Antwortzeit nichts verraet.
-  const istAdmin = adminHash ? passwortVergleichen(passwort, adminHash) : false;
-  const istBenutzer = benutzerHash ? passwortVergleichen(passwort, benutzerHash) : false;
-
-  const rolle = istAdmin ? 'admin' : istBenutzer ? 'benutzer' : null;
-  if (rolle) protokollieren(rolle, 'anmeldung', null, null, null);
-  return rolle;
+/** Anmeldung mit dem gemeinsamen Passwort. Gibt 'melder' oder null. */
+export function mitPasswortAnmelden(passwort) {
+  if (typeof passwort !== 'string' || !passwort) return null;
+  const hash = einstellungLesen(SCHLUESSEL_MELDER);
+  if (!hash || !passwortVergleichen(passwort, hash)) return null;
+  protokollieren('melder', 'anmeldung', null, null, null);
+  return 'melder';
 }

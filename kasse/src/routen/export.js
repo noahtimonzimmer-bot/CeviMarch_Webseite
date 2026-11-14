@@ -3,7 +3,7 @@ import express from 'express';
 import crypto from 'node:crypto';
 import ExcelJS from 'exceljs';
 import { db } from '../db.js';
-import { nurLeitung } from '../auth.js';
+import { angemeldet, mitKonto, darfKasse } from '../auth.js';
 import {
   kassenbuch, belegeDerKasse, schuldenDerKasse, kasseLesen,
   ZAHLUNGSART_TEXT, STATUS_TEXT
@@ -11,7 +11,8 @@ import {
 import { alsZahl, ausRappen } from '../geld.js';
 
 const router = express.Router();
-router.use(nurLeitung);
+router.use(angemeldet);
+router.use(mitKonto);
 
 function dateiName(kasse, jahr, endung) {
   const sauber = String(kasse.name).replace(/[^A-Za-z0-9äöüÄÖÜ -]/g, '').trim().replace(/\s+/g, '-');
@@ -22,6 +23,10 @@ function zusammenstellen(req, res) {
   const kasse = kasseLesen(req.params.kasseId);
   if (!kasse) {
     res.status(404).json({ fehler: 'Kasse nicht gefunden.' });
+    return null;
+  }
+  if (!darfKasse(req, kasse.id)) {
+    res.status(403).json({ fehler: 'Diese Kasse ist dir nicht freigegeben.' });
     return null;
   }
   const jahr = req.query.jahr === 'alle' || !req.query.jahr ? null : Number(req.query.jahr);
@@ -164,6 +169,11 @@ router.get('/:kasseId/excel', async (req, res) => {
 
 // --------------------------------------------------------------- Druckansicht
 
+/** "CH9300762011623852957" -> "CH93 0076 2011 6238 5295 7" */
+function ibanLesbar(iban) {
+  return String(iban || '').replace(/\s/g, '').replace(/(.{4})/g, '$1 ').trim();
+}
+
 /** "2026-03-14" -> "14.03.2026", wie im Kassenbuch auf Papier. */
 function datumCH(iso) {
   if (!iso) return '';
@@ -215,6 +225,21 @@ router.get('/:kasseId/druck', (req, res) => {
     )
   ].join('\n');
 
+  const chefBlock = schulden.chefs.length
+    ? `<h2>Von Kassenchefs vorgestreckt</h2>
+       <table class="klein">
+         <thead><tr><th>Kassenchef</th><th>Auszahlungen</th><th class="betrag">Offen CHF</th></tr></thead>
+         <tbody>${schulden.chefs
+           .map(
+             (c) => `<tr><td>${escape(c.name)}</td>
+                         <td>${c.anzahl}</td>
+                         <td class="betrag">${ausRappen(c.summe)}</td></tr>`
+           )
+           .join('')}</tbody>
+         <tfoot><tr><td colspan="2">Total</td><td class="betrag">${ausRappen(schulden.an_chefs_rappen)}</td></tr></tfoot>
+       </table>`
+    : '';
+
   const schuldenBlock = schulden.personen.length
     ? `<h2>Noch nicht zurückerstattet</h2>
        <table class="klein">
@@ -226,7 +251,7 @@ router.get('/:kasseId/druck', (req, res) => {
                          <td class="betrag">${ausRappen(p.summe)}</td></tr>`
            )
            .join('')}</tbody>
-         <tfoot><tr><td colspan="2">Total</td><td class="betrag">${ausRappen(schulden.gesamt_rappen)}</td></tr></tfoot>
+         <tfoot><tr><td colspan="2">Total</td><td class="betrag">${ausRappen(schulden.an_leiter_rappen)}</td></tr></tfoot>
        </table>`
     : '';
 
@@ -341,8 +366,166 @@ router.get('/:kasseId/druck', (req, res) => {
 </table>
 
 ${schuldenBlock}
+${chefBlock}
 
 ${seiten}
+<script nonce="${nonce}">
+  document.getElementById('drucken').addEventListener('click', function () { window.print(); });
+</script>
+</body>
+</html>`);
+});
+
+// ------------------------------------------------------ Rechnung an den Verein
+
+/**
+ * Druckbare Rechnung eines Kassenchefs an den Verein: alles, was er aus
+ * eigener Tasche vorgestreckt hat, mit seiner IBAN zum Ueberweisen.
+ */
+router.get('/rechnung/:rechnungId', (req, res) => {
+  const rechnung = db
+    .prepare(
+      `SELECT n.*, b.name AS benutzer_name, b.email AS benutzer_email, b.telefon AS benutzer_telefon,
+              k.name AS kasse_name
+         FROM rechnungen n
+         JOIN benutzer b ON b.id = n.benutzer_id
+         JOIN kassen   k ON k.id = n.kasse_id
+        WHERE n.id = ?`
+    )
+    .get(Number(req.params.rechnungId));
+  if (!rechnung) return res.status(404).json({ fehler: 'Rechnung nicht gefunden.' });
+  if (!darfKasse(req, rechnung.kasse_id) && req.benutzer?.id !== rechnung.benutzer_id) {
+    return res.status(403).json({ fehler: 'Keine Berechtigung.' });
+  }
+
+  const posten = db
+    .prepare(
+      `SELECT r.datum, r.person, r.betrag_rappen, r.methode,
+              (SELECT GROUP_CONCAT(nummer, ', ') FROM belege WHERE rueckerstattung_id = r.id) AS belegnummern
+         FROM rueckerstattungen r
+        WHERE r.rechnung_id = ? ORDER BY r.datum`
+    )
+    .all(rechnung.id);
+
+  const zeilen = posten
+    .map(
+      (z) => `<tr>
+        <td class="datum">${escape(datumCH(z.datum))}</td>
+        <td>Auslage von ${escape(z.person)} zurückbezahlt${z.belegnummern ? ` <span class="grau">(Beleg ${escape(z.belegnummern)})</span>` : ''}</td>
+        <td class="betrag">${ausRappen(z.betrag_rappen)}</td>
+      </tr>`
+    )
+    .join('\n');
+
+  const nonce = crypto.randomBytes(16).toString('base64');
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.setHeader(
+    'Content-Security-Policy',
+    `default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; ` +
+      `script-src 'nonce-${nonce}'; base-uri 'self'; form-action 'self'`
+  );
+  res.send(`<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Rechnung ${rechnung.jahr}-${String(rechnung.nummer).padStart(3, '0')}</title>
+<style>
+  @page { size: A4; margin: 20mm; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", system-ui, sans-serif; color: #15161a; margin: 0; font-size: 13px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 14px; margin: 24px 0 8px; }
+  .kopf { display: flex; justify-content: space-between; align-items: flex-start;
+          border-bottom: 3px solid #d21a37; padding-bottom: 12px; margin-bottom: 24px; gap: 20px; }
+  .meta { color: #4a4b52; line-height: 1.6; }
+  .parteien { display: flex; justify-content: space-between; gap: 40px; margin-bottom: 28px; }
+  .partei { line-height: 1.6; }
+  .partei .titel { font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
+                   color: #87888f; font-weight: 700; margin-bottom: 4px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; background: #1d4f9e; color: #fff; padding: 7px 9px; font-size: 12px; }
+  td { padding: 7px 9px; border-bottom: 1px solid #e3e3e6; vertical-align: top; }
+  .datum { white-space: nowrap; }
+  .betrag { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .grau { color: #87888f; }
+  tfoot td { font-weight: 800; font-size: 15px; border-top: 2px solid #15161a; border-bottom: 0; padding-top: 10px; }
+  .zahlung { margin-top: 28px; border: 2px solid #15161a; border-radius: 8px; padding: 14px 16px; }
+  .zahlung .iban { font-size: 18px; font-weight: 800; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
+  .bezahlt { margin-top: 20px; color: #1d7a3c; font-weight: 700; }
+  .fuss { margin-top: 36px; color: #87888f; font-size: 11px; line-height: 1.6; }
+  .druckleiste { background: #f4f4f6; border: 1px solid #e3e3e6; padding: 10px 14px;
+      margin-bottom: 20px; border-radius: 10px; display: flex; gap: 10px; align-items: center; }
+  .druckleiste button { background: #d21a37; color: #fff; border: 0; padding: 8px 16px;
+      border-radius: 8px; font-size: 14px; cursor: pointer; font-weight: 600; }
+  @media print { .druckleiste { display: none; } }
+</style>
+</head>
+<body>
+<div class="druckleiste">
+  <button id="drucken" type="button">Drucken / als PDF speichern</button>
+  <span class="meta">${posten.length} ${posten.length === 1 ? 'Posten' : 'Posten'} · ${escape(rechnung.kasse_name)}</span>
+</div>
+
+<div class="kopf">
+  <div>
+    <h1>Rechnung</h1>
+    <div class="meta">
+      Nr. ${rechnung.jahr}-${String(rechnung.nummer).padStart(3, '0')}<br>
+      ${escape(datumCH(rechnung.datum))}
+    </div>
+  </div>
+  <div class="meta" style="text-align: right">
+    <strong>${escape(rechnung.kasse_name)}</strong><br>
+    Cevi March
+  </div>
+</div>
+
+<div class="parteien">
+  <div class="partei">
+    <div class="titel">Rechnungssteller</div>
+    <strong>${escape(rechnung.benutzer_name)}</strong><br>
+    ${escape(rechnung.benutzer_email)}${rechnung.benutzer_telefon ? `<br>${escape(rechnung.benutzer_telefon)}` : ''}
+  </div>
+  <div class="partei">
+    <div class="titel">Rechnung an</div>
+    <strong>Verein Cevi March</strong><br>
+    Kassier<br>
+    Gartenstrasse 4<br>
+    8853 Lachen SZ
+  </div>
+</div>
+
+<p>Auslagen, die ich für die <strong>${escape(rechnung.kasse_name)}</strong> aus eigener
+Tasche vorgestreckt habe. Die zugehörigen Belege sind im Kassenbuch erfasst und geprüft.</p>
+
+<table>
+  <thead>
+    <tr><th>Datum</th><th>Beschreibung</th><th class="betrag">Betrag CHF</th></tr>
+  </thead>
+  <tbody>${zeilen || '<tr><td colspan="3">Keine Posten.</td></tr>'}</tbody>
+  <tfoot>
+    <tr><td colspan="2">Total</td><td class="betrag">${ausRappen(rechnung.betrag_rappen)}</td></tr>
+  </tfoot>
+</table>
+
+<div class="zahlung">
+  <div class="meta">Bitte zu überweisen auf</div>
+  <div class="iban">${escape(rechnung.iban ? ibanLesbar(rechnung.iban) : '— keine IBAN hinterlegt —')}</div>
+  <div class="meta">lautend auf ${escape(rechnung.benutzer_name)}</div>
+</div>
+
+${rechnung.status === 'bezahlt'
+  ? `<p class="bezahlt">Bezahlt am ${escape(datumCH(rechnung.bezahlt_am))}</p>`
+  : ''}
+
+${rechnung.notiz ? `<p class="meta">${escape(rechnung.notiz)}</p>` : ''}
+
+<div class="fuss">
+  Erstellt mit Ce March Kasse am ${new Date().toLocaleDateString('de-CH')}.
+  Diese Rechnung ersetzt die Barauszahlung: der Verein überweist den Betrag direkt
+  an den Kassenchef, der die Leiter bereits entschädigt hat.
+</div>
+
 <script nonce="${nonce}">
   document.getElementById('drucken').addEventListener('click', function () { window.print(); });
 </script>

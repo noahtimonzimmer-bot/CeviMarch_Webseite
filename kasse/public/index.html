@@ -19,17 +19,36 @@
     <img src="img/logo.jpg" alt="Cevi March" class="logo-gross">
     <h1>Ce March Kasse</h1>
     <p class="unterzeile">Belege erfassen, Kasse führen, sauber abrechnen.</p>
+
+    <!-- Der gewoehnliche Weg: nur das gemeinsame Passwort. -->
     <form id="anmelde-formular">
       <label>Passwort
         <input type="password" name="passwort" autocomplete="current-password"
                autocapitalize="off" autocorrect="off" required>
       </label>
       <p class="fehler" id="anmelde-fehler" hidden></p>
+      <button class="knopf primaer breit" type="submit">Belege erfassen</button>
+    </form>
+
+    <!-- Fuer Abteilungsleitung, Vereinskassier und Kassenchefs. -->
+    <form id="konto-formular" hidden>
+      <label>E-Mail
+        <input type="email" name="email" autocomplete="username"
+               autocapitalize="off" autocorrect="off" required>
+      </label>
+      <label>Passwort
+        <input type="password" name="passwort" autocomplete="current-password" required>
+      </label>
+      <p class="fehler" id="konto-fehler" hidden></p>
       <button class="knopf primaer breit" type="submit">Anmelden</button>
     </form>
-    <p class="hinweis">
-      Es gibt ein Passwort für die Abteilungsleitung und eines zum Belege erfassen.
-      Beide gibt die Abteilungsleitung weiter.
+
+    <button class="knopf leise breit" id="anmelde-wechsel" type="button">
+      Ich bin Kassenchef oder Abteilungsleitung
+    </button>
+
+    <p class="hinweis" id="anmelde-hinweis">
+      Das Passwort zum Belege erfassen bekommst du von der Abteilungsleitung.
     </p>
   </div>
 </div>

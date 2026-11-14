@@ -1,38 +1,46 @@
-// Legt beim allerersten Start die beiden Passwoerter an und schreibt sie
-// ins Terminal. Danach kann die Abteilungsleitung sie in der App aendern.
+// Legt beim allerersten Start das Konto der Abteilungsleitung und das
+// gemeinsame Passwort an und schreibt beides ins Terminal.
 import { db } from './db.js';
 import {
-  SCHLUESSEL_ADMIN, SCHLUESSEL_BENUTZER,
-  einstellungLesen, einstellungSetzen, passwortHashen, passwortVorschlagen
+  SCHLUESSEL_MELDER, einstellungLesen, einstellungSetzen,
+  passwortHashen, passwortVorschlagen
 } from './auth.js';
 
 export function ersteEinrichtung() {
-  const fehltAdmin = !einstellungLesen(SCHLUESSEL_ADMIN);
-  const fehltBenutzer = !einstellungLesen(SCHLUESSEL_BENUTZER);
-  if (!fehltAdmin && !fehltBenutzer) return;
+  const zeilen = [];
 
-  const adminPasswort = process.env.PASSWORT_LEITUNG || passwortVorschlagen();
-  const benutzerPasswort = process.env.PASSWORT_MITARBEIT || passwortVorschlagen();
-
-  if (fehltAdmin) einstellungSetzen(SCHLUESSEL_ADMIN, passwortHashen(adminPasswort));
-  if (fehltBenutzer) einstellungSetzen(SCHLUESSEL_BENUTZER, passwortHashen(benutzerPasswort));
-
-  console.log('');
-  console.log('========================================================');
-  console.log(' Ce March Kasse - Passwoerter');
-  if (fehltAdmin) {
-    console.log(`   Leitung   (sieht und verwaltet alles): ${process.env.PASSWORT_LEITUNG ? 'wie in PASSWORT_LEITUNG gesetzt' : adminPasswort}`);
+  // --- Konto der Abteilungsleitung
+  if (db.prepare('SELECT COUNT(*) AS n FROM benutzer').get().n === 0) {
+    const email = (process.env.ADMIN_EMAIL || 'noahtimonzimmer@gmail.com').trim().toLowerCase();
+    const name = process.env.ADMIN_NAME || 'Abteilungsleitung';
+    const passwort = process.env.ADMIN_PASSWORT || passwortVorschlagen();
+    db.prepare(
+      `INSERT INTO benutzer (name, email, passwort_hash, rolle, passwort_neu)
+       VALUES (?, ?, ?, 'admin', 1)`
+    ).run(name, email, passwortHashen(passwort));
+    zeilen.push(`   Abteilungsleitung: ${email}`);
+    zeilen.push(`   Passwort:          ${process.env.ADMIN_PASSWORT ? 'wie in ADMIN_PASSWORT gesetzt' : passwort}`);
   }
-  if (fehltBenutzer) {
-    console.log(`   Mitarbeit (nur Belege erfassen):       ${process.env.PASSWORT_MITARBEIT ? 'wie in PASSWORT_MITARBEIT gesetzt' : benutzerPasswort}`);
-  }
-  console.log('   Beide lassen sich in der App unter "Einstellungen" aendern.');
-  console.log('========================================================');
-  console.log('');
 
-  // Beim ersten Start gleich eine AL-Kasse anlegen, damit die Seite nicht leer ist.
+  // --- Gemeinsames Passwort zum Belege einreichen
+  if (!einstellungLesen(SCHLUESSEL_MELDER)) {
+    const passwort = process.env.PASSWORT_MITARBEIT || passwortVorschlagen();
+    einstellungSetzen(SCHLUESSEL_MELDER, passwortHashen(passwort));
+    zeilen.push(`   Belege erfassen (fuer alle Leiter): ${process.env.PASSWORT_MITARBEIT ? 'wie in PASSWORT_MITARBEIT gesetzt' : passwort}`);
+  }
+
+  // --- Eine erste Kasse, damit die Seite nicht leer ist
   if (db.prepare('SELECT COUNT(*) AS n FROM kassen').get().n === 0) {
     db.prepare('INSERT INTO kassen (name, beschreibung, farbe) VALUES (?, ?, ?)')
       .run('AL-Kasse', 'Kasse der Abteilungsleitung', '#1d4f9e');
   }
+
+  if (!zeilen.length) return;
+  console.log('');
+  console.log('========================================================');
+  console.log(' Ce March Kasse - Zugaenge');
+  for (const zeile of zeilen) console.log(zeile);
+  console.log('   Beides laesst sich in der App aendern.');
+  console.log('========================================================');
+  console.log('');
 }

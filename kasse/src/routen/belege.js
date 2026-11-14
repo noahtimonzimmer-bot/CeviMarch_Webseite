@@ -6,7 +6,7 @@
 import express from 'express';
 import fs from 'node:fs';
 import { db, protokollieren } from '../db.js';
-import { angemeldet, nurLeitung } from '../auth.js';
+import { angemeldet, darfKasse, darfBuchen } from '../auth.js';
 import { zuRappen } from '../geld.js';
 import { ZAHLUNGSARTEN, kasseLesen } from '../kassenbuch.js';
 import { belegUpload, belegDateiSpeichern, vollerPfad, dateiLoeschen } from '../dateien.js';
@@ -44,14 +44,17 @@ function geraetKennung(req) {
 
 function darfSehen(req, beleg) {
   if (!beleg) return false;
-  if (req.rolle === 'admin') return true;
+  // Leitung, Vereinskassier und der zustaendige Kassenchef sehen alles,
+  // was zu ihrer Kasse gehoert.
+  if (darfKasse(req, beleg.kasse_id)) return true;
+  // Wer nur einreicht, sieht die Belege des eigenen Geraets.
   const geraet = geraetKennung(req);
   return Boolean(geraet && beleg.geraet === geraet);
 }
 
 /** Eigene Belege darf man aendern und loeschen, solange sie offen sind. */
 function darfBearbeiten(req, beleg) {
-  if (req.rolle === 'admin') return true;
+  if (darfBuchen(req, beleg.kasse_id)) return true;
   return darfSehen(req, beleg) && beleg.status === 'offen';
 }
 
@@ -210,9 +213,12 @@ router.patch('/:id', (req, res) => {
   res.json({ ...neu, dateien: dateienLesen(neu.id) });
 });
 
-router.post('/:id/status', nurLeitung, (req, res) => {
+router.post('/:id/status', (req, res) => {
   const beleg = belegLesen(req.params.id);
   if (!beleg) return res.status(404).json({ fehler: 'Beleg nicht gefunden.' });
+  if (!darfBuchen(req, beleg.kasse_id)) {
+    return res.status(403).json({ fehler: 'Belege prueft der Kassenchef.' });
+  }
   const status = req.body?.status;
   if (!['offen', 'geprueft', 'abgelehnt'].includes(status)) {
     return res.status(400).json({ fehler: 'Unbekannter Status.' });
@@ -234,7 +240,7 @@ router.post('/:id/status', nurLeitung, (req, res) => {
 });
 
 /** Mehrere Belege auf einmal pruefen. */
-router.post('/sammel-status', nurLeitung, (req, res) => {
+router.post('/sammel-status', (req, res) => {
   const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(Number).filter(Boolean) : [];
   const status = req.body?.status;
   if (!ids.length) return res.status(400).json({ fehler: 'Keine Belege ausgewaehlt.' });
@@ -247,8 +253,9 @@ router.post('/sammel-status', nurLeitung, (req, res) => {
       `UPDATE belege SET status = ?, geprueft_am = datetime('now') WHERE id = ?`
     );
     for (const id of ids) {
-      const beleg = db.prepare('SELECT id, rueckerstattung_id FROM belege WHERE id = ?').get(id);
+      const beleg = db.prepare('SELECT id, kasse_id, rueckerstattung_id FROM belege WHERE id = ?').get(id);
       if (!beleg) continue;
+      if (!darfBuchen(req, beleg.kasse_id)) continue;
       if (beleg.rueckerstattung_id && status !== 'geprueft') continue;
       setzen.run(status, id);
       geaendert += 1;

@@ -157,11 +157,25 @@ export function kasseZahlen(kasse) {
   const einnahmen = db
     .prepare('SELECT COALESCE(SUM(betrag_rappen), 0) AS summe FROM einnahmen WHERE kasse_id = ?')
     .get(kasse.id).summe;
-  const schulden = db
+  // Was die Kasse den Leitern noch schuldet, die etwas ausgelegt haben.
+  const anLeiter = db
     .prepare(
       `SELECT COALESCE(SUM(betrag_rappen), 0) AS summe FROM belege
         WHERE kasse_id = ? AND status = 'geprueft' AND zahlungsart = 'privat'
           AND rueckerstattung_id IS NULL`
+    )
+    .get(kasse.id).summe;
+
+  // Was die Kasse den Kassenchefs schuldet, die Leiter aus der eigenen
+  // Tasche ausbezahlt haben. Erledigt ist das erst, wenn die Rechnung an
+  // den Verein bezahlt ist.
+  const anChefs = db
+    .prepare(
+      `SELECT COALESCE(SUM(r.betrag_rappen), 0) AS summe
+         FROM rueckerstattungen r
+         LEFT JOIN rechnungen n ON n.id = r.rechnung_id
+        WHERE r.kasse_id = ? AND r.quelle = 'eigene_tasche' AND r.uebernommen_von IS NOT NULL
+          AND (r.rechnung_id IS NULL OR n.status = 'offen')`
     )
     .get(kasse.id).summe;
 
@@ -172,7 +186,9 @@ export function kasseZahlen(kasse) {
     offen_rappen: belege.offen,
     anzahl_offen: belege.anzahl_offen,
     anzahl_belege: belege.anzahl,
-    schulden_rappen: schulden,
+    schulden_an_leiter_rappen: anLeiter,
+    schulden_an_chefs_rappen: anChefs,
+    schulden_rappen: anLeiter + anChefs,
     saldo_rappen: kasse.startsaldo_rappen + einnahmen - belege.geprueft
   };
 }
@@ -206,6 +222,9 @@ export function belegeDerKasse(kasseId, { jahr = null, status = null, suche = nu
 
 /** Wem schuldet diese Kasse noch Geld? Privat ausgelegt, geprüft, nicht zurueckerstattet. */
 export function schuldenDerKasse(kasseId) {
+  const id = Number(kasseId);
+
+  // --- Leiter, die etwas ausgelegt und noch nichts zurueckbekommen haben
   const belege = db
     .prepare(
       `SELECT id, nummer, jahr, datum, betrag_rappen, beschreibung, person
@@ -214,7 +233,7 @@ export function schuldenDerKasse(kasseId) {
           AND rueckerstattung_id IS NULL
         ORDER BY datum`
     )
-    .all(Number(kasseId));
+    .all(id);
 
   const nachPerson = new Map();
   for (const beleg of belege) {
@@ -226,7 +245,52 @@ export function schuldenDerKasse(kasseId) {
     eintrag.belege.push(beleg);
   }
   const personen = [...nachPerson.values()].sort((a, b) => b.summe - a.summe);
-  return { personen, gesamt_rappen: personen.reduce((s, p) => s + p.summe, 0) };
+
+  // --- Kassenchefs, die aus der eigenen Tasche ausbezahlt haben
+  const auslagen = db
+    .prepare(
+      `SELECT r.id, r.person, r.datum, r.betrag_rappen, r.methode, r.rechnung_id,
+              b.id AS chef_id, b.name AS chef_name, b.iban AS chef_iban,
+              n.nummer AS rechnung_nummer, n.jahr AS rechnung_jahr, n.status AS rechnung_status
+         FROM rueckerstattungen r
+         JOIN benutzer b ON b.id = r.uebernommen_von
+         LEFT JOIN rechnungen n ON n.id = r.rechnung_id
+        WHERE r.kasse_id = ? AND r.quelle = 'eigene_tasche'
+          AND (r.rechnung_id IS NULL OR n.status = 'offen')
+        ORDER BY r.datum`
+    )
+    .all(id);
+
+  const nachChef = new Map();
+  for (const eintrag of auslagen) {
+    if (!nachChef.has(eintrag.chef_id)) {
+      nachChef.set(eintrag.chef_id, {
+        benutzer_id: eintrag.chef_id,
+        name: eintrag.chef_name,
+        iban: eintrag.chef_iban,
+        summe: 0,
+        anzahl: 0,
+        ohne_rechnung_rappen: 0,
+        auslagen: []
+      });
+    }
+    const chef = nachChef.get(eintrag.chef_id);
+    chef.summe += eintrag.betrag_rappen;
+    chef.anzahl += 1;
+    if (!eintrag.rechnung_id) chef.ohne_rechnung_rappen += eintrag.betrag_rappen;
+    chef.auslagen.push(eintrag);
+  }
+  const chefs = [...nachChef.values()].sort((a, b) => b.summe - a.summe);
+
+  const anLeiter = personen.reduce((s, p) => s + p.summe, 0);
+  const anChefs = chefs.reduce((s, c) => s + c.summe, 0);
+  return {
+    personen,
+    chefs,
+    an_leiter_rappen: anLeiter,
+    an_chefs_rappen: anChefs,
+    gesamt_rappen: anLeiter + anChefs
+  };
 }
 
 /** Namen, die in dieser Kasse schon vorkamen - fuer die Vorschlagsliste. */

@@ -12,29 +12,73 @@ und braucht keine externen Dienste.
 
 ---
 
-## Zwei Passwörter statt Benutzerkonten
+## Wer darf was
 
-Es gibt keine persönlichen Konten und keine E-Mail-Adressen. Die Anmeldeseite
-hat nur ein Feld, und welches Passwort man eingibt, entscheidet, was man sieht:
+Es gibt vier Rollen. Drei davon haben ein eigenes Konto mit E-Mail und
+selbst gesetztem Passwort, die vierte braucht gar keines.
 
-| Passwort        | Was man darf                                                                 |
-|-----------------|------------------------------------------------------------------------------|
-| **Leitung**     | alles: Kassen anlegen und ändern, Belege prüfen, Einnahmen und Rückerstattungen buchen, drucken, exportieren |
-| **Mitarbeit**   | nur Belege einreichen und die eigenen Belege dieses Geräts ansehen – keine Kassenstände, keine fremden Belege |
+| Rolle | Anmeldung | Was man darf |
+|---|---|---|
+| **Abteilungsleitung** (`admin`) | E-Mail + eigenes Passwort | alles, über alle Kassen: Kassen anlegen, Personen anlegen, Kassen freigeben, prüfen, auszahlen, abrechnen |
+| **Vereinskassier** (`kassier`) | E-Mail + eigenes Passwort | sieht alle Kassen und führt das Vereinskonto: zahlt die Leiter zurück und begleicht die Rechnungen der Kassenchefs. Führt aber kein Kassenbuch und prüft keine Belege. |
+| **Kassenchef** (`chef`) | E-Mail + eigenes Passwort | nur die Kassen, die ihm freigegeben sind: Belege prüfen, Einnahmen erfassen, drucken, exportieren |
+| **Leiterin / Leiter** | nur ein gemeinsames Passwort | Belege einreichen, bei jeder Kasse. Sieht nur die Belege des eigenen Geräts – keine Kassenstände, keine fremden Belege. |
 
-Beide Abteilungsleitungen benutzen dasselbe Leitungspasswort. Beim allerersten
-Start erzeugt die App beide Passwörter und schreibt sie ins Terminal; danach
-ändert man sie in der App unter **Einstellungen**.
+Die Trennung ist gewollt: der Kassenchef entscheidet, **ob** eine Ausgabe
+in seine Kasse gehört, der Vereinskassier **bezahlt** sie. Nur er hat
+Zugriff auf das Konto des Vereins.
 
-Wer etwas ausgelegt hat, steht als **Name** direkt beim Beleg. Der Browser
-merkt sich den Namen und setzt ihn beim nächsten Beleg von selbst ein; dazu
-schlägt die App die Namen vor, die in dieser Kasse schon vorkamen.
+Während des Jahres prüft also der Kassenchef, und der Vereinskassier zahlt.
+Am Jahresende macht der Vereinskassier die Kontrolle: er kann jedes
+Kassenbuch jedes Jahres ansehen, als Excel herunterladen und mit allen
+Belegen ausdrucken – auch die Kassen, die er selbst nie geführt hat.
 
----
+Die Anmeldeseite zeigt zuerst nur ein Passwortfeld – das ist der Weg für
+alle Leiter. Darunter führt ein Knopf zur Anmeldung mit E-Mail.
+
+### Konten anlegen
+
+Die Abteilungsleitung legt unter **Personen** eine Person an: Name,
+E-Mail, Rolle, IBAN und die Kassen, die sie betreuen darf. Die App zeigt
+daraufhin **einmal** ein Startpasswort wie `Stern-Feuer-2277`. Das gibst
+du persönlich weiter – die App verschickt keine E-Mails. Beim ersten
+Anmelden muss die Person ein eigenes Passwort setzen.
+
+Vergessenes Passwort: unter *Personen* auf **Neues Passwort**, dann wird
+ein neues Startpasswort erzeugt und die Person überall abgemeldet.
+
+### Ohne Bargeld abrechnen
+
+Der ganze Ablauf kommt ohne Kassenbargeld aus:
+
+1. Ein Leiter kauft etwas, legt das Geld aus und **reicht den Beleg ein**.
+2. Der **Kassenchef prüft** den Beleg. Er landet im Kassenbuch, der Saldo
+   der Kasse sinkt, und unter *Diese Kasse schuldet noch* steht der Name
+   des Leiters mit dem Betrag.
+3. Der **Vereinskassier überweist** dem Leiter das Geld vom Vereinskonto –
+   er ist der einzige, der darauf Zugriff hat – und bucht es in der App als
+   *vom Vereinskonto bezahlt*. Damit ist die Auslage erledigt.
+
+Der Saldo der Kasse ändert sich bei der Auszahlung nicht mehr: das Geld war
+schon beim Prüfen gebucht. Die Liste der Schulden zeigt nur, was noch
+auszuzahlen ist.
+
+### Wenn ein Kassenchef selbst vorstreckt
+
+Manchmal geht es nicht anders und ein Kassenchef bezahlt einen Leiter aus
+der eigenen Tasche. Dann bucht er es als *„Ich habe vorgestreckt“*:
+
+1. Die Schuld wandert vom Leiter auf ihn. In der Kasse steht unter seinem
+   Namen, was der Verein ihm schuldet.
+2. Am Jahresende **stellt er eine Rechnung** über alles, was er vorgestreckt
+   hat. Sie lässt sich drucken oder als PDF speichern und enthält seine
+   IBAN, die einzelnen Auszahlungen und die Belegnummern.
+3. Der **Vereinskassier überweist** den Betrag und hakt die Rechnung in der
+   App als *bezahlt* ab. Damit ist auch diese Schuld erledigt.
 
 ## Was die App kann
 
-**Für alle (Mitarbeitspasswort)**
+**Für alle Leiterinnen und Leiter**
 
 - Ein grosser Knopf: *Beleg erfassen*
 - Beleg mit dem Handy fotografieren (oder PDF hochladen), Betrag, Datum,
@@ -42,15 +86,29 @@ schlägt die App die Namen vor, die in dieser Kasse schon vorkamen.
 - Die eigenen Belege dieses Geräts ansehen, solange sie offen sind auch
   korrigieren oder löschen
 
-**Für die Abteilungsleitung (Leitungspasswort)**
+**Für Kassenchefs, in ihren Kassen**
 
-- Übersicht über **alle Kassen** mit Saldo, offenen Belegen und offenen Auslagen
-- In jeder Kasse: Kassenbuch, Belege, Schulden, Einnahmen, Excel und Druck –
-  alles an einem Ort, nichts über mehrere Kassen gemischt
+- Kassenbuch mit laufendem Saldo, Belege, offene Auslagen – alles an einem
+  Ort, nichts über mehrere Kassen gemischt
 - Belege prüfen (einzeln oder mehrere auf einmal) oder ablehnen
 - Einnahmen und Einzahlungen erfassen
-- Rückerstattungen an Personen buchen
+- Festhalten, wenn man einen Leiter selbst aus der eigenen Tasche bezahlt
+  hat, und daraus eine Rechnung an den Verein stellen
+- Excel-Export und Druckansicht
+
+**Für den Vereinskassier, über alle Kassen**
+
+- Alle Kassenbücher und Belege ansehen, drucken, exportieren
+- Die offenen Auslagen aller Kassen an einem Ort sehen
+- Leiter vom Vereinskonto zurückzahlen
+- Rechnungen der Kassenchefs als bezahlt abhaken
+
+**Für die Abteilungsleitung**
+
+- Alles von oben
 - Kassen anlegen, umbenennen, schliessen, Startsaldo setzen
+- Personen anlegen, sperren, Passwort zurücksetzen
+- **Nur die Abteilungsleitung gibt einem Kassenchef seine Kassen frei**
 
 ### Das Kassenbuch
 
@@ -91,9 +149,10 @@ npm install
 npm start
 ```
 
-Beim allerersten Start schreibt die App die beiden Passwörter ins Terminal und
-legt eine erste Kasse („AL-Kasse“) an. Danach im Browser `http://localhost:3000`
-öffnen, anmelden und die Passwörter unter *Einstellungen* ändern.
+Beim allerersten Start legt die App das Konto der Abteilungsleitung und das
+gemeinsame Passwort an, schreibt beides ins Terminal und erstellt eine erste
+Kasse („AL-Kasse“). Danach im Browser `http://localhost:3000` öffnen, mit
+E-Mail anmelden und unter *Mein Konto* ein eigenes Passwort setzen.
 
 Datenbank und Fotos liegen in `kasse/data/` (nicht im Git).
 
@@ -107,7 +166,7 @@ Datenbank und Fotos liegen in `kasse/data/` (nicht im Git).
 git clone <dein-repo> /opt/ce-march-kasse
 cd /opt/ce-march-kasse/kasse
 docker compose up -d --build
-docker compose logs -f        # zeigt die beiden Startpasswörter
+docker compose logs -f        # zeigt die Startpasswörter
 ```
 
 Der Container hört nur auf `127.0.0.1:3000`; davor gehört ein Reverse Proxy
@@ -192,12 +251,13 @@ journalctl -u ce-march-kasse -f
 | `TRUST_PROXY`        | `true`, wenn ein Reverse Proxy davor läuft                        |
 | `COOKIE_SECURE`      | `true` bei HTTPS – sonst bleibt niemand angemeldet                |
 | `MAX_UPLOAD_MB`      | Maximale Grösse pro Foto (Standard 20)                            |
-| `PASSWORT_LEITUNG`   | Optional. Ohne Angabe erzeugt die App eines und zeigt es an.      |
-| `PASSWORT_MITARBEIT` | Optional. Ohne Angabe erzeugt die App eines und zeigt es an.      |
+| `ADMIN_NAME`         | Name des ersten Kontos (nur beim allerersten Start)               |
+| `ADMIN_EMAIL`        | E-Mail des ersten Kontos, Standard `noahtimonzimmer@gmail.com`    |
+| `ADMIN_PASSWORT`     | Optional. Ohne Angabe erzeugt die App eines und zeigt es an.      |
+| `PASSWORT_MITARBEIT` | Optional. Das gemeinsame Passwort zum Belege erfassen.            |
 
-Beide Passwort-Variablen wirken nur beim allerersten Start, solange noch
-keines gesetzt ist. Danach ändert man sie in der App oder über die
-Kommandozeile.
+Diese vier wirken nur beim allerersten Start, solange es noch kein Konto
+gibt. Danach ändert man alles in der App oder über die Kommandozeile.
 
 ---
 
@@ -225,10 +285,12 @@ gestopptem Dienst oder über den `.backup`-Befehl von SQLite.
 Falls man sich einmal aussperrt:
 
 ```bash
-npm run admin -- leitung             # neues Leitungspasswort erzeugen
-npm run admin -- leitung Geheim123   # Leitungspasswort selbst setzen
-npm run admin -- mitarbeit           # neues Mitarbeitspasswort
-npm run admin -- kassen              # Kassen und Saldi anzeigen
+npm run admin -- konten                        # alle Konten anzeigen
+npm run admin -- passwort lea@example.ch       # neues Startpasswort
+npm run admin -- admin "Noah Zimmer" noah@…    # Abteilungsleitung anlegen
+npm run admin -- kassier "Max Muster" max@…    # Vereinskassier anlegen
+npm run admin -- melder                        # gemeinsames Passwort neu setzen
+npm run admin -- kassen                        # Kassen und Saldi anzeigen
 ```
 
 ---
@@ -243,20 +305,26 @@ npm run admin -- kassen              # Kassen und Saldi anzeigen
   unverändert abgelegt.
 - **Excel**: `exceljs`, drei Blätter (Kassenbuch, Belege, offene Auslagen) –
   immer für genau eine Kasse
+- **Rechnung**: eigene A4-Seite mit IBAN, den einzelnen Auszahlungen und den
+  Belegnummern, zum Drucken oder als PDF
 - **Druck**: eigene Druckseite pro Kasse – zuerst das Kassenbuch mit laufendem
   Saldo, danach jeder Beleg auf einer eigenen A4-Seite mit Nummer, Betrag und
   Foto. Im Browser auf „Drucken“ oder „Als PDF speichern“.
 
 ### Sicherheit
 
-- Passwörter mit bcrypt gehasht, nie im Klartext gespeichert
+- Passwörter mit bcrypt gehasht, nie im Klartext gespeichert. Startpasswörter
+  werden genau einmal angezeigt und müssen beim ersten Anmelden geändert werden.
 - Sitzungen als httpOnly-Cookie, 30 Tage, serverseitig in der Datenbank.
-  Wird ein Passwort geändert, fliegen alle anderen Geräte mit dieser Rolle raus.
+  Wird ein Passwort geändert oder ein Konto gesperrt, fliegen die übrigen
+  Geräte dieses Kontos sofort raus.
 - CSRF-Token für alle verändernden Anfragen
 - Anmeldeversuche werden begrenzt (10 Fehlversuche, dann 15 Minuten Sperre)
 - Belegfotos sind nicht öffentlich: jeder Abruf prüft die Berechtigung
-- Wer nur das Mitarbeitspasswort hat, sieht ausschliesslich die Belege, die
+- Wer nur das gemeinsame Passwort hat, sieht ausschliesslich die Belege, die
   von seinem eigenen Gerät eingereicht wurden
+- Ein Kassenchef kommt nur an die Kassen, die ihm freigegeben sind – geprüft
+  wird das bei jedem einzelnen Aufruf, nicht nur in der Oberfläche
 - Content-Security-Policy über `helmet`
 - Jede Änderung landet im Protokoll (Tabelle `protokoll`)
 
@@ -268,11 +336,14 @@ hier nicht verwendet werden; ein Downgrade von `exceljs` wäre riskanter.
 
 | Tabelle              | Inhalt                                                     |
 |----------------------|-------------------------------------------------------------|
-| `einstellungen`      | die beiden Passwort-Hashes                                  |
+| `benutzer`           | Konten von Abteilungsleitung, Vereinskassier und Kassenchefs, mit IBAN |
+| `kassen_chefs`       | welcher Kassenchef betreut welche Kasse                     |
+| `rechnungen`         | Rechnungen der Kassenchefs an den Verein                    |
+| `einstellungen`      | der Hash des gemeinsamen Passworts                          |
 | `kassen`             | Kassen mit Farbe und Startsaldo                             |
 | `belege`             | Belege inkl. Nummer (pro Kasse und Jahr), Betrag in Rappen, Name der auslegenden Person, Status |
 | `beleg_dateien`      | Fotos und PDFs zu einem Beleg                               |
 | `einnahmen`          | Einzahlungen in eine Kasse                                  |
-| `rueckerstattungen`  | Auszahlungen an Personen, verknüpft mit Belegen             |
-| `sitzungen`          | angemeldete Geräte mit ihrer Rolle                          |
+| `rueckerstattungen`  | Auszahlungen an Leiter, verknüpft mit Belegen; hält fest, ob ein Kassenchef sie vorgestreckt hat |
+| `sitzungen`          | angemeldete Geräte mit Rolle und, bei Konten, der Person    |
 | `protokoll`          | wer hat wann was geändert                                   |
