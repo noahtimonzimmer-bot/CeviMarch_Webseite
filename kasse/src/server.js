@@ -64,7 +64,14 @@ app.use(
     index: 'index.html',
     maxAge: process.env.NODE_ENV === 'production' ? '1h' : 0,
     setHeaders(res, datei) {
-      if (datei.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache');
+      // index.html, app.js und app.css gehoeren zusammen: laedt der Browser
+      // die Seite neu, das Javascript aber aus dem Cache, passen Knoepfe und
+      // Code nicht mehr zueinander. Darum jedes Mal kurz nachfragen - dank
+      // ETag kommt meistens nur ein "unveraendert" zurueck. Bilder und
+      // Schriften duerfen im Cache bleiben.
+      if (/\.(html|js|css|webmanifest)$/.test(datei)) {
+        res.setHeader('Cache-Control', 'no-cache');
+      }
     }
   })
 );
