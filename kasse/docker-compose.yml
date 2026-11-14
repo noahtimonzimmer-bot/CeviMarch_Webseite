@@ -10,7 +10,9 @@ services:
       PORT: "3000"
       DATA_DIR: /daten
       TRUST_PROXY: "true"
-      COOKIE_SECURE: "true"
+      # Nur fuer die Uebergangszeit ohne Zertifikat auf false setzen:
+      #   COOKIE_SECURE=false docker compose ... up -d
+      COOKIE_SECURE: "${COOKIE_SECURE:-true}"
       MAX_UPLOAD_MB: "20"
       # Ohne Angabe erzeugt der Server beide Passwoerter und zeigt sie im Log.
       # PASSWORT_LEITUNG: "beim-ersten-Start-setzen"
