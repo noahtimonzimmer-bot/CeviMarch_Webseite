@@ -208,6 +208,25 @@
   }
 
   // =========================================================================
+  //  Hinweis auf Anstehendes
+  // =========================================================================
+  //  Der Zettel steht erst im Weg, wenn jemand ihn weggeklickt hat -
+  //  darum merken wir uns das im Browser. Steht ein neuer Hinweis an
+  //  (andere Kennung), erscheint er wieder.
+  var zettel = $('#news');
+  if (zettel) {
+    var kennung = zettel.getAttribute('data-news') || 'news';
+    var weg = false;
+    try { weg = window.localStorage.getItem('news-zu') === kennung; } catch (e) {}
+    if (!weg) zettel.hidden = false;
+    var knopf = zettel.querySelector('.news__zu');
+    if (knopf) knopf.addEventListener('click', function () {
+      zettel.hidden = true;
+      try { window.localStorage.setItem('news-zu', kennung); } catch (e) {}
+    });
+  }
+
+  // =========================================================================
   //  Karte erst nach ausdrücklicher Einwilligung laden
   // =========================================================================
   //  Ohne Klick geht keine Anfrage an Google - erst danach wird der Rahmen

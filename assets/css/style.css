@@ -231,7 +231,11 @@ p{margin:0 0 1.15em}
     site.js schreibt die Werte beim Scrollen, die Bewegung steht hier.
     Ohne JavaScript ist der Deckel weg, Seite 1 liegt offen da und
     Seite 2 folgt ganz normal darunter.  */
-.buch{--p:1;--q:0;--z:0;position:relative}
+/* Der Grund der ganzen Strecke hat die Farbe des Holzes. Auf dem Handy
+   waechst der sichtbare Bereich, sobald die Leiste des Browsers
+   einfaehrt - die Buehne ist dann kurz kleiner als das Fenster. Vorher
+   blitzte dort unten das helle Papier durch. */
+.buch{--p:1;--q:0;--z:0;position:relative;background:#6b5233}
 /* Viel Scrollweg: so folgt das Aufklappen gemächlich dem Finger */
 .buch--aktiv{--p:0;height:560svh}
 
@@ -356,8 +360,12 @@ p{margin:0 0 1.15em}
              0 10px 26px -10px rgba(0,0,0,calc(.6 * (1 - var(--z))))
 }
 /* Feste Breite, damit der Text beim Zoomen nicht ständig neu umbricht */
+/* Die Textspalte behaelt beim Hineinzoomen ihre Breite. Haenge sie an
+   die Seitenbreite, waechst sie mit - und die Woerter springen bei
+   jedem Bildschritt in andere Zeilen. */
 .buch__seite2-inhalt{
-  width:min(40rem,100%);padding:clamp(22px,4vw,56px) clamp(18px,3.4vw,54px)
+  width:min(40rem,var(--bw,100%));
+  padding:clamp(22px,4vw,56px) clamp(18px,3.4vw,54px)
 }
 .buch__seite2 h2{font-size:clamp(1.4rem,2.6vw,2.2rem);max-width:20ch;margin:10px auto 0}
 .buch__seite2 .lead{margin:clamp(14px,1.8vw,22px) auto 12px}
@@ -852,6 +860,47 @@ a.person:hover{transform:translateY(-4px);
 .person a{border-bottom:1.5px solid var(--rule-strong);padding-bottom:1px}
 .person a:hover{border-color:var(--red)}
 .iban{font-family:var(--font-mono);font-size:.92rem}
+
+/* Hinweis auf Anstehendes ------------------------------------------
+   Ein Zettel am linken Rand, wie an die Seite geklebt. Er bleibt beim
+   Scrollen stehen und laesst sich wegklicken; site.js merkt sich das
+   im Browser. */
+.news{
+  position:fixed;left:clamp(10px,1.6vw,22px);bottom:clamp(14px,2.4vw,28px);
+  z-index:90;width:min(272px,76vw);
+  padding:16px 34px 16px 18px;border-radius:var(--r-lg);
+  background:#fdfaf3;border:1px solid var(--rule-strong);
+  box-shadow:0 18px 34px -20px rgba(21,22,26,.75);
+  rotate:-1.2deg;
+  animation:news-auf .5s var(--ease) both
+}
+@keyframes news-auf{from{opacity:0;translate:0 14px}to{opacity:1;translate:0 0}}
+.news__kicker{
+  display:block;font-family:var(--font-mono);font-size:.58rem;font-weight:600;
+  letter-spacing:.18em;text-transform:uppercase;color:var(--red)
+}
+.news__titel{
+  display:block;margin-top:6px;font-family:var(--font-mono);
+  font-size:.96rem;font-weight:700;letter-spacing:-.03em;line-height:1.2
+}
+.news__text{margin:7px 0 0;font-size:.84rem;line-height:1.45;color:var(--ink-2)}
+.news__link{
+  display:inline-block;margin-top:10px;font-family:var(--font-mono);
+  font-size:.64rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+  border-bottom:1.5px solid var(--rule-strong);padding-bottom:2px
+}
+.news__link:hover{border-color:var(--red);color:var(--red)}
+.news__zu{
+  position:absolute;top:6px;right:8px;width:26px;height:26px;
+  display:grid;place-items:center;border:0;background:none;cursor:pointer;
+  font-size:1.1rem;line-height:1;color:var(--ink-3)
+}
+.news__zu:hover{color:var(--ink)}
+@media(max-width:640px){
+  .news{left:10px;right:10px;width:auto;bottom:10px;rotate:0deg;padding:13px 32px 13px 15px}
+  .news__text{font-size:.8rem}
+}
+@media(prefers-reduced-motion:reduce){.news{animation:none}}
 
 /* Schlussaufruf --------------------------------------------------- */
 .cta{padding:0 var(--pad) clamp(40px,6vw,80px)}

@@ -50,6 +50,7 @@ STUFEN = SITE['STUFEN']
 PAGES = SITE['PAGES']
 KONTAKT = SITE['KONTAKT']
 DATENPLAN = SITE['DATENPLAN']
+NEWS = SITE.get('NEWS')
 
 # Pfad aus site.json -> erzeugte Datei
 ROUTES = {
@@ -89,6 +90,24 @@ def fmt_date(iso):
 #  Bausteine
 # --------------------------------------------------------------------------
 
+def news_banner():
+    """Der Zettel am linken Rand: was gerade ansteht. Inhalt steht unter
+    NEWS in content/site.json; fehlt der Eintrag, erscheint nichts."""
+    if not NEWS:
+        return ''
+    link = ''
+    if NEWS.get('link'):
+        link = ('<a class="news__link" href="%s">%s</a>'
+                % (e(NEWS['link']), e(NEWS.get('linktext', 'Mehr dazu'))))
+    return f"""<aside class="news" id="news" data-news="{e(NEWS['id'])}" hidden>
+  <span class="news__kicker">{e(NEWS['kicker'])}</span>
+  <strong class="news__titel">{e(NEWS['titel'])}</strong>
+  <p class="news__text">{e(NEWS['text'])}</p>
+  {link}
+  <button class="news__zu" type="button" aria-label="Hinweis schliessen">&times;</button>
+</aside>"""
+
+
 def nav_links(current, items):
     out = []
     for n in items:
@@ -117,6 +136,7 @@ def head(title, description, current, body, extra_head='', body_class=''):
 {extra_head}</head>
 <body{(' class="%s"' % body_class) if body_class else ''}>
 <a class="skip" href="#main">Zum Inhalt springen</a>
+{news_banner()}
 
 <header class="nav" id="nav">
   <div class="nav__inner">
