@@ -866,7 +866,9 @@ a.person:hover{transform:translateY(-4px);
    Scrollen stehen und laesst sich wegklicken; site.js merkt sich das
    im Browser. */
 .news{
-  position:fixed;left:clamp(10px,1.6vw,22px);bottom:clamp(14px,2.4vw,28px);
+  position:fixed;left:clamp(10px,1.6vw,22px);
+  /* Unter den Reitern, die aus der Leiste ragen */
+  top:calc(var(--navh,64px) + clamp(26px,2.6vw,34px));
   z-index:90;width:min(272px,76vw);
   padding:16px 34px 16px 18px;border-radius:var(--r-lg);
   background:#fdfaf3;border:1px solid var(--rule-strong);
@@ -874,7 +876,7 @@ a.person:hover{transform:translateY(-4px);
   rotate:-1.2deg;
   animation:news-auf .5s var(--ease) both
 }
-@keyframes news-auf{from{opacity:0;translate:0 14px}to{opacity:1;translate:0 0}}
+@keyframes news-auf{from{opacity:0;translate:0 -14px}to{opacity:1;translate:0 0}}
 .news__kicker{
   display:block;font-family:var(--font-mono);font-size:.58rem;font-weight:600;
   letter-spacing:.18em;text-transform:uppercase;color:var(--red)
@@ -897,7 +899,8 @@ a.person:hover{transform:translateY(-4px);
 }
 .news__zu:hover{color:var(--ink)}
 @media(max-width:640px){
-  .news{left:10px;right:10px;width:auto;bottom:10px;rotate:0deg;padding:13px 32px 13px 15px}
+  .news{left:8px;right:8px;width:auto;rotate:0deg;padding:12px 32px 12px 14px;
+    top:calc(var(--navh,64px) + 8px)}
   .news__text{font-size:.8rem}
 }
 @media(prefers-reduced-motion:reduce){.news{animation:none}}
