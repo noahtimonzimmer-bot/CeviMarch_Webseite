@@ -52,7 +52,11 @@ function darfSehen(req, beleg) {
   return Boolean(geraet && beleg.geraet === geraet);
 }
 
-/** Eigene Belege darf man aendern und loeschen, solange sie offen sind. */
+/**
+ * Wer darf einen Beleg aendern? Der Kassenchef seiner Kasse (und die
+ * Abteilungsleitung) immer. Wer ihn erfasst hat, solange er noch nicht
+ * geprueft ist - danach gilt er als gebucht.
+ */
 function darfBearbeiten(req, beleg) {
   if (darfBuchen(req, beleg.kasse_id)) return true;
   return darfSehen(req, beleg) && beleg.status === 'offen';
@@ -84,7 +88,8 @@ router.get('/meine', (req, res) => {
 router.get('/:id', (req, res) => {
   const beleg = belegLesen(req.params.id);
   if (!darfSehen(req, beleg)) return res.status(404).json({ fehler: 'Beleg nicht gefunden.' });
-  res.json({ ...beleg, dateien: dateienLesen(beleg.id) });
+  // Die Oberflaeche zeigt den Knopf "Bearbeiten" nur, wenn es auch geht.
+  res.json({ ...beleg, dateien: dateienLesen(beleg.id), darf_bearbeiten: darfBearbeiten(req, beleg) });
 });
 
 /** Kleines Vorschaubild des ersten Fotos - fuer die Listenansicht. */
@@ -182,42 +187,86 @@ router.patch('/:id', (req, res) => {
   const beleg = belegLesen(req.params.id);
   if (!darfSehen(req, beleg)) return res.status(404).json({ fehler: 'Beleg nicht gefunden.' });
   if (!darfBearbeiten(req, beleg)) {
-    return res.status(403).json({ fehler: 'Geprüfte Belege kann nur die Abteilungsleitung aendern.' });
+    return res.status(403).json({
+      fehler: 'Dieser Beleg ist schon geprüft. Ändern kann ihn jetzt nur der Kassenchef.'
+    });
   }
 
   const datum = req.body?.datum !== undefined ? String(req.body.datum).slice(0, 10) : beleg.datum;
   if (!istDatum(datum)) return res.status(400).json({ fehler: 'Bitte ein gueltiges Datum angeben.' });
-  // Wechselt der Beleg das Jahr, bekommt er im neuen Jahr vorlaeufig die
-  // letzte Nummer; danach werden beide Jahre nach Datum durchnummeriert.
-  const neuesJahr = Number(datum.slice(0, 4));
-  const vorlaeufig = neuesJahr === beleg.jahr ? beleg.nummer : naechsteNummer(beleg.kasse_id, neuesJahr);
 
   const betrag = req.body?.betrag !== undefined ? zuRappen(req.body.betrag) : beleg.betrag_rappen;
   if (betrag === null || betrag <= 0) return res.status(400).json({ fehler: 'Ungueltiger Betrag.' });
 
+  const beschreibung = String(req.body?.beschreibung ?? beleg.beschreibung).trim();
+  if (beschreibung.length < 2) {
+    return res.status(400).json({ fehler: 'Bitte kurz beschreiben, wofuer der Beleg ist.' });
+  }
+
+  // Ist der Beleg schon ausbezahlt, haengt eine Auszahlung mit genau diesem
+  // Betrag in genau dieser Kasse daran. Das darf sich nicht mehr verschieben.
+  const neueKasseId = req.body?.kasse_id !== undefined ? Number(req.body.kasse_id) : beleg.kasse_id;
+  if (beleg.rueckerstattung_id) {
+    if (betrag !== beleg.betrag_rappen) {
+      return res.status(400).json({
+        fehler: 'Dieser Beleg ist schon ausbezahlt. Der Betrag laesst sich nicht mehr aendern.'
+      });
+    }
+    if (neueKasseId !== beleg.kasse_id) {
+      return res.status(400).json({
+        fehler: 'Dieser Beleg ist schon ausbezahlt. Er bleibt in seiner Kasse.'
+      });
+    }
+  }
+
+  // In eine andere Kasse verschieben: offene Belege darf, wer sie aendern
+  // darf - der Kassenchef dort prueft sie dann. Gepruefte nur, wer auch in
+  // der neuen Kasse buchen darf.
+  if (neueKasseId !== beleg.kasse_id) {
+    const ziel = kasseLesen(neueKasseId);
+    if (!ziel || !ziel.aktiv) {
+      return res.status(404).json({ fehler: 'Diese Kasse gibt es nicht oder sie ist geschlossen.' });
+    }
+    if (beleg.status !== 'offen' && !darfBuchen(req, ziel.id)) {
+      return res.status(403).json({ fehler: 'In diese Kasse darfst du keine geprueften Belege verschieben.' });
+    }
+  }
+
+  // Wechselt der Beleg Kasse oder Jahr, bekommt er dort vorlaeufig die
+  // letzte Nummer; danach werden beide Reihen nach Datum durchnummeriert.
+  const neuesJahr = Number(datum.slice(0, 4));
+  const gleicheReihe = neuesJahr === beleg.jahr && neueKasseId === beleg.kasse_id;
+  const vorlaeufig = gleicheReihe ? beleg.nummer : naechsteNummer(neueKasseId, neuesJahr);
+
   db.prepare(
-    `UPDATE belege SET jahr = ?, nummer = ?, datum = ?, betrag_rappen = ?, beschreibung = ?,
-            haendler = ?, zahlungsart = ?, person = ?, notiz = ?
+    `UPDATE belege SET kasse_id = ?, jahr = ?, nummer = ?, datum = ?, betrag_rappen = ?,
+            beschreibung = ?, haendler = ?, zahlungsart = ?, person = ?, notiz = ?
       WHERE id = ?`
   ).run(
+    neueKasseId,
     neuesJahr,
     vorlaeufig,
     datum,
     betrag,
-    String(req.body?.beschreibung ?? beleg.beschreibung).trim().slice(0, 500),
+    beschreibung.slice(0, 500),
     req.body?.haendler !== undefined ? (String(req.body.haendler).trim().slice(0, 160) || null) : beleg.haendler,
     ZAHLUNGSARTEN.includes(req.body?.zahlungsart) ? req.body.zahlungsart : beleg.zahlungsart,
     req.body?.person !== undefined ? (String(req.body.person).trim().slice(0, 120) || null) : beleg.person,
     req.body?.notiz !== undefined ? (String(req.body.notiz).trim().slice(0, 1000) || null) : beleg.notiz,
     beleg.id
   );
-  if (datum !== beleg.datum) {
-    nummernNeuVergeben(beleg.kasse_id, neuesJahr);
-    if (neuesJahr !== beleg.jahr) nummernNeuVergeben(beleg.kasse_id, beleg.jahr);
+  if (datum !== beleg.datum || !gleicheReihe) {
+    nummernNeuVergeben(neueKasseId, neuesJahr);
+    if (!gleicheReihe) nummernNeuVergeben(beleg.kasse_id, beleg.jahr);
   }
-  protokollieren(req.rolle, 'beleg_geaendert', 'beleg', beleg.id, { nummer: beleg.nummer });
+
   const neu = belegLesen(beleg.id);
-  res.json({ ...neu, dateien: dateienLesen(neu.id) });
+  protokollieren(req.rolle, 'beleg_geaendert', 'beleg', beleg.id, {
+    nummer: neu.nummer,
+    vorher: { betrag: beleg.betrag_rappen, datum: beleg.datum, kasse: beleg.kasse_id },
+    nachher: { betrag: neu.betrag_rappen, datum: neu.datum, kasse: neu.kasse_id }
+  });
+  res.json({ ...neu, dateien: dateienLesen(neu.id), darf_bearbeiten: darfBearbeiten(req, neu) });
 });
 
 router.post('/:id/status', (req, res) => {

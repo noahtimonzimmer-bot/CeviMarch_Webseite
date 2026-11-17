@@ -89,14 +89,17 @@ der eigenen Tasche. Dann bucht er es als *„Ich habe vorgestreckt“*:
 - Ein grosser Knopf: *Beleg erfassen*
 - Beleg mit dem Handy fotografieren (oder PDF hochladen), Betrag, Datum,
   Beschreibung und Laden erfassen
-- Die eigenen Belege dieses Geräts ansehen, solange sie offen sind auch
-  korrigieren oder löschen
+- Die eigenen Belege dieses Geräts ansehen. Solange sie noch nicht geprüft
+  sind, lassen sie sich **bearbeiten** – Betrag, Datum, Text, Kasse, Fotos –
+  oder löschen
 
 **Für Kassenchefs, in ihren Kassen**
 
 - Kassenbuch mit laufendem Saldo, Belege, offene Auslagen – alles an einem
   Ort, nichts über mehrere Kassen gemischt
 - Belege prüfen (einzeln oder mehrere auf einmal) oder ablehnen
+- Jeden Beleg der eigenen Kasse bearbeiten, auch nach dem Prüfen. Ist er
+  schon ausbezahlt, bleiben Betrag und Kasse fest.
 - Einnahmen und Einzahlungen erfassen
 - Festhalten, wenn man einen Leiter selbst aus der eigenen Tasche bezahlt
   hat, und daraus eine Rechnung an den Verein stellen

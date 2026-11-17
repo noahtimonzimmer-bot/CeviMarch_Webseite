@@ -1015,6 +1015,12 @@ async function belegDialog(id, kasseId) {
   ]);
 
   const knoepfe = [];
+  if (beleg.darf_bearbeiten) {
+    knoepfe.push(el('button', {
+      class: 'knopf', text: 'Bearbeiten',
+      onclick: () => belegBearbeiten(beleg)
+    }));
+  }
   if (darfBuchen() && zustand.kassenIds.includes(beleg.kasse_id)) {
     if (beleg.status !== 'geprueft') {
       knoepfe.push(el('button', {
@@ -1035,7 +1041,7 @@ async function belegDialog(id, kasseId) {
       }));
     }
   }
-  if (darfBuchen() || beleg.status === 'offen') {
+  if (beleg.darf_bearbeiten && !beleg.rueckerstattung_id) {
     knoepfe.push(el('button', {
       class: 'knopf gefahr', text: 'Löschen',
       onclick: async () => {
@@ -1060,6 +1066,153 @@ async function belegDialog(id, kasseId) {
       zeichnen();
     } catch (fehler) { melden(fehler.message, true); }
   }
+}
+
+/**
+ * Beleg bearbeiten: alle Angaben, die Kasse und die Fotos. Erlaubt dem
+ * Kassenchef und, solange der Beleg noch nicht geprueft ist, dem, der ihn
+ * erfasst hat. Ist er schon ausbezahlt, bleiben Betrag und Kasse fest.
+ */
+async function belegBearbeiten(beleg) {
+  let kassen = [];
+  try { kassen = await api('/kassen'); } catch { kassen = []; }
+  const ausbezahlt = Boolean(beleg.rueckerstattung_id);
+
+  // --- Fotos: vorhandene entfernen, neue dazulegen
+  const weg = new Set();
+  const neueDateien = [];
+  const fotoGitter = el('div', { class: 'foto-gitter' });
+
+  function fotosZeichnen() {
+    const vorhanden = beleg.dateien
+      .filter((datei) => !weg.has(datei.id))
+      .map((datei) => el('figure', {}, [
+        el('img', {
+          alt: '',
+          src: datei.mime === 'application/pdf'
+            ? 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22%3E%3Crect width=%2264%22 height=%2264%22 fill=%22%23e2e4ea%22/%3E%3Ctext x=%2232%22 y=%2238%22 font-size=%2214%22 text-anchor=%22middle%22 fill=%22%235d616e%22 font-family=%22sans-serif%22%3EPDF%3C/text%3E%3C/svg%3E'
+            : `/api/belege/${beleg.id}/dateien/${datei.id}`
+        }),
+        el('button', {
+          class: 'foto-weg', type: 'button', title: 'Foto entfernen', text: '×',
+          onclick: () => { weg.add(datei.id); fotosZeichnen(); }
+        })
+      ]));
+    const dazu = neueDateien.map((datei, platz) => el('figure', {}, [
+      el('img', { alt: datei.name, src: URL.createObjectURL(datei) }),
+      el('button', {
+        class: 'foto-weg', type: 'button', title: 'Entfernen', text: '×',
+        onclick: () => { neueDateien.splice(platz, 1); fotosZeichnen(); }
+      })
+    ]));
+    fotoGitter.replaceChildren(...vorhanden, ...dazu);
+  }
+
+  const dateiFeld = el('input', {
+    type: 'file', accept: 'image/*,application/pdf', multiple: true, capture: 'environment',
+    onchange: (ereignis) => {
+      for (const datei of ereignis.target.files) neueDateien.push(datei);
+      ereignis.target.value = '';
+      fotosZeichnen();
+    }
+  });
+  fotosZeichnen();
+
+  // --- Angaben
+  const zahlungsartFeld = el('select', { name: 'zahlungsart' },
+    Object.entries(ZAHLUNGSART_TEXT).map(([wert, text]) =>
+      el('option', { value: wert, text, selected: wert === beleg.zahlungsart }))
+  );
+  const nameZeile = el('label', { text: 'Ausgelegt von' }, [
+    el('input', { name: 'person', value: beleg.person || '' })
+  ]);
+  nameZeile.hidden = beleg.zahlungsart !== 'privat';
+  zahlungsartFeld.addEventListener('change', () => {
+    nameZeile.hidden = zahlungsartFeld.value !== 'privat';
+  });
+
+  const kassenAuswahl = kassen.filter((k) => k.aktiv !== 0 || k.id === beleg.kasse_id);
+  const kasseFeld = el('select', { name: 'kasse_id', disabled: ausbezahlt },
+    (kassenAuswahl.length ? kassenAuswahl : [{ id: beleg.kasse_id, name: beleg.kasse_name }])
+      .map((kasse) => el('option', {
+        value: String(kasse.id), text: kasse.name, selected: kasse.id === beleg.kasse_id
+      }))
+  );
+
+  const formular = el('form', {}, [
+    el('div', { class: 'feld-paar' }, [
+      el('label', { text: 'Betrag CHF' }, [
+        el('input', {
+          name: 'betrag', inputmode: 'decimal', required: true, disabled: ausbezahlt,
+          value: (beleg.betrag_rappen / 100).toFixed(2)
+        })
+      ]),
+      el('label', { text: 'Einkaufsdatum' }, [
+        el('input', { name: 'datum', type: 'date', value: beleg.datum, required: true })
+      ])
+    ]),
+    el('label', { text: 'Wofür war das?' }, [
+      el('input', { name: 'beschreibung', value: beleg.beschreibung, required: true })
+    ]),
+    el('div', { class: 'feld-paar' }, [
+      el('label', { text: 'Kasse' }, [kasseFeld]),
+      el('label', { text: 'Laden / Händler' }, [
+        el('input', { name: 'haendler', value: beleg.haendler || '' })
+      ])
+    ]),
+    el('label', { text: 'Bezahlt mit' }, [zahlungsartFeld]),
+    nameZeile,
+    el('label', { text: 'Notiz (freiwillig)' }, [
+      el('textarea', { name: 'notiz', text: beleg.notiz || '' })
+    ]),
+    ausbezahlt
+      ? el('p', {
+          class: 'hinweis',
+          text: 'Dieser Beleg ist schon ausbezahlt. Betrag und Kasse bleiben darum fest.'
+        })
+      : null,
+    el('h3', { text: 'Fotos', style: 'margin: 14px 0 8px' }),
+    fotoGitter,
+    el('label', { class: 'aufnahmefeld', style: 'margin-top: 10px' }, [
+      el('strong', { text: 'Foto dazulegen' }),
+      'JPG, PNG oder PDF',
+      dateiFeld
+    ])
+  ]);
+
+  const speichern = el('button', {
+    class: 'knopf primaer', text: 'Speichern',
+    onclick: async () => {
+      if (!formular.reportValidity()) return;
+      const daten = Object.fromEntries(new FormData(formular));
+      // Gesperrte Felder schickt der Browser nicht mit - dann bleibt der alte Wert.
+      speichern.disabled = true;
+      try {
+        const neu = await api(`/belege/${beleg.id}`, { methode: 'PATCH', daten });
+        for (const dateiId of weg) {
+          await api(`/belege/${beleg.id}/dateien/${dateiId}`, { methode: 'DELETE' });
+        }
+        if (neueDateien.length) {
+          const felder = new FormData();
+          for (const datei of neueDateien) felder.append('dateien', datei);
+          await api(`/belege/${beleg.id}/dateien`, { methode: 'POST', formular: felder });
+        }
+        dialogSchliessen();
+        melden(neu.nummer !== beleg.nummer || neu.kasse_id !== beleg.kasse_id
+          ? `Gespeichert – jetzt Beleg Nr. ${neu.nummer} in ${neu.kasse_name}.`
+          : 'Beleg gespeichert.');
+        zeichnen();
+      } catch (fehler) {
+        melden(fehler.message, true);
+        speichern.disabled = false;
+      }
+    }
+  });
+
+  dialogZeigen(`Beleg Nr. ${beleg.nummer} bearbeiten`, formular, [
+    el('button', { class: 'knopf', text: 'Abbrechen', onclick: dialogSchliessen }),
+    speichern
+  ]);
 }
 
 // ------------------------------------------------------ Einnahmen / Kasse
