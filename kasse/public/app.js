@@ -31,7 +31,7 @@ function istLeitung() {
   return zustand.rolle === 'admin';
 }
 
-/** Wer ans Vereinskonto kommt: zahlt die Leiter aus, begleicht Rechnungen. */
+/** Wer ans Vereinskonto kommt: begleicht die Rechnungen der Kassenchefs. */
 function istKassier() {
   return zustand.rolle === 'admin' || zustand.rolle === 'kassier';
 }
@@ -761,9 +761,8 @@ function schuldenKarte(schulden, kasseId) {
     // --- Leiter, die etwas ausgelegt haben
     el('p', {
       class: 'hinweis',
-      text: istKassier()
-        ? 'Du führst das Vereinskonto – du zahlst diese Auslagen zurück.'
-        : 'Zurückbezahlt wird vom Vereinskassier, der das Vereinskonto führt.'
+      text: 'Der Kassenchef zahlt die Leiter aus und streckt das Geld vor. Am Jahresende '
+        + 'stellt er dem Verein eine Rechnung, die der Vereinskassier begleicht.'
     }),
 
     el('h3', { text: 'An Leiterinnen und Leiter', style: 'margin-bottom: 6px' }),
@@ -779,10 +778,9 @@ function schuldenKarte(schulden, kasseId) {
             ]),
             el('div', { class: 'knopf-reihe' }, [
               el('span', { class: 'summe', text: `CHF ${chf(person.summe)}` }),
-              istKassier() || zustand.rolle === 'chef'
+              darfBuchen()
                 ? el('button', {
-                    class: 'knopf kompakt',
-                    text: istKassier() ? 'Vom Vereinskonto bezahlt' : 'Ich habe vorgestreckt',
+                    class: 'knopf kompakt', text: 'Bezahlen',
                     onclick: () => rueckerstattungBuchen(kasseId, person)
                   })
                 : null
@@ -936,14 +934,21 @@ function rueckerstattungBuchen(kasseId, person) {
         ])
       ])
     ]),
-    quelleFeld(),
-    el('label', { text: 'Notiz (freiwillig)' }, [el('input', { name: 'notiz' })])
+    // Der Kassenchef streckt immer selbst vor; der Verein zahlt es ihm am
+    // Jahresende ueber die Rechnung zurueck.
+    el('input', { type: 'hidden', name: 'quelle', value: 'eigene_tasche' }),
+    el('label', { text: 'Notiz (freiwillig)' }, [el('input', { name: 'notiz' })]),
+    el('p', {
+      class: 'hinweis',
+      text: 'Du streckst den Betrag vor. Er steht danach unter deinem Namen bei dieser Kasse, '
+        + 'und am Jahresende stellst du daraus eine Rechnung an den Verein.'
+    })
   ]);
 
-  dialogZeigen('Rückerstattung buchen', formular, [
+  dialogZeigen(`${person.person} bezahlen`, formular, [
     el('button', { class: 'knopf', text: 'Abbrechen', onclick: dialogSchliessen }),
     el('button', {
-      class: 'knopf primaer', text: 'Als ausbezahlt buchen',
+      class: 'knopf primaer', text: 'Bezahlt',
       onclick: async () => {
         const daten = Object.fromEntries(new FormData(formular));
         try {
@@ -952,35 +957,11 @@ function rueckerstattungBuchen(kasseId, person) {
             daten: { ...daten, person: person.person, beleg_ids: person.belege.map((b) => b.id) }
           });
           dialogSchliessen();
-          melden(`CHF ${chf(person.summe)} an ${person.person} gebucht.`);
+          melden(`CHF ${chf(person.summe)} an ${person.person} bezahlt.`);
           zeichnen();
         } catch (fehler) { melden(fehler.message, true); }
       }
     })
-  ]);
-}
-
-/**
- * Woher kam das Geld? Der Vereinskassier zahlt vom Vereinskonto, ein
- * Kassenchef kann nur festhalten, dass er selbst vorgestreckt hat.
- */
-function quelleFeld() {
-  if (!istKassier()) {
-    return el('div', {}, [
-      el('input', { type: 'hidden', name: 'quelle', value: 'eigene_tasche' }),
-      el('p', {
-        class: 'hinweis',
-        text: 'Du hältst damit fest, dass du den Betrag aus der eigenen Tasche '
-          + 'vorgestreckt hast. Er erscheint danach unter deinem Namen bei dieser '
-          + 'Kasse, und du kannst daraus eine Rechnung an den Verein stellen.'
-      })
-    ]);
-  }
-  return el('label', { text: 'Woher kam das Geld?' }, [
-    el('select', { name: 'quelle' }, [
-      el('option', { value: 'kasse', text: 'Vom Vereinskonto – damit ist es erledigt' }),
-      el('option', { value: 'eigene_tasche', text: 'Aus meiner eigenen Tasche – der Verein schuldet es mir' })
-    ])
   ]);
 }
 
@@ -1664,7 +1645,7 @@ async function kontenAnsicht() {
                 konto.rolle === 'admin'
                   ? 'Abteilungsleitung – darf alles'
                   : konto.rolle === 'kassier'
-                    ? 'Vereinskassier – zahlt aus'
+                    ? 'Vereinskassier – begleicht Rechnungen'
                     : 'Kassenchef',
                 konto.email,
                 konto.rolle !== 'chef'
@@ -1839,7 +1820,7 @@ function kontoBearbeiten(konto, kassen) {
             selected: !konto || konto.rolle === 'chef'
           }),
           el('option', {
-            value: 'kassier', text: 'Vereinskassier – zahlt vom Vereinskonto aus',
+            value: 'kassier', text: 'Vereinskassier – begleicht die Rechnungen',
             selected: konto?.rolle === 'kassier'
           }),
           el('option', {

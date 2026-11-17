@@ -20,16 +20,16 @@ selbst gesetztem Passwort, die vierte braucht gar keines.
 | Rolle | Anmeldung | Was man darf |
 |---|---|---|
 | **Abteilungsleitung** (`admin`) | E-Mail + eigenes Passwort | alles, über alle Kassen: Kassen anlegen, Personen anlegen, Kassen freigeben, prüfen, auszahlen, abrechnen |
-| **Vereinskassier** (`kassier`) | E-Mail + eigenes Passwort | sieht alle Kassen und führt das Vereinskonto: zahlt die Leiter zurück und begleicht die Rechnungen der Kassenchefs. Führt aber kein Kassenbuch und prüft keine Belege. |
+| **Vereinskassier** (`kassier`) | E-Mail + eigenes Passwort | sieht alle Kassen und führt das Vereinskonto: begleicht am Jahresende die Rechnungen der Kassenchefs. Führt aber kein Kassenbuch und prüft keine Belege. |
 | **Kassenchef** (`chef`) | E-Mail + eigenes Passwort | nur die Kassen, die ihm freigegeben sind: Belege prüfen, Einnahmen erfassen, drucken, exportieren |
 | **Leiterin / Leiter** | nur ein gemeinsames Passwort | Belege einreichen, bei jeder Kasse. Sieht nur die Belege des eigenen Geräts – keine Kassenstände, keine fremden Belege. |
 
-Die Trennung ist gewollt: der Kassenchef entscheidet, **ob** eine Ausgabe
-in seine Kasse gehört, der Vereinskassier **bezahlt** sie. Nur er hat
-Zugriff auf das Konto des Vereins.
+Die Trennung ist gewollt: der Kassenchef prüft die Belege seiner Kasse und
+zahlt die Leiter aus, indem er das Geld vorstreckt. Der Vereinskassier
+gibt es ihm am Jahresende vom Vereinskonto zurück – nur er hat Zugriff
+darauf.
 
-Während des Jahres prüft also der Kassenchef, und der Vereinskassier zahlt.
-Am Jahresende macht der Vereinskassier die Kontrolle: er kann jedes
+Am Jahresende macht der Vereinskassier auch die Kontrolle: er kann jedes
 Kassenbuch jedes Jahres ansehen, als Excel herunterladen und mit allen
 Belegen ausdrucken – auch die Kassen, die er selbst nie geführt hat.
 
@@ -61,26 +61,19 @@ Der ganze Ablauf kommt ohne Kassenbargeld aus:
 2. Der **Kassenchef prüft** den Beleg. Er landet im Kassenbuch, der Saldo
    der Kasse sinkt, und unter *Diese Kasse schuldet noch* steht der Name
    des Leiters mit dem Betrag.
-3. Der **Vereinskassier überweist** dem Leiter das Geld vom Vereinskonto –
-   er ist der einzige, der darauf Zugriff hat – und bucht es in der App als
-   *vom Vereinskonto bezahlt*. Damit ist die Auslage erledigt.
-
-Der Saldo der Kasse ändert sich bei der Auszahlung nicht mehr: das Geld war
-schon beim Prüfen gebucht. Die Liste der Schulden zeigt nur, was noch
-auszuzahlen ist.
-
-### Wenn ein Kassenchef selbst vorstreckt
-
-Manchmal geht es nicht anders und ein Kassenchef bezahlt einen Leiter aus
-der eigenen Tasche. Dann bucht er es als *„Ich habe vorgestreckt“*:
-
-1. Die Schuld wandert vom Leiter auf ihn. In der Kasse steht unter seinem
-   Namen, was der Verein ihm schuldet.
-2. Am Jahresende **stellt er eine Rechnung** über alles, was er vorgestreckt
+3. Der Kassenchef **zahlt den Leiter aus** – per TWINT, Überweisung oder bar,
+   aus der eigenen Tasche – und drückt in der App auf **Bezahlen**. Die
+   Schuld wandert vom Leiter auf ihn: unter seinem Namen steht jetzt, was
+   der Verein ihm schuldet.
+4. Am Jahresende **stellt er eine Rechnung** über alles, was er vorgestreckt
    hat. Sie lässt sich drucken oder als PDF speichern und enthält seine
    IBAN, die einzelnen Auszahlungen und die Belegnummern.
-3. Der **Vereinskassier überweist** den Betrag und hakt die Rechnung in der
-   App als *bezahlt* ab. Damit ist auch diese Schuld erledigt.
+5. Der **Vereinskassier überweist** den Betrag vom Vereinskonto und hakt die
+   Rechnung in der App als *bezahlt* ab. Damit ist alles erledigt.
+
+Der Saldo der Kasse ändert sich beim Bezahlen nicht mehr: das Geld war
+schon beim Prüfen gebucht. Die Liste der Schulden zeigt nur, wem noch etwas
+zusteht.
 
 ## Was die App kann
 
@@ -105,16 +98,15 @@ der eigenen Tasche. Dann bucht er es als *„Ich habe vorgestreckt“*:
 - Jeden Beleg der eigenen Kasse bearbeiten, auch nach dem Prüfen. Ist er
   schon ausbezahlt, bleiben Betrag und Kasse fest.
 - Einnahmen und Einzahlungen erfassen
-- Festhalten, wenn man einen Leiter selbst aus der eigenen Tasche bezahlt
-  hat, und daraus eine Rechnung an den Verein stellen
+- Leiter **bezahlen** – das Geld vorstrecken – und am Jahresende daraus eine
+  Rechnung an den Verein stellen
 - Excel-Export und Druckansicht
 
 **Für den Vereinskassier, über alle Kassen**
 
 - Alle Kassenbücher und Belege ansehen, drucken, exportieren
 - Die offenen Auslagen aller Kassen an einem Ort sehen
-- Leiter vom Vereinskonto zurückzahlen
-- Rechnungen der Kassenchefs als bezahlt abhaken
+- Rechnungen der Kassenchefs vom Vereinskonto bezahlen und abhaken
 
 **Für die Abteilungsleitung**
 
