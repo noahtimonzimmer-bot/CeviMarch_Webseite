@@ -39,6 +39,72 @@ function darfBuchen() {
   return zustand.rolle === 'admin' || zustand.rolle === 'chef';
 }
 
+// ------------------------------------------------- Passwort sichtbar machen
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+/** Ein Auge als Strichzeichnung; durchgestrichen, solange man das Passwort sieht. */
+function augeZeichnen(offen) {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('stroke-width', '2');
+  svg.setAttribute('stroke-linecap', 'round');
+  svg.setAttribute('stroke-linejoin', 'round');
+  svg.setAttribute('aria-hidden', 'true');
+  const pfade = [
+    'M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z',
+    'M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z'
+  ];
+  if (offen) pfade.push('M4 4l16 16');
+  for (const d of pfade) {
+    const pfad = document.createElementNS(SVG_NS, 'path');
+    pfad.setAttribute('d', d);
+    svg.append(pfad);
+  }
+  return svg;
+}
+
+/**
+ * Haengt an jedes Passwortfeld einen Augen-Knopf, mit dem man das Getippte
+ * kurz sehen kann. Laeuft auch fuer Felder, die spaeter dazukommen.
+ */
+function passwortAugen(wurzel = document) {
+  for (const feld of wurzel.querySelectorAll('input[type="password"]')) {
+    if (feld.dataset.auge) continue;
+    feld.dataset.auge = '1';
+
+    const huelle = document.createElement('span');
+    huelle.className = 'passwort-feld';
+    feld.replaceWith(huelle);
+
+    const knopf = document.createElement('button');
+    knopf.type = 'button';
+    knopf.className = 'auge';
+
+    function zeigen(sichtbar) {
+      feld.type = sichtbar ? 'text' : 'password';
+      knopf.setAttribute('aria-label', sichtbar ? 'Passwort verbergen' : 'Passwort anzeigen');
+      knopf.setAttribute('aria-pressed', String(sichtbar));
+      knopf.replaceChildren(augeZeichnen(sichtbar));
+    }
+    knopf.addEventListener('click', () => {
+      zeigen(feld.type === 'password');
+      feld.focus();
+    });
+    // Nach dem Abschicken wieder verstecken, damit es beim naechsten Mal
+    // nicht offen auf dem Bildschirm steht.
+    feld.form?.addEventListener('submit', () => zeigen(false));
+
+    huelle.append(feld, knopf);
+    zeigen(false);
+  }
+}
+
+passwortAugen();
+new MutationObserver(() => passwortAugen()).observe(document.body, { childList: true, subtree: true });
+
 // ------------------------------------------------------------- Kleinkram
 
 /** Erzeugt ein Element. Nie innerHTML, damit kein fremder Text Code wird. */

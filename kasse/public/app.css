@@ -599,3 +599,33 @@ table.buch tbody tr:hover { background: var(--flaeche-leise); }
   .tabellen-rahmen { margin: 0 -16px; padding: 0 16px; }
   .ansicht { padding-block: 18px 36px; }
 }
+
+/* ---------------------------------------------- Passwort sichtbar machen */
+.passwort-feld {
+  position: relative;
+  display: block;
+  margin-top: 5px;
+}
+.passwort-feld input {
+  margin-top: 0;
+  padding-right: 48px;
+}
+.auge {
+  position: absolute;
+  top: 50%;
+  right: 2px;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-klein);
+  background: transparent;
+  color: var(--text-leise);
+  cursor: pointer;
+}
+.auge:hover { color: var(--text); }
+.auge:focus-visible { outline: 2px solid var(--blau); outline-offset: -4px; }
+.auge svg { width: 22px; height: 22px; }
