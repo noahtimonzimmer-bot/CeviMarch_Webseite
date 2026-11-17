@@ -15,6 +15,39 @@ export const ZAHLUNGSART_TEXT = {
 
 export const STATUS_TEXT = { offen: 'offen', geprueft: 'geprüft', abgelehnt: 'abgelehnt' };
 
+// ------------------------------------------------------ Belegnummern
+
+/**
+ * Vergibt die Belegnummern einer Kasse in einem Jahr neu, nach Datum:
+ * der aelteste Beleg ist Nr. 1, der naechste Nr. 2 und so weiter - wie im
+ * Kassenbuch auf Papier. Bei gleichem Datum zaehlt, was zuerst erfasst
+ * wurde.
+ *
+ * Laeuft nach jedem Erfassen, Aendern des Datums und Loeschen. Kommt ein
+ * Beleg mit fruehem Datum spaet dazu, ruecken die spaeteren eine Nummer
+ * nach hinten.
+ */
+export const nummernNeuVergeben = db.transaction((kasseId, jahr) => {
+  const ids = db
+    .prepare('SELECT id FROM belege WHERE kasse_id = ? AND jahr = ? ORDER BY datum, id')
+    .all(Number(kasseId), Number(jahr))
+    .map((z) => z.id);
+  if (!ids.length) return;
+  // Zuerst alle aus dem Weg schieben, sonst stoesst die Eindeutigkeit
+  // (Kasse, Jahr, Nummer) waehrend des Umnummerierens an.
+  db.prepare('UPDATE belege SET nummer = nummer + 1000000 WHERE kasse_id = ? AND jahr = ?')
+    .run(Number(kasseId), Number(jahr));
+  const setzen = db.prepare('UPDATE belege SET nummer = ? WHERE id = ?');
+  ids.forEach((id, i) => setzen.run(i + 1, id));
+});
+
+/** Einmal beim Start: alle Kassen und Jahre nach Datum durchnummerieren. */
+export function alleNummernNeuVergeben() {
+  const paare = db.prepare('SELECT DISTINCT kasse_id, jahr FROM belege').all();
+  for (const { kasse_id: kasseId, jahr } of paare) nummernNeuVergeben(kasseId, jahr);
+  return paare.length;
+}
+
 export function kasseLesen(id) {
   return db.prepare('SELECT * FROM kassen WHERE id = ?').get(Number(id));
 }
@@ -215,7 +248,7 @@ export function belegeDerKasse(kasseId, { jahr = null, status = null, suche = nu
          FROM belege b
          LEFT JOIN rueckerstattungen r ON r.id = b.rueckerstattung_id
         WHERE ${bedingungen.join(' AND ')}
-        ORDER BY b.jahr DESC, b.nummer DESC`
+        ORDER BY b.jahr DESC, b.nummer`
     )
     .all(...werte);
 }

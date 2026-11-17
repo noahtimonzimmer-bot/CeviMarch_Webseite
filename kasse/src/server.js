@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { schemaAnlegen, DATEN_ORDNER } from './db.js';
 import { sitzungLaden, csrfPruefen, alteSitzungenAufraeumen } from './auth.js';
 import { ersteEinrichtung } from './einrichtung.js';
+import { alleNummernNeuVergeben } from './kassenbuch.js';
 
 import anmeldungRouter from './routen/anmeldung.js';
 import benutzerRouter from './routen/benutzer.js';
@@ -22,6 +23,9 @@ const OEFFENTLICH = path.join(hier, '..', 'public');
 
 schemaAnlegen();
 ersteEinrichtung();
+// Bestehende Belege einmal nach Datum durchnummerieren - aeltere Fassungen
+// haben nach Eingang gezaehlt. Danach haelt sich die Reihe selbst aktuell.
+alleNummernNeuVergeben();
 
 const app = express();
 app.set('trust proxy', process.env.TRUST_PROXY === 'true' ? 1 : false);

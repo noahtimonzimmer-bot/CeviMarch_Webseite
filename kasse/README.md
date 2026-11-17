@@ -132,10 +132,15 @@ darüber in einem eigenen Kasten und zählen erst nach dem Prüfen beim Saldo mi
 
 ### Belegnummern
 
-Jeder Beleg bekommt beim Einreichen eine Nummer, die **pro Kasse und Jahr**
-von 1 an hochzählt: Nr. 1, Nr. 2, Nr. 3 … Jede Kasse hat ihre eigene Reihe,
-und die Nummer lässt sich nicht mehr ändern. Sie steht auf jeder gedruckten
-Belegseite.
+Die Nummer zählt **pro Kasse und Jahr nach Datum**: der älteste Beleg ist
+Nr. 1, der nächste Nr. 2 und so weiter – wie im Kassenbuch auf Papier. Bei
+gleichem Datum kommt zuerst, was zuerst erfasst wurde. Jede Kasse hat ihre
+eigene Reihe, und die Listen sind in derselben Reihenfolge sortiert.
+
+Die Reihe hält sich selbst aktuell: Kommt ein Beleg mit frühem Datum erst
+spät dazu, ändert jemand ein Datum oder wird ein Beleg gelöscht, werden die
+Nummern dieses Jahres neu vergeben. Darum die Nummer erst am Jahresende auf
+den Papierbeleg schreiben, wenn alle Belege drin sind.
 
 ### Geldbeträge
 

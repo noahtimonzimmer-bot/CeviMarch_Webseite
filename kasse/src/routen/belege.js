@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import { db, protokollieren } from '../db.js';
 import { angemeldet, darfKasse, darfBuchen } from '../auth.js';
 import { zuRappen } from '../geld.js';
-import { ZAHLUNGSARTEN, kasseLesen } from '../kassenbuch.js';
+import { ZAHLUNGSARTEN, kasseLesen, nummernNeuVergeben } from '../kassenbuch.js';
 import { belegUpload, belegDateiSpeichern, vollerPfad, dateiLoeschen } from '../dateien.js';
 
 const router = express.Router();
@@ -75,7 +75,7 @@ router.get('/meine', (req, res) => {
                 k.name AS kasse_name, k.farbe AS kasse_farbe,
                 (SELECT COUNT(*) FROM beleg_dateien d WHERE d.beleg_id = b.id) AS anzahl_dateien
            FROM belege b JOIN kassen k ON k.id = b.kasse_id
-          WHERE b.geraet = ? ORDER BY b.erstellt_am DESC LIMIT 50`
+          WHERE b.geraet = ? ORDER BY b.datum DESC, b.id DESC LIMIT 50`
       )
       .all(geraet)
   );
@@ -107,9 +107,9 @@ router.get('/:id/vorschau', (req, res) => {
 
 // ---------------------------------------------------------------- Anlegen
 
-// Die Nummer zaehlt pro Kasse und Jahr von 1 an hoch, genau wie im
-// Kassenbuch auf Papier. Sie wird in einer Transaktion vergeben, damit zwei
-// gleichzeitige Belege nie dieselbe Nummer bekommen.
+// Die Nummer zaehlt pro Kasse und Jahr nach Datum: der aelteste Beleg ist
+// Nr. 1. Ein neuer Beleg bekommt zuerst die naechste freie Nummer und wird
+// gleich danach an seinen Platz nach Datum gerueckt (nummernNeuVergeben).
 const naechsteNummer = db.transaction((kasseId, jahr) => {
   const max = db
     .prepare('SELECT COALESCE(MAX(nummer), 0) AS n FROM belege WHERE kasse_id = ? AND jahr = ?')
@@ -159,6 +159,7 @@ router.post('/', belegUpload.array('dateien', 8), async (req, res) => {
     );
 
   const belegId = Number(info.lastInsertRowid);
+  nummernNeuVergeben(kasse.id, jahr);
   for (const datei of req.files || []) {
     const gespeichert = await belegDateiSpeichern(datei);
     db.prepare(
@@ -168,8 +169,10 @@ router.post('/', belegUpload.array('dateien', 8), async (req, res) => {
           gespeichert.original_name, gespeichert.groesse);
   }
 
-  protokollieren(req.rolle, 'beleg_eingereicht', 'beleg', belegId, { kasse: kasse.name, nummer, betrag });
   const beleg = belegLesen(belegId);
+  protokollieren(req.rolle, 'beleg_eingereicht', 'beleg', belegId, {
+    kasse: kasse.name, nummer: beleg.nummer, betrag
+  });
   res.status(201).json({ ...beleg, dateien: dateienLesen(belegId) });
 });
 
@@ -184,21 +187,21 @@ router.patch('/:id', (req, res) => {
 
   const datum = req.body?.datum !== undefined ? String(req.body.datum).slice(0, 10) : beleg.datum;
   if (!istDatum(datum)) return res.status(400).json({ fehler: 'Bitte ein gueltiges Datum angeben.' });
-  // Die Nummer zaehlt pro Jahr: ein Jahreswechsel wuerde die Reihe zerreissen.
-  if (Number(datum.slice(0, 4)) !== beleg.jahr) {
-    return res.status(400).json({
-      fehler: `Beleg Nr. ${beleg.nummer} gehoert ins Jahr ${beleg.jahr}. Bitte loeschen und neu erfassen.`
-    });
-  }
+  // Wechselt der Beleg das Jahr, bekommt er im neuen Jahr vorlaeufig die
+  // letzte Nummer; danach werden beide Jahre nach Datum durchnummeriert.
+  const neuesJahr = Number(datum.slice(0, 4));
+  const vorlaeufig = neuesJahr === beleg.jahr ? beleg.nummer : naechsteNummer(beleg.kasse_id, neuesJahr);
 
   const betrag = req.body?.betrag !== undefined ? zuRappen(req.body.betrag) : beleg.betrag_rappen;
   if (betrag === null || betrag <= 0) return res.status(400).json({ fehler: 'Ungueltiger Betrag.' });
 
   db.prepare(
-    `UPDATE belege SET datum = ?, betrag_rappen = ?, beschreibung = ?, haendler = ?,
-            zahlungsart = ?, person = ?, notiz = ?
+    `UPDATE belege SET jahr = ?, nummer = ?, datum = ?, betrag_rappen = ?, beschreibung = ?,
+            haendler = ?, zahlungsart = ?, person = ?, notiz = ?
       WHERE id = ?`
   ).run(
+    neuesJahr,
+    vorlaeufig,
     datum,
     betrag,
     String(req.body?.beschreibung ?? beleg.beschreibung).trim().slice(0, 500),
@@ -208,6 +211,10 @@ router.patch('/:id', (req, res) => {
     req.body?.notiz !== undefined ? (String(req.body.notiz).trim().slice(0, 1000) || null) : beleg.notiz,
     beleg.id
   );
+  if (datum !== beleg.datum) {
+    nummernNeuVergeben(beleg.kasse_id, neuesJahr);
+    if (neuesJahr !== beleg.jahr) nummernNeuVergeben(beleg.kasse_id, beleg.jahr);
+  }
   protokollieren(req.rolle, 'beleg_geaendert', 'beleg', beleg.id, { nummer: beleg.nummer });
   const neu = belegLesen(beleg.id);
   res.json({ ...neu, dateien: dateienLesen(neu.id) });
@@ -279,6 +286,8 @@ router.delete('/:id', (req, res) => {
     dateiLoeschen(datei.vorschau_pfad);
   }
   db.prepare('DELETE FROM belege WHERE id = ?').run(beleg.id);
+  // Die Luecke schliessen, damit die Reihe wieder lueckenlos ist.
+  nummernNeuVergeben(beleg.kasse_id, beleg.jahr);
   protokollieren(req.rolle, 'beleg_geloescht', 'beleg', beleg.id, {
     nummer: beleg.nummer, betrag: beleg.betrag_rappen, beschreibung: beleg.beschreibung
   });
