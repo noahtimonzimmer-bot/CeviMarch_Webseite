@@ -150,7 +150,7 @@ export function sitzungLaden(req, _res, next) {
 
   if (sitzung.benutzer_id) {
     const benutzer = db
-      .prepare('SELECT id, name, email, rolle, iban, telefon, aktiv, passwort_neu FROM benutzer WHERE id = ?')
+      .prepare('SELECT id, name, email, rolle, iban, zahlname, strasse, plz, ort, telefon, aktiv, passwort_neu FROM benutzer WHERE id = ?')
       .get(sitzung.benutzer_id);
     // Gesperrte Konten kommen nicht mehr rein.
     if (!benutzer || !benutzer.aktiv) {

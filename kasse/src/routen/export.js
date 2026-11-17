@@ -9,6 +9,7 @@ import {
   ZAHLUNGSART_TEXT, STATUS_TEXT
 } from '../kassenbuch.js';
 import { alsZahl, ausRappen } from '../geld.js';
+import { qrInhalt, qrSvg, qrBereit, VEREIN } from '../zahlung.js';
 
 const router = express.Router();
 router.use(angemeldet);
@@ -386,6 +387,7 @@ router.get('/rechnung/:rechnungId', (req, res) => {
   const rechnung = db
     .prepare(
       `SELECT n.*, b.name AS benutzer_name, b.email AS benutzer_email, b.telefon AS benutzer_telefon,
+              b.iban AS konto_iban, b.zahlname, b.strasse, b.plz, b.ort,
               k.name AS kasse_name
          FROM rechnungen n
          JOIN benutzer b ON b.id = n.benutzer_id
@@ -420,6 +422,32 @@ router.get('/rechnung/:rechnungId', (req, res) => {
   // Bar aus der Kasse genommen: dann ist es keine Rechnung, sondern eine
   // Quittung - ohne IBAN, mit Unterschriftszeile.
   const bar = rechnung.art === 'bar';
+  const nummerText = `${rechnung.jahr}-${String(rechnung.nummer).padStart(3, '0')}`;
+
+  // Solange die Rechnung offen ist, gelten die aktuellen Angaben des Kontos -
+  // wer seine IBAN nachtraegt oder korrigiert, muss nicht neu abrechnen.
+  // Nach der Zahlung bleibt stehen, was damals galt.
+  const empfaenger = {
+    name: rechnung.benutzer_name,
+    zahlname: rechnung.zahlname,
+    strasse: rechnung.strasse,
+    plz: rechnung.plz,
+    ort: rechnung.ort,
+    iban: rechnung.status === 'offen' ? (rechnung.konto_iban || rechnung.iban) : (rechnung.iban || rechnung.konto_iban)
+  };
+  const inhaber = empfaenger.zahlname || empfaenger.name;
+  const adresszeilen = [inhaber, empfaenger.strasse, [empfaenger.plz, empfaenger.ort].filter(Boolean).join(' ')]
+    .filter(Boolean);
+
+  // QR-Code fuer die Banking-App, nur bei Ueberweisung und vollstaendigen Angaben.
+  const mitQr = !bar && qrBereit(empfaenger);
+  const qr = mitQr
+    ? qrSvg(qrInhalt({
+        konto: empfaenger,
+        betragRappen: rechnung.betrag_rappen,
+        mitteilung: `Rechnung ${nummerText} ${rechnung.kasse_name}`
+      }))
+    : '';
 
   const nonce = crypto.randomBytes(16).toString('base64');
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -456,6 +484,13 @@ router.get('/rechnung/:rechnungId', (req, res) => {
   .zahlung { margin-top: 28px; border: 2px solid #15161a; border-radius: 8px; padding: 14px 16px; }
   .zahlung .iban { font-size: 18px; font-weight: 800; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
   .bezahlt { margin-top: 20px; color: #1d7a3c; font-weight: 700; }
+  .zahlteil { margin-top: 30px; border-top: 1px dashed #15161a; padding-top: 5mm;
+              display: grid; grid-template-columns: 56mm 1fr; gap: 6mm; font-size: 10pt;
+              break-inside: avoid; page-break-inside: avoid; }
+  .zahlteil h2 { font-size: 11pt; margin: 0 0 4mm; }
+  .zahlteil svg { display: block; margin-bottom: 4mm; }
+  .zahlteil .feld { margin-bottom: 4mm; line-height: 1.35; }
+  .zahlteil .etikett { font-size: 8pt; font-weight: 700; }
   .fuss { margin-top: 36px; color: #87888f; font-size: 11px; line-height: 1.6; }
   .druckleiste { background: #f4f4f6; border: 1px solid #e3e3e6; padding: 10px 14px;
       margin-bottom: 20px; border-radius: 10px; display: flex; gap: 10px; align-items: center; }
@@ -487,14 +522,15 @@ router.get('/rechnung/:rechnungId', (req, res) => {
 <div class="parteien">
   <div class="partei">
     <div class="titel">${bar ? 'Empfangen von' : 'Rechnungssteller'}</div>
-    <strong>${escape(rechnung.benutzer_name)}</strong><br>
+    <strong>${escape(inhaber)}</strong><br>
+    ${adresszeilen.slice(1).map((z) => `${escape(z)}<br>`).join('')}
     ${escape(rechnung.benutzer_email)}${rechnung.benutzer_telefon ? `<br>${escape(rechnung.benutzer_telefon)}` : ''}
   </div>
   <div class="partei">
     <div class="titel">${bar ? 'Bezahlt aus' : 'Rechnung an'}</div>
     ${bar
       ? `<strong>${escape(rechnung.kasse_name)}</strong><br>Bargeld der Kasse<br>Verein Cevi March`
-      : `<strong>Verein Cevi March</strong><br>Kassier<br>Gartenstrasse 4<br>8853 Lachen SZ`}
+      : `<strong>${escape(VEREIN.name)}</strong><br>Kassier<br>${escape(VEREIN.strasse)}<br>${escape(VEREIN.plz)} ${escape(VEREIN.ort)}`}
   </div>
 </div>
 
@@ -523,11 +559,36 @@ ${bar
          Unterschrift ${escape(rechnung.benutzer_name)}
        </div>
      </div>`
-  : `<div class="zahlung">
-       <div class="meta">Bitte zu überweisen auf</div>
-       <div class="iban">${escape(rechnung.iban ? ibanLesbar(rechnung.iban) : '— keine IBAN hinterlegt —')}</div>
-       <div class="meta">lautend auf ${escape(rechnung.benutzer_name)}</div>
-     </div>`}
+  : mitQr
+    ? `<section class="zahlteil">
+         <div class="zahlteil-qr">
+           <h2>Zahlteil</h2>
+           ${qr}
+           <div class="feld"><div class="etikett">Währung</div>CHF</div>
+           <div class="feld"><div class="etikett">Betrag</div>${ausRappen(rechnung.betrag_rappen)}</div>
+         </div>
+         <div class="zahlteil-angaben">
+           <div class="feld">
+             <div class="etikett">Konto / Zahlbar an</div>
+             ${escape(ibanLesbar(empfaenger.iban))}<br>
+             ${adresszeilen.map(escape).join('<br>')}
+           </div>
+           <div class="feld">
+             <div class="etikett">Zusätzliche Informationen</div>
+             Rechnung ${escape(nummerText)} ${escape(rechnung.kasse_name)}
+           </div>
+           <div class="feld">
+             <div class="etikett">Zahlbar durch</div>
+             ${escape(VEREIN.name)}<br>${escape(VEREIN.strasse)}<br>${escape(VEREIN.plz)} ${escape(VEREIN.ort)}
+           </div>
+         </div>
+       </section>
+       <p class="meta">Mit der Banking-App den QR-Code scannen – Betrag, IBAN und Empfänger sind schon ausgefüllt.</p>`
+    : `<div class="zahlung">
+         <div class="meta">Bitte zu überweisen auf</div>
+         <div class="iban">${escape(empfaenger.iban ? ibanLesbar(empfaenger.iban) : '— keine IBAN hinterlegt —')}</div>
+         <div class="meta">lautend auf ${escape(inhaber)}</div>
+       </div>`}
 
 ${rechnung.status === 'bezahlt' && !bar
   ? `<p class="bezahlt">Bezahlt am ${escape(datumCH(rechnung.bezahlt_am))}</p>`

@@ -7,6 +7,7 @@ import {
   darfAuszahlen, verwalteteKassen
 } from '../auth.js';
 import { zuRappen } from '../geld.js';
+import { qrBereit } from '../zahlung.js';
 import {
   alleKassen, kasseLesen, kasseZahlen, kassenbuch, belegeDerKasse,
   schuldenDerKasse, personenDerKasse, jahreDerKasse
@@ -311,11 +312,16 @@ router.post('/:id/rechnungen', mitKonto, (req, res) => {
   // Admins duerfen die Rechnung auch fuer einen Chef ausstellen.
   const fuerId = req.rolle === 'admin' && req.body?.benutzer_id
     ? Number(req.body.benutzer_id) : req.benutzer.id;
-  const konto = db.prepare('SELECT id, name, iban FROM benutzer WHERE id = ?').get(fuerId);
+  const konto = db
+    .prepare('SELECT id, name, iban, zahlname, strasse, plz, ort FROM benutzer WHERE id = ?')
+    .get(fuerId);
   if (!konto) return res.status(404).json({ fehler: 'Konto nicht gefunden.' });
-  if (art === 'ueberweisung' && !konto.iban) {
+  // Die Rechnung traegt einen QR-Code zum Bezahlen. Dafuer braucht es IBAN,
+  // Kontoinhaber und Adresse - fehlt etwas, lieber gleich sagen was.
+  if (art === 'ueberweisung' && !qrBereit(konto)) {
     return res.status(400).json({
-      fehler: 'Fuer die Rechnung braucht es eine IBAN. Trage sie unter "Mein Konto" ein.'
+      fehler: 'Fuer die Rechnung braucht es IBAN, Kontoinhaber, PLZ und Ort. '
+        + 'Trage sie unter "Mein Konto" ein.'
     });
   }
 

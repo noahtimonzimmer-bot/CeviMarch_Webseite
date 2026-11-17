@@ -180,6 +180,48 @@ function personWahl(vorgabe = '', beschriftung = 'Ausgelegt von') {
   };
 }
 
+// ------------------------------------------------------- Zahlungsangaben
+
+/**
+ * Felder fuer die QR-Rechnung: IBAN, Kontoinhaber und Adresse. Mit diesen
+ * Angaben druckt die App einen QR-Code, den die Banking-App einfach scannt.
+ */
+function zahlFelder(konto = {}) {
+  return el('fieldset', { class: 'zahlfelder' }, [
+    el('legend', { text: 'Für die Rechnung an den Verein' }),
+    el('label', { text: 'IBAN' }, [
+      el('input', {
+        name: 'iban', value: konto.iban ? ibanLesbar(konto.iban) : '',
+        placeholder: 'CH00 0000 0000 0000 0000 0', autocomplete: 'off'
+      })
+    ]),
+    el('label', { text: 'Kontoinhaber (so wie bei der Bank)' }, [
+      el('input', { name: 'zahlname', value: konto.zahlname || '', placeholder: 'Vorname Name' })
+    ]),
+    el('label', { text: 'Strasse und Nr.' }, [
+      el('input', { name: 'strasse', value: konto.strasse || '', placeholder: 'Musterstrasse 1' })
+    ]),
+    el('div', { class: 'feld-paar' }, [
+      el('label', { text: 'PLZ' }, [
+        el('input', { name: 'plz', value: konto.plz || '', inputmode: 'numeric', placeholder: '8853' })
+      ]),
+      el('label', { text: 'Ort' }, [
+        el('input', { name: 'ort', value: konto.ort || '', placeholder: 'Lachen' })
+      ])
+    ]),
+    el('p', {
+      class: 'hinweis',
+      text: 'Daraus entsteht auf der Rechnung ein QR-Code. Der Vereinskassier scannt ihn mit '
+        + 'der Banking-App – Betrag, IBAN und Empfänger sind dann schon ausgefüllt.'
+    })
+  ]);
+}
+
+/** IBAN in Vierergruppen, wie sie auf der Karte steht. */
+function ibanLesbar(iban) {
+  return String(iban || '').replace(/\s/g, '').replace(/(.{4})/g, '$1 ').trim();
+}
+
 // ------------------------------------------------------------- Kleinkram
 
 /** Erzeugt ein Element. Nie innerHTML, damit kein fremder Text Code wird. */
@@ -898,7 +940,8 @@ function barAusKasse(kasseId, chef) {
     el('label', { text: 'Notiz (freiwillig)' }, [el('input', { name: 'notiz' })]),
     el('p', {
       class: 'hinweis',
-      text: 'Danach öffnet sich eine Quittung zum Ausdrucken und Unterschreiben.'
+      text: 'Im Kassenbuch ändert sich dadurch nichts: die Ausgabe ist dort schon beim Prüfen '
+        + 'abgezogen. Danach öffnet sich eine Quittung zum Ausdrucken und Unterschreiben.'
     })
   ]);
 
@@ -999,19 +1042,20 @@ function rechnungenKarte(rechnungen, kasseId) {
           }),
           (rechnung.art === 'bar' && buchtHier(kasseId))
             || (rechnung.status === 'offen' && (istLeitung() || zustand.konto?.id === rechnung.benutzer_id))
+            || (rechnung.status === 'bezahlt' && istLeitung())
             ? el('button', {
-                class: 'knopf kompakt gefahr', text: 'Zurücknehmen',
+                class: 'knopf kompakt gefahr', text: 'Löschen',
                 onclick: async () => {
                   if (!(await bestaetigen(
-                    'Zurücknehmen',
-                    rechnung.art === 'bar'
-                      ? 'Die Barauszahlung wird gelöscht. Der Betrag steht danach wieder als vorgestreckt da.'
-                      : 'Die Rechnung wird gelöscht. Der Betrag steht danach wieder als vorgestreckt da.',
-                    'Zurücknehmen'
+                    rechnung.art === 'bar' ? 'Barauszahlung löschen' : 'Rechnung löschen',
+                    (rechnung.art === 'bar' ? 'Die Barauszahlung' : 'Die Rechnung')
+                      + ' wird gelöscht. Der Betrag steht danach wieder als vorgestreckt da '
+                      + 'und lässt sich neu abrechnen.',
+                    'Löschen'
                   ))) return;
                   try {
                     await api(`/kassen/${kasseId}/rechnungen/${rechnung.id}`, { methode: 'DELETE' });
-                    melden('Zurückgenommen.');
+                    melden('Gelöscht.');
                     zeichnen();
                   } catch (fehler) { melden(fehler.message, true); }
                 }
@@ -1957,9 +2001,7 @@ function kontoBearbeiten(konto, kassen) {
           ])
         : null
     ]),
-    el('label', { text: 'IBAN (für die Rechnung an den Verein)' }, [
-      el('input', { name: 'iban', value: konto?.iban || '', placeholder: 'CH00 0000 0000 0000 0000 0' })
-    ]),
+    zahlFelder(konto || {}),
     // Beim Anlegen darf die Abteilungsleitung das Passwort selbst tippen.
     konto
       ? null
@@ -2033,15 +2075,7 @@ async function meinKontoAnsicht() {
     }
   }, [
     el('label', { text: 'Name' }, [el('input', { name: 'name', value: konto.name, required: true })]),
-    el('label', { text: 'IBAN' }, [
-      el('input', {
-        name: 'iban', value: konto.iban || '', placeholder: 'CH00 0000 0000 0000 0000 0'
-      }),
-      el('span', {
-        class: 'hinweis', style: 'display: block; margin-top: 4px;',
-        text: 'Darauf überweist der Verein, was du für deine Kasse vorgestreckt hast.'
-      })
-    ]),
+    zahlFelder(konto),
     el('label', { text: 'Telefon (freiwillig)' }, [
       el('input', { name: 'telefon', value: konto.telefon || '' })
     ]),

@@ -49,6 +49,17 @@ function nachruesten() {
     `);
   }
 
+  // Adresse fuer die QR-Rechnung gibt es seit Herbst 2026.
+  const konto = spalten('benutzer');
+  if (konto.length && !konto.includes('zahlname')) {
+    db.exec(`
+      ALTER TABLE benutzer ADD COLUMN zahlname TEXT;
+      ALTER TABLE benutzer ADD COLUMN strasse TEXT;
+      ALTER TABLE benutzer ADD COLUMN plz TEXT;
+      ALTER TABLE benutzer ADD COLUMN ort TEXT;
+    `);
+  }
+
   // Barauszahlung aus der Kasse gibt es seit Herbst 2026.
   const rechnung = spalten('rechnungen');
   if (rechnung.length && !rechnung.includes('art')) {

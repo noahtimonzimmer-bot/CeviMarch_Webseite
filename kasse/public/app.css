@@ -641,3 +641,16 @@ table.buch tbody tr:hover { background: var(--flaeche-leise); }
   font-size: 1.05rem;
   justify-content: center;
 }
+
+/* ------------------------------------------------ Zahlungsangaben */
+.zahlfelder {
+  border: 1px solid var(--rand);
+  border-radius: var(--radius-klein);
+  padding: 12px 14px 4px;
+  margin: 6px 0 14px;
+}
+.zahlfelder legend {
+  font-size: .86rem;
+  font-weight: 700;
+  padding: 0 6px;
+}

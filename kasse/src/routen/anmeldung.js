@@ -1,5 +1,6 @@
 // Anmelden, abmelden, eigenes Konto pflegen.
 import express from 'express';
+import { zahlangabenLesen } from '../zahlung.js';
 import { db, protokollieren } from '../db.js';
 import {
   mitEmailAnmelden, mitPasswortAnmelden, sitzungAnlegen, sitzungLoeschen,
@@ -25,6 +26,10 @@ function ichAntwort(req) {
       name: req.benutzer.name,
       email: req.benutzer.email,
       iban: req.benutzer.iban,
+      zahlname: req.benutzer.zahlname,
+      strasse: req.benutzer.strasse,
+      plz: req.benutzer.plz,
+      ort: req.benutzer.ort,
       telefon: req.benutzer.telefon,
       passwort_neu: Boolean(req.benutzer.passwort_neu)
     };
@@ -97,15 +102,20 @@ router.get('/ich', (req, res) => {
 // ------------------------------------------------------------ Eigenes Konto
 
 router.patch('/ich', csrfPruefen, mitKonto, (req, res) => {
-  const { name, iban, telefon } = req.body || {};
-  db.prepare('UPDATE benutzer SET name = ?, iban = ?, telefon = ? WHERE id = ?').run(
+  const { name, telefon } = req.body || {};
+  const { werte, fehler } = zahlangabenLesen(req.body || {}, req.benutzer);
+  if (fehler) return res.status(400).json({ fehler });
+  db.prepare(
+    `UPDATE benutzer SET name = ?, iban = ?, zahlname = ?, strasse = ?, plz = ?, ort = ?, telefon = ?
+      WHERE id = ?`
+  ).run(
     String(name || req.benutzer.name).trim().slice(0, 120),
-    iban ? String(iban).replace(/\s/g, '').toUpperCase().slice(0, 34) : null,
-    telefon ? String(telefon).trim().slice(0, 40) : null,
+    werte.iban, werte.zahlname, werte.strasse, werte.plz, werte.ort,
+    telefon !== undefined ? (String(telefon).trim().slice(0, 40) || null) : req.benutzer.telefon,
     req.benutzer.id
   );
   req.benutzer = db
-    .prepare('SELECT id, name, email, rolle, iban, telefon, aktiv, passwort_neu FROM benutzer WHERE id = ?')
+    .prepare('SELECT id, name, email, rolle, iban, zahlname, strasse, plz, ort, telefon, aktiv, passwort_neu FROM benutzer WHERE id = ?')
     .get(req.benutzer.id);
   res.json(ichAntwort(req));
 });

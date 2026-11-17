@@ -70,8 +70,16 @@ Der ganze Ablauf kommt ohne Kassenbargeld aus:
      Kasse. Das ist sofort erledigt; die App druckt dazu eine Quittung zum
      Unterschreiben.
    * **Rechnung stellen** – am Jahresende eine Rechnung an den Verein mit
-     seiner IBAN, den einzelnen Auszahlungen und den Belegnummern. Der
-     **Vereinskassier überweist** und hakt sie als *bezahlt* ab.
+     den einzelnen Auszahlungen, den Belegnummern und einem **Schweizer
+     QR-Zahlteil**. Der **Vereinskassier** scannt ihn mit der Banking-App –
+     Betrag, IBAN und Empfänger sind schon ausgefüllt – und hakt die Rechnung
+     danach als *bezahlt* ab.
+
+Für die QR-Rechnung braucht jedes Konto unter **Mein Konto**: IBAN,
+Kontoinhaber (so wie bei der Bank), Strasse, PLZ und Ort. Die App prüft die
+IBAN mit der Prüfziffer, damit sich kein Tippfehler einschleicht. Solange
+eine Rechnung offen ist, gelten immer die aktuellen Angaben; eine falsch
+gestellte Rechnung lässt sich **löschen** und neu stellen.
 
 Hat der Kassenchef **selbst** etwas ausgelegt, muss er sich nicht selbst
 bezahlen: bei seinem Namen steht **Meine Auslage**, ein Klick, und der

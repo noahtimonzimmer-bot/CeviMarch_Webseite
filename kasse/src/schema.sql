@@ -32,6 +32,11 @@ CREATE TABLE IF NOT EXISTS benutzer (
   passwort_hash TEXT    NOT NULL,
   rolle         TEXT    NOT NULL DEFAULT 'chef' CHECK (rolle IN ('admin', 'kassier', 'chef')),
   iban          TEXT,          -- fuer die Rechnung an den Verein
+  -- Fuer die QR-Rechnung: Inhaber des Kontos und seine Adresse
+  zahlname      TEXT,
+  strasse       TEXT,          -- Strasse und Hausnummer
+  plz           TEXT,
+  ort           TEXT,
   telefon       TEXT,
   aktiv         INTEGER NOT NULL DEFAULT 1,
   passwort_neu  INTEGER NOT NULL DEFAULT 1,  -- 1 = muss beim Anmelden geaendert werden

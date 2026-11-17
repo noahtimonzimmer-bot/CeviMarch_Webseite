@@ -1,6 +1,7 @@
 // Konten verwalten: Kassenchefs anlegen, Kassen freigeben, sperren.
 // Das darf nur die Abteilungsleitung (Rolle 'admin').
 import express from 'express';
+import { zahlangabenLesen } from '../zahlung.js';
 import { db, protokollieren } from '../db.js';
 import {
   nurAdmin, mitKonto, passwortHashen, passwortVorschlagen, kontoSitzungenBeenden,
@@ -9,7 +10,8 @@ import {
 
 const router = express.Router();
 
-const KONTO_FELDER = `id, name, email, rolle, iban, telefon, aktiv, passwort_neu, erstellt_am`;
+const KONTO_FELDER = `id, name, email, rolle, iban, zahlname, strasse, plz, ort, telefon, aktiv,
+  passwort_neu, erstellt_am`;
 
 function kontoLesen(id) {
   const konto = db.prepare(`SELECT ${KONTO_FELDER} FROM benutzer WHERE id = ?`).get(Number(id));
@@ -67,15 +69,19 @@ router.post('/', nurAdmin, (req, res) => {
     const problem = passwortRegelnVerletzt(gewuenscht);
     if (problem) return res.status(400).json({ fehler: problem });
   }
+  const zahlung = zahlangabenLesen(req.body || {});
+  if (zahlung.fehler) return res.status(400).json({ fehler: zahlung.fehler });
   const startpasswort = gewuenscht || passwortVorschlagen();
   const info = db
     .prepare(
-      `INSERT INTO benutzer (name, email, passwort_hash, rolle, iban, telefon, passwort_neu)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO benutzer
+         (name, email, passwort_hash, rolle, iban, zahlname, strasse, plz, ort, telefon, passwort_neu)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       name.slice(0, 120), email, passwortHashen(startpasswort), rolle,
-      req.body?.iban ? String(req.body.iban).replace(/\s/g, '').toUpperCase().slice(0, 34) : null,
+      zahlung.werte.iban, zahlung.werte.zahlname, zahlung.werte.strasse,
+      zahlung.werte.plz, zahlung.werte.ort,
       req.body?.telefon ? String(req.body.telefon).trim().slice(0, 40) : null,
       gewuenscht ? 0 : 1
     );
@@ -108,14 +114,18 @@ router.patch('/:id', nurAdmin, (req, res) => {
     });
   }
 
+  const zahlung = zahlangabenLesen(req.body || {}, konto);
+  if (zahlung.fehler) return res.status(400).json({ fehler: zahlung.fehler });
+
   db.prepare(
-    'UPDATE benutzer SET name = ?, rolle = ?, iban = ?, telefon = ?, aktiv = ? WHERE id = ?'
+    `UPDATE benutzer SET name = ?, rolle = ?, iban = ?, zahlname = ?, strasse = ?, plz = ?, ort = ?,
+            telefon = ?, aktiv = ?
+      WHERE id = ?`
   ).run(
     String(req.body?.name ?? konto.name).trim().slice(0, 120) || konto.name,
     neueRolle,
-    req.body?.iban !== undefined
-      ? (String(req.body.iban).replace(/\s/g, '').toUpperCase().slice(0, 34) || null)
-      : konto.iban,
+    zahlung.werte.iban, zahlung.werte.zahlname, zahlung.werte.strasse,
+    zahlung.werte.plz, zahlung.werte.ort,
     req.body?.telefon !== undefined ? (String(req.body.telefon).trim().slice(0, 40) || null) : konto.telefon,
     neuAktiv,
     konto.id
