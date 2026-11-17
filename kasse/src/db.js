@@ -35,6 +35,20 @@ function spalten(tabelle) {
  * Spalten muessen darum von Hand nachgezogen werden.
  */
 function nachruesten() {
+  // Die Namensliste gibt es erst seit Herbst 2026. Damit sie nicht leer
+  // beginnt, einmal alle Namen uebernehmen, die schon auf Belegen stehen.
+  const uebernommen = db
+    .prepare("SELECT 1 FROM einstellungen WHERE schluessel = 'leiter_uebernommen'")
+    .get();
+  if (!uebernommen) {
+    db.exec(`
+      INSERT OR IGNORE INTO leiter (name)
+        SELECT DISTINCT TRIM(person) FROM belege
+         WHERE person IS NOT NULL AND TRIM(person) <> '';
+      INSERT INTO einstellungen (schluessel, wert) VALUES ('leiter_uebernommen', '1');
+    `);
+  }
+
   const rueck = spalten('rueckerstattungen');
   if (rueck.length && !rueck.includes('quelle')) {
     db.exec(`

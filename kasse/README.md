@@ -86,7 +86,11 @@ der eigenen Tasche. Dann bucht er es als *„Ich habe vorgestreckt“*:
 
 **Für alle Leiterinnen und Leiter**
 
+- Nach dem Anmelden fragt die App **„Wer bist du?“** – man tippt seinen Namen
+  aus der Liste an, das Gerät merkt ihn sich
 - Ein grosser Knopf: *Beleg erfassen*
+- *Ausgelegt von* ist eine Auswahl aus derselben Liste. Hat jemand anderes
+  bezahlt, wählt man einfach dessen Namen
 - Beleg mit dem Handy fotografieren (oder PDF hochladen), Betrag, Datum,
   Beschreibung und Laden erfassen
 - Die eigenen Belege dieses Geräts ansehen. Solange sie noch nicht geprüft
@@ -118,6 +122,10 @@ der eigenen Tasche. Dann bucht er es als *„Ich habe vorgestreckt“*:
 - Kassen anlegen, umbenennen, schliessen, Startsaldo setzen
 - Personen anlegen, sperren, Passwort zurücksetzen
 - **Nur die Abteilungsleitung gibt einem Kassenchef seine Kassen frei**
+- Unter **Leiter** die Namensliste pflegen: Namen hinzufügen (mehrere auf
+  einmal, einer pro Zeile), umbenennen – die Belege ziehen mit – oder
+  entfernen. Beim ersten Start wurden alle Namen übernommen, die schon auf
+  Belegen standen
 
 ### Das Kassenbuch
 
@@ -355,6 +363,7 @@ hier nicht verwendet werden; ein Downgrade von `exceljs` wäre riskanter.
 | Tabelle              | Inhalt                                                     |
 |----------------------|-------------------------------------------------------------|
 | `benutzer`           | Konten von Abteilungsleitung, Vereinskassier und Kassenchefs, mit IBAN |
+| `leiter`             | Namensliste für „Wer bist du?“ und „Ausgelegt von“         |
 | `kassen_chefs`       | welcher Kassenchef betreut welche Kasse                     |
 | `rechnungen`         | Rechnungen der Kassenchefs an den Verein                    |
 | `einstellungen`      | der Hash des gemeinsamen Passworts                          |

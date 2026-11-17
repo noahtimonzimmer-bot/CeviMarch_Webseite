@@ -629,3 +629,15 @@ table.buch tbody tr:hover { background: var(--flaeche-leise); }
 .auge:hover { color: var(--text); }
 .auge:focus-visible { outline: 2px solid var(--blau); outline-offset: -4px; }
 .auge svg { width: 22px; height: 22px; }
+
+/* ------------------------------------------------ Wer bist du? */
+.namen-gitter {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+.namen-knopf {
+  min-height: 56px;
+  font-size: 1.05rem;
+  justify-content: center;
+}

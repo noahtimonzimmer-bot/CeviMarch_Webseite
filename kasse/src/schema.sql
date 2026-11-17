@@ -143,6 +143,16 @@ CREATE TABLE IF NOT EXISTS einnahmen (
   erstellt_am   TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Namensliste aller Leiterinnen und Leiter. Daraus waehlt man bei
+-- "Ausgelegt von" und beim Anmelden mit dem gemeinsamen Passwort, wer man
+-- ist. Die Abteilungsleitung pflegt sie. Beim Beleg steht der Name als
+-- Text - wer aus der Liste geloescht wird, bleibt bei seinen Belegen stehen.
+CREATE TABLE IF NOT EXISTS leiter (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  name        TEXT    NOT NULL UNIQUE COLLATE NOCASE,
+  erstellt_am TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS sitzungen (
   sid         TEXT    PRIMARY KEY,
   rolle       TEXT    NOT NULL CHECK (rolle IN ('admin', 'kassier', 'chef', 'melder')),

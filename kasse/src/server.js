@@ -14,6 +14,7 @@ import { alleNummernNeuVergeben } from './kassenbuch.js';
 
 import anmeldungRouter from './routen/anmeldung.js';
 import benutzerRouter from './routen/benutzer.js';
+import leiterRouter from './routen/leiter.js';
 import kassenRouter from './routen/kassen.js';
 import belegeRouter from './routen/belege.js';
 import exportRouter from './routen/export.js';
@@ -84,6 +85,7 @@ app.use(
 app.use('/api', anmeldungRouter);
 app.use('/api', csrfPruefen);
 app.use('/api/benutzer', benutzerRouter);
+app.use('/api/leiter', leiterRouter);
 app.use('/api/kassen', kassenRouter);
 app.use('/api/belege', belegeRouter);
 app.use('/api/export', exportRouter);

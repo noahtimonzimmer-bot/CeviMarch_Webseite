@@ -10,7 +10,9 @@ const zustand = {
   kassen: [],
   kassenIds: [],        // Kassen, die diese Anmeldung verwalten darf
   geraet: null,         // zufaellige Kennung dieses Browsers
-  name: ''              // Name der Person, die hier Belege einreicht
+  name: '',             // Name der Person, die hier Belege einreicht
+  leiter: [],           // Namensliste fuer "Ausgelegt von"
+  werFragen: false      // nach dem Anmelden fragen, wer man ist
 };
 
 const ROLLEN_NAMEN = {
@@ -104,6 +106,60 @@ function passwortAugen(wurzel = document) {
 
 passwortAugen();
 new MutationObserver(() => passwortAugen()).observe(document.body, { childList: true, subtree: true });
+
+// ------------------------------------------------------------ Namensliste
+
+async function leiterLaden() {
+  try { zustand.leiter = await api('/leiter'); } catch { zustand.leiter = []; }
+  return zustand.leiter;
+}
+
+const ANDERE = '__andere__';
+
+/**
+ * Auswahlfeld "Ausgelegt von": Namen aus der Liste der Abteilungsleitung,
+ * dazu "andere Person", falls jemand fehlt. Der gewaehlte Name landet im
+ * Textfeld "person", das mit dem Formular verschickt wird.
+ */
+function personWahl(vorgabe = '', beschriftung = 'Ausgelegt von') {
+  const namen = zustand.leiter.map((l) => l.name);
+  const bekannt = vorgabe && namen.some((name) => name.toLowerCase() === vorgabe.toLowerCase());
+  // Ein alter Name, der nicht mehr in der Liste steht, bleibt waehlbar.
+  if (vorgabe && !bekannt) namen.unshift(vorgabe);
+
+  const text = el('input', {
+    name: 'person', value: vorgabe || '', placeholder: 'Vorname Name', autocomplete: 'off'
+  });
+  const auswahl = el('select', { name: 'person_wahl' }, [
+    el('option', { value: '', text: 'Bitte wählen …', selected: !vorgabe }),
+    ...namen.map((name) => el('option', {
+      value: name, text: name, selected: vorgabe && name.toLowerCase() === vorgabe.toLowerCase()
+    })),
+    el('option', { value: ANDERE, text: 'Andere Person …' })
+  ]);
+
+  function abgleichen() {
+    const andere = auswahl.value === ANDERE;
+    text.hidden = !andere;
+    text.style.marginTop = andere ? '8px' : '';
+    if (!andere) text.value = auswahl.value;
+    else { text.value = ''; text.focus(); }
+    text.required = andere && pflicht;
+  }
+  auswahl.addEventListener('change', abgleichen);
+  text.hidden = true;
+
+  let pflicht = true;
+  const zeile = el('label', { text: beschriftung }, [auswahl, text]);
+  return {
+    zeile,
+    pflicht(wert) {
+      pflicht = wert;
+      auswahl.required = wert;
+      text.required = wert && auswahl.value === ANDERE;
+    }
+  };
+}
 
 // ------------------------------------------------------------- Kleinkram
 
@@ -298,6 +354,8 @@ document.getElementById('anmelde-formular').addEventListener('submit', async (er
       methode: 'POST',
       daten: { passwort: formular.get('passwort') }
     }));
+    zustand.werFragen = true;
+    location.hash = '#/';
     ereignis.target.reset();
     await starten();
   } catch (fehler) {
@@ -338,7 +396,7 @@ function navigationZeichnen() {
   const nav = document.getElementById('navigation');
   const ziel = location.hash || '#/';
   const eintraege = zustand.rolle === 'admin'
-    ? [['#/', 'Kassen'], ['#/neu', 'Beleg erfassen'], ['#/konten', 'Personen'], ['#/konto', 'Mein Konto']]
+    ? [['#/', 'Kassen'], ['#/neu', 'Beleg erfassen'], ['#/leiter', 'Leiter'], ['#/konten', 'Konten'], ['#/konto', 'Mein Konto']]
     : zustand.rolle === 'kassier'
       ? [['#/', 'Alle Kassen'], ['#/neu', 'Beleg erfassen'], ['#/konto', 'Mein Konto']]
       : zustand.rolle === 'chef'
@@ -360,7 +418,7 @@ function navigationZeichnen() {
   document.getElementById('rollen-text').textContent = mitKonto()
     // Heisst jemand gleich wie seine Rolle, nicht zweimal dasselbe schreiben.
     ? (eigenerName && eigenerName !== rollenName ? `${rollenName} · ${eigenerName}` : rollenName)
-    : 'Angemeldet zum Belege erfassen';
+    : (zustand.name ? `Angemeldet als ${zustand.name}` : 'Angemeldet zum Belege erfassen');
 }
 
 // ------------------------------------------------------- Ansicht: Kassen
@@ -546,11 +604,11 @@ async function kasseAnsicht(id, jahrWunsch) {
   // --- Rechnungen an den Verein
   teile.push(rechnungenKarte(daten.rechnungen || [], id));
 
-  // --- Alle Belege mit Foto
-  teile.push(belegeKarte(daten.belege, id));
-
   // --- Einnahme erfassen und Kasse ändern
   if (darfBuchen()) teile.push(einnahmeKarte(buch, id, kasse));
+
+  // --- Alle Belege mit Foto, ganz am Schluss
+  teile.push(belegeKarte(daten.belege, id));
 
   return teile;
 }
@@ -1123,12 +1181,14 @@ async function belegBearbeiten(beleg) {
     Object.entries(ZAHLUNGSART_TEXT).map(([wert, text]) =>
       el('option', { value: wert, text, selected: wert === beleg.zahlungsart }))
   );
-  const nameZeile = el('label', { text: 'Ausgelegt von' }, [
-    el('input', { name: 'person', value: beleg.person || '' })
-  ]);
+  await leiterLaden();
+  const person = personWahl(beleg.person || '');
+  const nameZeile = person.zeile;
   nameZeile.hidden = beleg.zahlungsart !== 'privat';
+  person.pflicht(beleg.zahlungsart === 'privat');
   zahlungsartFeld.addEventListener('change', () => {
     nameZeile.hidden = zahlungsartFeld.value !== 'privat';
+    person.pflicht(zahlungsartFeld.value === 'privat');
   });
 
   const kassenAuswahl = kassen.filter((k) => k.aktiv !== 0 || k.id === beleg.kasse_id);
@@ -1257,8 +1317,54 @@ function einnahmeKarte(buch, kasseId, kasse) {
 
 // ------------------------------------------------------ Ansicht: Startseite
 
+/** Mit dem gemeinsamen Passwort angemeldet: zuerst sagen, wer man ist. */
+async function werBistDuAnsicht() {
+  await leiterLaden();
+
+  function waehlen(name) {
+    zustand.name = name;
+    zustand.werFragen = false;
+    speicherSchreiben('cmk_name', name);
+    location.hash = '#/';
+    zeichnen();
+  }
+
+  const eigenes = el('form', {
+    onsubmit: (ereignis) => {
+      ereignis.preventDefault();
+      const name = String(new FormData(ereignis.target).get('name') || '').trim();
+      if (name.length >= 2) waehlen(name);
+    }
+  }, [
+    el('label', { text: zustand.leiter.length ? 'Nicht in der Liste?' : 'Dein Name' }, [
+      el('input', { name: 'name', placeholder: 'Vorname Name', required: true, autocomplete: 'off' })
+    ]),
+    el('button', { class: 'knopf', type: 'submit', text: 'Weiter' })
+  ]);
+
+  return [
+    el('div', { class: 'seiten-kopf' }, [
+      el('div', {}, [
+        el('h1', { text: 'Wer bist du?' }),
+        el('p', { text: 'Dein Name steht dann bei deinen Belegen. Das Gerät merkt ihn sich.' })
+      ])
+    ]),
+    zustand.leiter.length
+      ? el('div', { class: 'namen-gitter' }, zustand.leiter.map((leiter) =>
+          el('button', {
+            class: `knopf namen-knopf${leiter.name === zustand.name ? ' primaer' : ''}`,
+            type: 'button', text: leiter.name,
+            onclick: () => waehlen(leiter.name)
+          })
+        ))
+      : null,
+    el('div', { class: 'karte', style: 'margin-top: 20px' }, [eigenes])
+  ];
+}
+
 async function startAnsicht() {
   if (mitKonto()) return kassenAnsicht();
+  if (zustand.werFragen || !zustand.name) return werBistDuAnsicht();
 
   const meine = await api('/belege/meine').catch(() => []);
   return [
@@ -1266,7 +1372,11 @@ async function startAnsicht() {
       el('div', {}, [
         el('h1', { text: zustand.name ? `Hoi ${zustand.name}` : 'Cevi March Kasse' }),
         el('p', { text: 'Beleg fotografieren, Betrag eintippen, fertig. Die Nummer vergibt die App.' })
-      ])
+      ]),
+      el('button', {
+        class: 'knopf kompakt', text: zustand.name ? `Nicht ${zustand.name}?` : 'Wer bist du?',
+        onclick: () => { zustand.werFragen = true; zeichnen(); }
+      })
     ]),
     el('a', { class: 'riesenknopf', href: '#/neu' }, [
       'Beleg erfassen',
@@ -1338,11 +1448,8 @@ async function neuerBelegAnsicht(kasseVorgabe) {
     );
   }
 
-  const nameFeld = el('input', {
-    name: 'person', value: zustand.name, required: true,
-    placeholder: 'Vorname Name', list: 'personen-liste'
-  });
-  const personenListe = el('datalist', { id: 'personen-liste' });
+  await leiterLaden();
+  const person = personWahl(zustand.name);
 
   const kasseFeld = el('select', { name: 'kasse_id', required: true },
     kassen.map((kasse) => el('option', {
@@ -1351,16 +1458,6 @@ async function neuerBelegAnsicht(kasseVorgabe) {
     }))
   );
 
-  // Namensvorschlaege der gewaehlten Kasse laden, damit sich das Feld
-  // beim naechsten Mal von selbst ausfuellt.
-  async function personenLaden() {
-    try {
-      const namen = await api(`/kassen/${kasseFeld.value}/personen`);
-      personenListe.replaceChildren(...namen.map((name) => el('option', { value: name })));
-    } catch { /* nicht schlimm */ }
-  }
-  kasseFeld.addEventListener('change', personenLaden);
-  personenLaden();
 
   const zahlungsartFeld = el('select', { name: 'zahlungsart' }, [
     el('option', { value: 'privat', text: 'Privat ausgelegt – ich bekomme das Geld zurück' }),
@@ -1369,20 +1466,17 @@ async function neuerBelegAnsicht(kasseVorgabe) {
     el('option', { value: 'rechnung', text: 'Rechnung an den Verein' })
   ]);
 
-  const nameZeile = el('label', { text: 'Ausgelegt von' }, [
-    nameFeld,
-    personenListe,
-    el('span', {
-      class: 'hinweis',
-      style: 'display: block; margin-top: 4px;',
-      text: zustand.name
-        ? 'Dein Name ist gemerkt und wird beim nächsten Mal wieder eingesetzt.'
-        : 'Einmal eintippen – danach setzt die App deinen Namen von selbst ein.'
+  const nameZeile = el('div', {}, [
+    person.zeile,
+    el('p', {
+      class: 'hinweis', style: 'margin-top: -6px',
+      text: 'Hat jemand anderes bezahlt, hier einfach die Person wechseln.'
     })
   ]);
+  person.pflicht(true);
   zahlungsartFeld.addEventListener('change', () => {
     nameZeile.hidden = zahlungsartFeld.value !== 'privat';
-    nameFeld.required = zahlungsartFeld.value === 'privat';
+    person.pflicht(zahlungsartFeld.value === 'privat');
   });
 
   const senden = el('button', { class: 'knopf primaer breit', type: 'submit', text: 'Beleg einreichen' });
@@ -1396,8 +1490,11 @@ async function neuerBelegAnsicht(kasseVorgabe) {
       for (const datei of dateien) felder.append('dateien', datei);
       try {
         const beleg = await api('/belege', { methode: 'POST', formular: felder });
-        zustand.name = String(felder.get('person') || '').trim();
-        speicherSchreiben('cmk_name', zustand.name);
+        // Wer noch keinen Namen hinterlegt hat, wird mit diesem gemerkt.
+        if (!zustand.name && felder.get('person')) {
+          zustand.name = String(felder.get('person')).trim();
+          speicherSchreiben('cmk_name', zustand.name);
+        }
         melden(`Gespeichert als Beleg Nr. ${beleg.nummer} in ${beleg.kasse_name}.`);
         location.hash = mitKonto() ? `#/kasse/${beleg.kasse_id}` : '#/';
         zeichnen();
@@ -1449,6 +1546,93 @@ async function neuerBelegAnsicht(kasseVorgabe) {
   ];
 }
 
+// ------------------------------------------------ Ansicht: Leiterliste
+
+async function leiterAnsicht() {
+  await leiterLaden();
+
+  const eingabe = el('textarea', {
+    name: 'namen', rows: 4,
+    placeholder: 'Ein Name pro Zeile, z.B.\nMalteser\nPepita\nSlate'
+  });
+
+  async function hinzufuegen(ereignis) {
+    ereignis.preventDefault();
+    try {
+      const antwort = await api('/leiter', { methode: 'POST', daten: { namen: eingabe.value } });
+      melden(antwort.neu === 1 ? '1 Name hinzugefügt.' : `${antwort.neu} Namen hinzugefügt.`);
+      zeichnen();
+    } catch (fehler) { melden(fehler.message, true); }
+  }
+
+  function umbenennen(leiter) {
+    const feld = el('input', { name: 'name', value: leiter.name, required: true });
+    dialogZeigen('Name ändern', el('form', {}, [
+      el('label', { text: 'Name' }, [feld]),
+      el('p', { class: 'hinweis', text: 'Belege mit dem alten Namen bekommen den neuen gleich mit.' })
+    ]), [
+      el('button', { class: 'knopf', text: 'Abbrechen', onclick: dialogSchliessen }),
+      el('button', {
+        class: 'knopf primaer', text: 'Speichern',
+        onclick: async () => {
+          try {
+            await api(`/leiter/${leiter.id}`, { methode: 'PATCH', daten: { name: feld.value } });
+            dialogSchliessen();
+            melden('Name geändert.');
+            zeichnen();
+          } catch (fehler) { melden(fehler.message, true); }
+        }
+      })
+    ]);
+  }
+
+  async function entfernen(leiter) {
+    if (!(await bestaetigen('Aus der Liste nehmen',
+      `${leiter.name} erscheint dann nicht mehr zur Auswahl. Bestehende Belege behalten den Namen.`,
+      'Entfernen'))) return;
+    try {
+      await api(`/leiter/${leiter.id}`, { methode: 'DELETE' });
+      melden(`${leiter.name} entfernt.`);
+      zeichnen();
+    } catch (fehler) { melden(fehler.message, true); }
+  }
+
+  return [
+    el('div', { class: 'seiten-kopf' }, [
+      el('div', {}, [
+        el('h1', { text: 'Leiterinnen und Leiter' }),
+        el('p', {
+          text: 'Aus dieser Liste wählt man beim Anmelden, wer man ist, und bei jedem Beleg, '
+            + 'wer das Geld ausgelegt hat.'
+        })
+      ])
+    ]),
+    el('div', { class: 'karte' }, [
+      el('div', { class: 'karte-kopf' }, [el('h2', { text: 'Namen hinzufügen' })]),
+      el('form', { onsubmit: hinzufuegen }, [
+        el('label', { text: 'Namen (einer pro Zeile)' }, [eingabe]),
+        el('button', { class: 'knopf primaer', type: 'submit', text: 'Hinzufügen' })
+      ])
+    ]),
+    el('div', { class: 'karte' }, [
+      el('div', { class: 'karte-kopf' }, [
+        el('h2', { text: `In der Liste (${zustand.leiter.length})` })
+      ]),
+      zustand.leiter.length
+        ? el('div', {}, zustand.leiter.map((leiter) =>
+            el('div', { class: 'schuld-zeile' }, [
+              el('div', { class: 'name', text: leiter.name }),
+              el('div', { class: 'knopf-reihe' }, [
+                el('button', { class: 'knopf kompakt', text: 'Ändern', onclick: () => umbenennen(leiter) }),
+                el('button', { class: 'knopf kompakt gefahr', text: 'Entfernen', onclick: () => entfernen(leiter) })
+              ])
+            ])
+          ))
+        : el('div', { class: 'leer', text: 'Noch keine Namen. Oben eintragen.' })
+    ])
+  ];
+}
+
 // ------------------------------------------------ Ansicht: Personen (Konten)
 
 async function kontenAnsicht() {
@@ -1457,7 +1641,7 @@ async function kontenAnsicht() {
   return [
     el('div', { class: 'seiten-kopf' }, [
       el('div', {}, [
-        el('h1', { text: 'Personen mit Konto' }),
+        el('h1', { text: 'Konten' }),
         el('p', { text: 'Abteilungsleitung, Vereinskassier und Kassenchefs. Alle übrigen brauchen kein Konto – sie erfassen Belege mit dem gemeinsamen Passwort.' })
       ]),
       el('button', {
@@ -1834,6 +2018,8 @@ async function zeichnen() {
       inhalt = await kasseAnsicht(teile[1], teile[2]);
     } else if (seite === 'neu') {
       inhalt = await neuerBelegAnsicht(teile[1]);
+    } else if (seite === 'leiter' && zustand.rolle === 'admin') {
+      inhalt = await leiterAnsicht();
     } else if (seite === 'konten' && zustand.rolle === 'admin') {
       inhalt = await kontenAnsicht();
     } else if (seite === 'konto' && mitKonto()) {
