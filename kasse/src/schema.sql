@@ -90,6 +90,9 @@ CREATE TABLE IF NOT EXISTS rechnungen (
   betrag_rappen INTEGER NOT NULL,
   iban          TEXT,                      -- Stand bei der Ausstellung
   status        TEXT    NOT NULL DEFAULT 'offen' CHECK (status IN ('offen', 'bezahlt')),
+  -- 'ueberweisung' = Rechnung an den Verein, der Vereinskassier ueberweist
+  -- 'bar'          = der Kassenchef hat sich das Geld bar aus der Kasse genommen
+  art           TEXT    NOT NULL DEFAULT 'ueberweisung',
   bezahlt_am    TEXT,
   notiz         TEXT,
   erstellt_am   TEXT    NOT NULL DEFAULT (datetime('now')),

@@ -49,6 +49,12 @@ function nachruesten() {
     `);
   }
 
+  // Barauszahlung aus der Kasse gibt es seit Herbst 2026.
+  const rechnung = spalten('rechnungen');
+  if (rechnung.length && !rechnung.includes('art')) {
+    db.exec("ALTER TABLE rechnungen ADD COLUMN art TEXT NOT NULL DEFAULT 'ueberweisung'");
+  }
+
   const rueck = spalten('rueckerstattungen');
   if (rueck.length && !rueck.includes('quelle')) {
     db.exec(`

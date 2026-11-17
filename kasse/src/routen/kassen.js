@@ -299,12 +299,21 @@ router.post('/:id/rechnungen', mitKonto, (req, res) => {
   const kasse = meineKasse(req, res);
   if (!kasse) return;
 
+  // Zwei Wege, das Vorgestreckte zurueckzubekommen:
+  //   ueberweisung - Rechnung an den Verein, der Vereinskassier ueberweist
+  //   bar          - der Kassenchef nimmt es sich bar aus seiner Kasse; das
+  //                  ist sofort erledigt und braucht keine IBAN
+  const art = req.body?.art === 'bar' ? 'bar' : 'ueberweisung';
+  if (art === 'bar' && !darfBuchen(req, kasse.id)) {
+    return res.status(403).json({ fehler: 'Bar aus der Kasse nehmen kann nur, wer die Kasse fuehrt.' });
+  }
+
   // Admins duerfen die Rechnung auch fuer einen Chef ausstellen.
   const fuerId = req.rolle === 'admin' && req.body?.benutzer_id
     ? Number(req.body.benutzer_id) : req.benutzer.id;
   const konto = db.prepare('SELECT id, name, iban FROM benutzer WHERE id = ?').get(fuerId);
   if (!konto) return res.status(404).json({ fehler: 'Konto nicht gefunden.' });
-  if (!konto.iban) {
+  if (art === 'ueberweisung' && !konto.iban) {
     return res.status(400).json({
       fehler: 'Fuer die Rechnung braucht es eine IBAN. Trage sie unter "Mein Konto" ein.'
     });
@@ -331,17 +340,25 @@ router.post('/:id/rechnungen', mitKonto, (req, res) => {
     const nummer = naechsteRechnungsnummer(jahr);
     const info = db
       .prepare(
-        `INSERT INTO rechnungen (kasse_id, benutzer_id, jahr, nummer, datum, betrag_rappen, iban, notiz)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO rechnungen
+           (kasse_id, benutzer_id, jahr, nummer, datum, betrag_rappen, iban, notiz,
+            art, status, bezahlt_am)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
-      .run(kasse.id, konto.id, jahr, nummer, datum, summe, konto.iban,
-           String(req.body?.notiz || '').trim().slice(0, 300) || null);
+      .run(kasse.id, konto.id, jahr, nummer, datum, summe,
+           art === 'bar' ? null : konto.iban,
+           String(req.body?.notiz || '').trim().slice(0, 300) || null,
+           art,
+           art === 'bar' ? 'bezahlt' : 'offen',
+           art === 'bar' ? datum : null);
     neueId = Number(info.lastInsertRowid);
     const setzen = db.prepare('UPDATE rueckerstattungen SET rechnung_id = ? WHERE id = ?');
     for (const eintrag of offene) setzen.run(neueId, eintrag.id);
   })();
 
-  protokollieren(req.rolle, 'rechnung_gestellt', 'rechnung', neueId, { summe, kasse: kasse.name });
+  protokollieren(req.rolle, art === 'bar' ? 'bar_aus_kasse' : 'rechnung_gestellt', 'rechnung', neueId, {
+    summe, kasse: kasse.name, fuer: konto.name
+  });
   res.status(201).json(db.prepare('SELECT * FROM rechnungen WHERE id = ?').get(neueId));
 });
 
@@ -366,7 +383,11 @@ router.delete('/:id/rechnungen/:rechnungId', mitKonto, (req, res) => {
     .prepare('SELECT * FROM rechnungen WHERE id = ? AND kasse_id = ?')
     .get(Number(req.params.rechnungId), kasse.id);
   if (!rechnung) return res.status(404).json({ fehler: 'Rechnung nicht gefunden.' });
-  if (rechnung.status === 'bezahlt' && req.rolle !== 'admin' && req.rolle !== 'kassier') {
+  // Eine Barauszahlung darf der Kassenchef selbst zuruecknehmen, falls er
+  // sich vertippt hat; eine vom Verein bezahlte Rechnung nicht.
+  const eigeneBarquittung = rechnung.art === 'bar' && darfBuchen(req, kasse.id);
+  if (rechnung.status === 'bezahlt' && !eigeneBarquittung
+      && req.rolle !== 'admin' && req.rolle !== 'kassier') {
     return res.status(400).json({
       fehler: 'Bezahlte Rechnungen loescht nur die Abteilungsleitung oder der Vereinskassier.'
     });

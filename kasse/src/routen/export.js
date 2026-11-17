@@ -417,6 +417,10 @@ router.get('/rechnung/:rechnungId', (req, res) => {
     )
     .join('\n');
 
+  // Bar aus der Kasse genommen: dann ist es keine Rechnung, sondern eine
+  // Quittung - ohne IBAN, mit Unterschriftszeile.
+  const bar = rechnung.art === 'bar';
+
   const nonce = crypto.randomBytes(16).toString('base64');
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.setHeader(
@@ -428,7 +432,7 @@ router.get('/rechnung/:rechnungId', (req, res) => {
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<title>Rechnung ${rechnung.jahr}-${String(rechnung.nummer).padStart(3, '0')}</title>
+<title>${bar ? 'Quittung' : 'Rechnung'} ${rechnung.jahr}-${String(rechnung.nummer).padStart(3, '0')}</title>
 <style>
   @page { size: A4; margin: 20mm; }
   * { box-sizing: border-box; }
@@ -468,7 +472,7 @@ router.get('/rechnung/:rechnungId', (req, res) => {
 
 <div class="kopf">
   <div>
-    <h1>Rechnung</h1>
+    <h1>${bar ? 'Quittung' : 'Rechnung'}</h1>
     <div class="meta">
       Nr. ${rechnung.jahr}-${String(rechnung.nummer).padStart(3, '0')}<br>
       ${escape(datumCH(rechnung.datum))}
@@ -482,21 +486,24 @@ router.get('/rechnung/:rechnungId', (req, res) => {
 
 <div class="parteien">
   <div class="partei">
-    <div class="titel">Rechnungssteller</div>
+    <div class="titel">${bar ? 'Empfangen von' : 'Rechnungssteller'}</div>
     <strong>${escape(rechnung.benutzer_name)}</strong><br>
     ${escape(rechnung.benutzer_email)}${rechnung.benutzer_telefon ? `<br>${escape(rechnung.benutzer_telefon)}` : ''}
   </div>
   <div class="partei">
-    <div class="titel">Rechnung an</div>
-    <strong>Verein Cevi March</strong><br>
-    Kassier<br>
-    Gartenstrasse 4<br>
-    8853 Lachen SZ
+    <div class="titel">${bar ? 'Bezahlt aus' : 'Rechnung an'}</div>
+    ${bar
+      ? `<strong>${escape(rechnung.kasse_name)}</strong><br>Bargeld der Kasse<br>Verein Cevi March`
+      : `<strong>Verein Cevi March</strong><br>Kassier<br>Gartenstrasse 4<br>8853 Lachen SZ`}
   </div>
 </div>
 
-<p>Auslagen, die ich für die <strong>${escape(rechnung.kasse_name)}</strong> aus eigener
-Tasche vorgestreckt habe. Die zugehörigen Belege sind im Kassenbuch erfasst und geprüft.</p>
+<p>${bar
+  ? `Auslagen, die ich für die <strong>${escape(rechnung.kasse_name)}</strong> vorgestreckt und
+     am ${escape(datumCH(rechnung.datum))} bar aus der Kasse zurückgenommen habe.`
+  : `Auslagen, die ich für die <strong>${escape(rechnung.kasse_name)}</strong> aus eigener
+     Tasche vorgestreckt habe.`}
+Die zugehörigen Belege sind im Kassenbuch erfasst und geprüft.</p>
 
 <table>
   <thead>
@@ -508,13 +515,21 @@ Tasche vorgestreckt habe. Die zugehörigen Belege sind im Kassenbuch erfasst und
   </tfoot>
 </table>
 
-<div class="zahlung">
-  <div class="meta">Bitte zu überweisen auf</div>
-  <div class="iban">${escape(rechnung.iban ? ibanLesbar(rechnung.iban) : '— keine IBAN hinterlegt —')}</div>
-  <div class="meta">lautend auf ${escape(rechnung.benutzer_name)}</div>
-</div>
+${bar
+  ? `<div class="zahlung">
+       <div class="meta">Betrag bar erhalten</div>
+       <div class="iban">CHF ${ausRappen(rechnung.betrag_rappen)}</div>
+       <div class="meta" style="margin-top: 36px; border-top: 1px solid #15161a; padding-top: 4px; width: 60%">
+         Unterschrift ${escape(rechnung.benutzer_name)}
+       </div>
+     </div>`
+  : `<div class="zahlung">
+       <div class="meta">Bitte zu überweisen auf</div>
+       <div class="iban">${escape(rechnung.iban ? ibanLesbar(rechnung.iban) : '— keine IBAN hinterlegt —')}</div>
+       <div class="meta">lautend auf ${escape(rechnung.benutzer_name)}</div>
+     </div>`}
 
-${rechnung.status === 'bezahlt'
+${rechnung.status === 'bezahlt' && !bar
   ? `<p class="bezahlt">Bezahlt am ${escape(datumCH(rechnung.bezahlt_am))}</p>`
   : ''}
 
@@ -522,8 +537,9 @@ ${rechnung.notiz ? `<p class="meta">${escape(rechnung.notiz)}</p>` : ''}
 
 <div class="fuss">
   Erstellt mit Cevi March Kasse am ${new Date().toLocaleDateString('de-CH')}.
-  Diese Rechnung ersetzt die Barauszahlung: der Verein überweist den Betrag direkt
-  an den Kassenchef, der die Leiter bereits entschädigt hat.
+  ${bar
+    ? 'Der Kassenchef hat die Leiter bereits entschädigt und sich den Betrag aus der Kasse zurückgenommen.'
+    : 'Der Verein überweist den Betrag direkt an den Kassenchef, der die Leiter bereits entschädigt hat.'}
 </div>
 
 <script nonce="${nonce}">

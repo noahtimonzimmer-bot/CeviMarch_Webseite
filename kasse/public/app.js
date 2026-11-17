@@ -36,6 +36,25 @@ function istKassier() {
   return zustand.rolle === 'admin' || zustand.rolle === 'kassier';
 }
 
+/**
+ * Ist dieser Name auf einem Beleg die angemeldete Person selbst? Der
+ * Kontoname darf mehr enthalten, etwa "Malteser/AL" fuer "Malteser".
+ */
+function istIch(name) {
+  const gesucht = String(name || '').trim().toLowerCase();
+  if (!gesucht || !zustand.konto) return false;
+  const teile = String(zustand.konto.name || '')
+    .split(/[\/,()·|]+/)
+    .map((teil) => teil.trim().toLowerCase())
+    .filter(Boolean);
+  return teile.includes(gesucht) || String(zustand.konto.name).trim().toLowerCase() === gesucht;
+}
+
+/** Darf die angemeldete Person in genau dieser Kasse buchen? */
+function buchtHier(kasseId) {
+  return darfBuchen() && zustand.kassenIds.includes(Number(kasseId));
+}
+
 /** Wer in einer Kasse buchen darf: Belege pruefen, Einnahmen erfassen. */
 function darfBuchen() {
   return zustand.rolle === 'admin' || zustand.rolle === 'chef';
@@ -778,12 +797,18 @@ function schuldenKarte(schulden, kasseId) {
             ]),
             el('div', { class: 'knopf-reihe' }, [
               el('span', { class: 'summe', text: `CHF ${chf(person.summe)}` }),
-              darfBuchen()
+              buchtHier(kasseId) && istIch(person.person)
                 ? el('button', {
-                    class: 'knopf kompakt', text: 'Bezahlen',
-                    onclick: () => rueckerstattungBuchen(kasseId, person)
+                    class: 'knopf kompakt', text: 'Meine Auslage',
+                    title: 'Du hast selbst bezahlt - das zählt direkt als vorgestreckt',
+                    onclick: () => eigeneAuslage(kasseId, person)
                   })
-                : null
+                : buchtHier(kasseId)
+                  ? el('button', {
+                      class: 'knopf kompakt', text: 'Bezahlen',
+                      onclick: () => rueckerstattungBuchen(kasseId, person)
+                    })
+                  : null
             ])
           ])
         ))
@@ -801,6 +826,7 @@ function schuldenKarte(schulden, kasseId) {
 function chefZeile(chef, kasseId) {
   const selber = zustand.konto && zustand.konto.id === chef.benutzer_id;
   const darfRechnen = selber || istLeitung();
+  const darfBar = darfRechnen && buchtHier(kasseId);
   const stand = chef.ohne_rechnung_rappen === 0
     ? 'Rechnung gestellt, noch nicht bezahlt'
     : chef.ohne_rechnung_rappen === chef.summe
@@ -817,6 +843,12 @@ function chefZeile(chef, kasseId) {
     ]),
     el('div', { class: 'knopf-reihe' }, [
       el('span', { class: 'summe', text: `CHF ${chf(chef.summe)}` }),
+      darfBar && chef.ohne_rechnung_rappen
+        ? el('button', {
+            class: 'knopf kompakt', text: 'Bar aus Kasse',
+            onclick: () => barAusKasse(kasseId, chef)
+          })
+        : null,
       darfRechnen && chef.ohne_rechnung_rappen
         ? el('button', {
             class: 'knopf blau kompakt', text: 'Rechnung stellen',
@@ -824,6 +856,70 @@ function chefZeile(chef, kasseId) {
           })
         : null
     ])
+  ]);
+}
+
+/**
+ * Eigene Auslage: Wer selbst einen Beleg bezahlt hat, muss sich nicht
+ * selbst auszahlen. Ein Klick, und der Betrag zaehlt als vorgestreckt.
+ */
+async function eigeneAuslage(kasseId, person) {
+  if (!(await bestaetigen(
+    'Meine Auslage',
+    `CHF ${chf(person.summe)} hast du selbst bezahlt. Der Betrag steht danach unter deinem Namen `
+      + 'bei „An Kassenchefs“ – von dort nimmst du ihn bar aus der Kasse oder stellst eine Rechnung.',
+    'Übernehmen'
+  ))) return;
+  try {
+    await api(`/kassen/${kasseId}/rueckerstattungen`, {
+      methode: 'POST',
+      daten: {
+        person: person.person, beleg_ids: person.belege.map((b) => b.id),
+        datum: heute(), methode: 'verrechnet', quelle: 'eigene_tasche',
+        notiz: 'eigene Auslage'
+      }
+    });
+    melden(`CHF ${chf(person.summe)} als deine Auslage übernommen.`);
+    zeichnen();
+  } catch (fehler) { melden(fehler.message, true); }
+}
+
+/** Das Vorgestreckte bar aus der Kasse nehmen - sofort erledigt. */
+function barAusKasse(kasseId, chef) {
+  const selber = zustand.konto && zustand.konto.id === chef.benutzer_id;
+  const formular = el('form', {}, [
+    el('p', {
+      text: `${selber ? 'Du nimmst dir' : `${chef.name} nimmt sich`} CHF ${chf(chef.ohne_rechnung_rappen)} `
+        + 'bar aus der Kasse. Damit ist das Vorgestreckte erledigt – eine Rechnung braucht es nicht.'
+    }),
+    el('label', { text: 'Datum' }, [
+      el('input', { name: 'datum', type: 'date', value: heute(), required: true })
+    ]),
+    el('label', { text: 'Notiz (freiwillig)' }, [el('input', { name: 'notiz' })]),
+    el('p', {
+      class: 'hinweis',
+      text: 'Danach öffnet sich eine Quittung zum Ausdrucken und Unterschreiben.'
+    })
+  ]);
+
+  dialogZeigen('Bar aus der Kasse nehmen', formular, [
+    el('button', { class: 'knopf', text: 'Abbrechen', onclick: dialogSchliessen }),
+    el('button', {
+      class: 'knopf primaer', text: 'Genommen',
+      onclick: async () => {
+        if (!formular.reportValidity()) return;
+        const daten = Object.fromEntries(new FormData(formular));
+        try {
+          const quittung = await api(`/kassen/${kasseId}/rechnungen`, {
+            methode: 'POST', daten: { ...daten, art: 'bar', benutzer_id: chef.benutzer_id }
+          });
+          dialogSchliessen();
+          melden(`CHF ${chf(quittung.betrag_rappen)} bar aus der Kasse genommen.`);
+          window.open(`/api/export/rechnung/${quittung.id}`, '_blank', 'noopener');
+          zeichnen();
+        } catch (fehler) { melden(fehler.message, true); }
+      }
+    })
   ]);
 }
 
@@ -877,19 +973,22 @@ function rechnungStellen(kasseId, chef) {
 function rechnungenKarte(rechnungen, kasseId) {
   if (!rechnungen.length) return null;
   return el('div', { class: 'karte' }, [
-    el('div', { class: 'karte-kopf' }, [el('h2', { text: 'Rechnungen an den Verein' })]),
+    el('div', { class: 'karte-kopf' }, [el('h2', { text: 'Rechnungen und Barauszahlungen' })]),
     el('div', {}, rechnungen.map((rechnung) =>
       el('div', { class: 'schuld-zeile' }, [
         el('div', {}, [
           el('div', {
             class: 'name',
-            text: `Nr. ${rechnung.jahr}-${String(rechnung.nummer).padStart(3, '0')} · ${rechnung.benutzer_name}`
+            text: `${rechnung.art === 'bar' ? 'Quittung' : 'Rechnung'} `
+              + `${rechnung.jahr}-${String(rechnung.nummer).padStart(3, '0')} · ${rechnung.benutzer_name}`
           }),
           el('div', {
             class: 'zeilen-notiz',
-            text: datum(rechnung.datum) + (rechnung.status === 'bezahlt'
-              ? ` · bezahlt am ${datum(rechnung.bezahlt_am)}`
-              : ' · noch offen')
+            text: rechnung.art === 'bar'
+              ? `${datum(rechnung.datum)} · bar aus der Kasse genommen`
+              : datum(rechnung.datum) + (rechnung.status === 'bezahlt'
+                ? ` · vom Verein bezahlt am ${datum(rechnung.bezahlt_am)}`
+                : ' · wartet auf den Vereinskassier')
           })
         ]),
         el('div', { class: 'knopf-reihe' }, [
@@ -898,6 +997,26 @@ function rechnungenKarte(rechnungen, kasseId) {
             class: 'knopf kompakt', text: 'Ansehen',
             href: `/api/export/rechnung/${rechnung.id}`, target: '_blank', rel: 'noopener'
           }),
+          (rechnung.art === 'bar' && buchtHier(kasseId))
+            || (rechnung.status === 'offen' && (istLeitung() || zustand.konto?.id === rechnung.benutzer_id))
+            ? el('button', {
+                class: 'knopf kompakt gefahr', text: 'Zurücknehmen',
+                onclick: async () => {
+                  if (!(await bestaetigen(
+                    'Zurücknehmen',
+                    rechnung.art === 'bar'
+                      ? 'Die Barauszahlung wird gelöscht. Der Betrag steht danach wieder als vorgestreckt da.'
+                      : 'Die Rechnung wird gelöscht. Der Betrag steht danach wieder als vorgestreckt da.',
+                    'Zurücknehmen'
+                  ))) return;
+                  try {
+                    await api(`/kassen/${kasseId}/rechnungen/${rechnung.id}`, { methode: 'DELETE' });
+                    melden('Zurückgenommen.');
+                    zeichnen();
+                  } catch (fehler) { melden(fehler.message, true); }
+                }
+              })
+            : null,
           istKassier() && rechnung.status === 'offen'
             ? el('button', {
                 class: 'knopf blau kompakt', text: 'Bezahlt',

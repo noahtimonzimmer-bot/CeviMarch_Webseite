@@ -65,11 +65,22 @@ Der ganze Ablauf kommt ohne Kassenbargeld aus:
    aus der eigenen Tasche – und drückt in der App auf **Bezahlen**. Die
    Schuld wandert vom Leiter auf ihn: unter seinem Namen steht jetzt, was
    der Verein ihm schuldet.
-4. Am Jahresende **stellt er eine Rechnung** über alles, was er vorgestreckt
-   hat. Sie lässt sich drucken oder als PDF speichern und enthält seine
-   IBAN, die einzelnen Auszahlungen und die Belegnummern.
-5. Der **Vereinskassier überweist** den Betrag vom Vereinskonto und hakt die
-   Rechnung in der App als *bezahlt* ab. Damit ist alles erledigt.
+4. Das Vorgestreckte bekommt er auf einem von zwei Wegen zurück:
+   * **Bar aus Kasse** – er nimmt sich den Betrag aus dem Bargeld seiner
+     Kasse. Das ist sofort erledigt; die App druckt dazu eine Quittung zum
+     Unterschreiben.
+   * **Rechnung stellen** – am Jahresende eine Rechnung an den Verein mit
+     seiner IBAN, den einzelnen Auszahlungen und den Belegnummern. Der
+     **Vereinskassier überweist** und hakt sie als *bezahlt* ab.
+
+Hat der Kassenchef **selbst** etwas ausgelegt, muss er sich nicht selbst
+bezahlen: bei seinem Namen steht **Meine Auslage**, ein Klick, und der
+Betrag zählt direkt als vorgestreckt. Die App erkennt ihn, wenn sein
+Kontoname den Namen aus der Leiterliste enthält, etwa *Malteser/AL* für
+*Malteser*.
+
+Vertippt? Eine Barauszahlung oder eine noch offene Rechnung lässt sich mit
+**Zurücknehmen** wieder löschen.
 
 Der Saldo der Kasse ändert sich beim Bezahlen nicht mehr: das Geld war
 schon beim Prüfen gebucht. Die Liste der Schulden zeigt nur, wem noch etwas
