@@ -467,9 +467,19 @@ p{margin:0 0 1.15em}
 .buch__deckel{
   position:absolute;inset:0;transform-style:preserve-3d;
   transform-origin:left center;
-  transform:rotateY(calc(var(--p) * -172deg));
-  filter:drop-shadow(calc(var(--p) * -18px) 14px 26px rgba(0,0,0,.5))
+  /* translateZ: der Deckel liegt 10 px über den Seiten, wie bei einem
+     echten Buch. Ohne diesen Abstand sortierte Chrome Deckel und Seite
+     beim Aufklappen falsch, und links am Bund schien die Seite durch
+     den Deckel. */
+  transform:rotateY(calc(var(--p) * -172deg)) translateZ(10px)
 }
+/* Der Schatten des Deckels sitzt auf seinen beiden Seiten, nicht als
+   filter auf dem Deckel: ein filter macht den Deckel flach, und dann
+   malte der Browser beim Aufklappen die Seite darunter über den
+   Deckel - links am Bund erschien ein heller Streifen. Die Innenseite
+   ist gespiegelt, darum dort das Vorzeichen umgekehrt. */
+.buch__aussen{box-shadow:calc(var(--p) * -18px) 14px 26px rgba(0,0,0,.5)}
+.buch__innenseite{box-shadow:calc(var(--p) * 18px) 14px 26px rgba(0,0,0,.5)}
 .buch--laeuft .buch__deckel{will-change:transform}
 /* Ist das Buch offen, darf der Deckel keine Klicks mehr abfangen */
 .buch__deckel{pointer-events:auto}
