@@ -175,6 +175,43 @@
     window.addEventListener('resize', neuMessen);
     if (window.ResizeObserver) new ResizeObserver(neuMessen).observe(buehne);
 
+    // Wischen: von rechts nach links blättert einen Schritt weiter
+    // (Deckel auf, Blatt umblättern, hineinzoomen), von links nach
+    // rechts einen Schritt zurück. Es wird dabei nur zum passenden
+    // Scrollstand gerollt - die Bewegung selbst bleibt dieselbe.
+    var HALTE = [0, PHASEN.p[1], PHASEN.q[1], 1];
+    var rollZu = function (anteil) {
+      var ziel = buch.getBoundingClientRect().top + window.scrollY -
+        (parseFloat(getComputedStyle(buehne).top) || 0) + strecke * anteil;
+      window.scrollTo({ top: ziel, behavior: 'smooth' });
+    };
+    var jetzt = function () {
+      var klebt = parseFloat(getComputedStyle(buehne).top) || 0;
+      var r = strecke > 0 ? (klebt - buch.getBoundingClientRect().top) / strecke : 1;
+      return r < 0 ? 0 : r > 1 ? 1 : r;
+    };
+    var start = null;
+    buehne.addEventListener('touchstart', function (ev) {
+      // Auf dem Handy lassen sich die Stufen-Karten seitlich schieben -
+      // dort gehört das Wischen den Karten.
+      if (ev.touches.length !== 1 || ev.target.closest('.buch__stufen')) { start = null; return; }
+      start = { x: ev.touches[0].clientX, y: ev.touches[0].clientY, t: Date.now() };
+    }, { passive: true });
+    buehne.addEventListener('touchend', function (ev) {
+      if (!start) return;
+      var dx = ev.changedTouches[0].clientX - start.x;
+      var dy = ev.changedTouches[0].clientY - start.y;
+      var lang = Date.now() - start.t;
+      start = null;
+      if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.3 || lang > 900) return;
+      var r = jetzt(), i;
+      if (dx < 0) {
+        for (i = 0; i < HALTE.length; i++) if (HALTE[i] > r + 0.01) { rollZu(HALTE[i]); return; }
+      } else {
+        for (i = HALTE.length - 1; i >= 0; i--) if (HALTE[i] < r - 0.01) { rollZu(HALTE[i]); return; }
+      }
+    }, { passive: true });
+
     // "Aufschlagen" rollt bis dorthin, wo der Deckel ganz offen ist
     if (aufschlagen) {
       aufschlagen.addEventListener('click', function () {

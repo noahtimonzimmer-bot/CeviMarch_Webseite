@@ -244,6 +244,24 @@ p{margin:0 0 1.15em}
 }
 .buch--aktiv .buch__buehne{position:sticky;top:var(--navh,64px)}
 
+/* Holz bis ganz unten: Auf Tablet und Handy blendet der Browser seine
+   Leiste beim Scrollen aus, das Fenster wird dann höher. Die Bühne ist
+   darum so hoch wie das grösstmögliche Fenster (lvh). Das Buch sitzt
+   aber in der Mitte des kleinsten Fensters (svh) - so bleibt es ganz
+   sichtbar, auch wenn die Leiste gerade eingeblendet ist. --luecke ist
+   der Unterschied zwischen beiden. Beim Zoomen rückt die Seite in die
+   Mitte der ganzen Bühne und füllt sie aus. */
+.buch{--luecke:0px}
+@supports (height:100lvh){
+  .buch--aktiv{--luecke:calc(100lvh - 100svh)}
+  .buch--aktiv .buch__buehne{height:calc(100lvh - var(--navh,64px))}
+}
+.buch--aktiv .buch__objekt,
+.buch--aktiv .buch__seite2,
+.buch--aktiv .buch__reiter{top:calc(50% - var(--luecke) / 2 * (1 - var(--z)))}
+.buch--aktiv .buch__schatten{top:calc(50% - var(--luecke) / 2)}
+.buch--aktiv .buch__hinweis{bottom:calc(var(--luecke) + clamp(2px,.6vw,8px))}
+
 /* Die Holzplatte (Hirnholz-Foto). Sie füllt die Bühne immer ganz aus
    und steht still: kein Kacheln, kein Mitscrollen. */
 .buch__holz{
